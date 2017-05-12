@@ -4,7 +4,8 @@ modelfile = mfilename; %for backup purposes
 options.sim_name = ['JK_' options.sim_name];
 output_log = fullfile(options.save_dir,'JK_output_log.txt');
 special_progress_tracker = fullfile(options.save_dir,'JK_SPT.txt');
-
+dump_dir = fullfile(options.save_dir,'timecourse_dump'); %only need this for dumping switch timecourses to text files
+mkdir(dump_dir)
 
 %set up the circut
 %--------------------------------------------------------------------------
@@ -130,10 +131,10 @@ parfor trialidx = 1:num_trials
     state.pools2compare = [celltype.pool_stay & celltype.excit,...
         celltype.pool_switch & celltype.excit]; %pass in this format, avoid many computations
     %---switch recording----------
-    %250ms before switch, 50ms after
-    num_switch_samples = 300e-3/timestep;
-    %num_preswitch_samples = 250e-3/timestep;
-    num_postswitch_samples = 50e-3/timestep;
+    %250ms before switch, 100ms after
+    num_preswitch_samples = 250e-3/timestep;
+    num_postswitch_samples = 100e-3/timestep; %also determines how long the push continues after a switch
+    num_switch_samples = num_preswitch_samples + num_postswitch_samples;
     %     %lets record, noise, Sg, D, spikes, (I think that's it?)
     %     num_vars2record = 4;
     %     rtNoise = 1;rtSg = 2;rtD = 3;rtSpikes = 4; %just so I don't loose track of matrix inds
@@ -148,7 +149,10 @@ parfor trialidx = 1:num_trials
     current_info.NFS_onset_min = options.NFS_onset_min / timestep; %minimum state duration for forced switch 
     current_info.NFS_stoppush = current_info.NFS_onset_min + (options.NFS_stoppush / timestep); %end of noise push 
     current_info.NFS_noisepush = options.NFS_noisepush; %noise push
-
+    current_info.NFS_afterswitch_push = num_postswitch_samples; %if switch is successful, keep pushing noise for X samples
+    min_NFS_recordwindow = min(options.NFS_recordwindow / timestep);
+    max_NFS_recordwindow = max(options.NFS_recordwindow / timestep);
+    
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
     
@@ -204,19 +208,30 @@ parfor trialidx = 1:num_trials
         
         if timepoint_counter > current_info.initpulse_time
             [state,durations] = test4switch(Sg(:,idx),state,durations);
-            %find out if we've just switched from A to [the switch before B], 50ms ago
+            %find out if we've just switched from A to [the switch before B], 100ms ago
             if state.count == num_postswitch_samples & state.now == state.switch
-                %if switch 50ms ago & we're in the switch state
+                %if switch 100ms ago & we're in the switch state
                 num_stay_states = numel(durations{state.stay});
                 if num_stay_states > 2 & mod(num_stay_states,2) == 1
                     %last recorded duration was for stim A & skip over first artifically induced A state
                     %we're in the switch after A now
                     last_duration = durations{state.stay};
                     last_duration = last_duration(end);
-                    if last_duration >= current_info.NFS_onset_min & last_duration <= current_info.NFS_stoppush
+                    %if last_duration >= current_info.NFS_onset_min & last_duration <= current_info.NFS_stoppush
                         %make sure the switch happened during the noise push window
+                    if last_duration >= min_NFS_recordwindow & last_duration <= max_NFS_recordwindow
+                        %make sure the switch happened within a very specfic window, so all timecourses are the same
                         stateswich_timecourse = stateswich_timecourse + rolling_timecourse; %add the current noise
                         num_switches_recorded = num_switches_recorded + 1; %count it
+                        %we're dumping switching timecourses to text files now 
+                        %(an elegant solution for a more civilized age...)
+                        dumpdata = NaN(4,num_switch_samples); %one for each kinda cell 
+                        dumpdata(1,:) = sum(rolling_timecourse(celltype.excit & celltype.pool_stay,:,rtSpikes));
+                        dumpdata(2,:) = sum(rolling_timecourse(celltype.inhib & celltype.pool_stay,:,rtSpikes));
+                        dumpdata(3,:) = sum(rolling_timecourse(celltype.excit & celltype.pool_switch,:,rtSpikes));
+                        dumpdata(4,:) = sum(rolling_timecourse(celltype.inhib & celltype.pool_switch,:,rtSpikes));
+                        dumpfn = ['switch_' num2str(trialidx) '_' num2str(num_switches_recorded) '.txt']; 
+                        dlmwrite(fullfile(dump_dir,dumpfn),dumpdata);
                     end
                 end
             end
@@ -241,7 +256,7 @@ parfor trialidx = 1:num_trials
             fclose(SPT_fid);
             if mod(sum(progress),floor(num_trials * .05)) == 0 %5 percent
                 progress = (sum(progress) /  num_trials) * 100;
-                message = sprintf('Stimulation %.1f percent complete',progress);
+                message = sprintf('Simulation %.1f percent complete',progress);
                 update_logfile(message,output_log)
             end
     end

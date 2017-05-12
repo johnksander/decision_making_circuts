@@ -176,7 +176,7 @@ parfor trialidx = 1:num_trials
             fclose(SPT_fid);
             if mod(sum(progress),floor(num_trials * .05)) == 0 %5 percent
                 progress = (sum(progress) /  num_trials) * 100;
-                message = sprintf('Stimulation %.1f percent complete',progress);
+                message = sprintf('Simulation %.1f percent complete',progress);
                 update_logfile(message,output_log)
             end
     end

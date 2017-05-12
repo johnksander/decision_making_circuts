@@ -5,9 +5,9 @@ format compact
 
 %NOTE: this script requires 2017a. Local function below. 
 
-scaled_plot = 'on';
+scaled_plot = 'off';
 scalefac = 2;
-fig_dir = '/Users/ksander/Desktop/work/ACClab/rotation/project/Results/NFS_combfigs';
+fig_dir = '/Users/ksander/Desktop/work/ACClab/rotation/project/Results/NFSv3_combfigs';
 if ~isdir(fig_dir)
     mkdir(fig_dir)
 end
@@ -29,7 +29,7 @@ var_inds = [rtNoise,rtSpikes]; %this is dumb just go with it, don't wana loose t
 orange = [250 70 22]./255;
 matblue = [0,0.4470,0.7410];
 
-sims2load = {'NFS_Estay','NFS_Eswitch','NFS_Iswitch','NFS_Istay'};
+sims2load = {'NFSv3_Estay','NFSv3_Eswitch','NFSv3_Iswitch','NFSv3_Istay'};
 simlabels = {'Exit. stay (-)','Exit. switch (+)','Inhib. switch (-)','Inhib. stay (+)'};
 num_sims = numel(sims2load);
 
@@ -99,12 +99,13 @@ for figidx = 1:num_vars2record
                 plot(Iswitch,'Linewidth',2)
                 hold off
                 
-                
+                Xlim_max = numel(timecourse_data(1,:)); %this is really annoying, probably remove this if timecourse changes and it's unneeded. 
                 onset_switch = 250e-3/timestep; %add the switching time
                 Xticks = num2cell(get(gca,'Xtick'));
+                Xticks{end} = Xlim_max;
                 Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
-                
                 set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
+               
                 if figidx == rtNoise %just do for noise..
                     Yticks = num2cell(get(gca,'Ytick'));
                     Ylabs = cellfun(@(x) sprintf('%.0f',x/1e-12),Yticks,'UniformOutput', false);
@@ -115,8 +116,10 @@ for figidx = 1:num_vars2record
                 end
                 ylabel(Yax_labs{figidx})
                 title(simlabels{simidx})
-                y_range = get(gca,'YLim');
-                x_range = get(gca,'XLim');
+                
+                %y_range = get(gca,'YLim');
+                %x_range = get(gca,'XLim');
+                set(gca,'XLim',[0 Xlim_max]);
                 %text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
                 set(gca,'Fontsize',fontsz)
                 
@@ -132,8 +135,10 @@ for figidx = 1:num_vars2record
                 plot(Iswitch ./ scalefac,'Linewidth',2)
                 hold off
                 
+                Xlim_max = numel(timecourse_data(1,:)); %this is really annoying, probably remove this if timecourse changes and it's unneeded.
                 onset_switch = 250e-3/timestep; %add the switching time
                 Xticks = num2cell(get(gca,'Xtick'));
+                Xticks{end} = Xlim_max;
                 Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
                 
                 set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
@@ -142,8 +147,9 @@ for figidx = 1:num_vars2record
                 end
                 ylabel(Yax_labs{figidx})
                 title(simlabels{simidx})
-                y_range = get(gca,'YLim');
-                x_range = get(gca,'XLim');
+                %y_range = get(gca,'YLim');
+                %x_range = get(gca,'XLim');
+                set(gca,'XLim',[0 Xlim_max]);
                 %text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
                 set(gca,'Fontsize',fontsz)
                 

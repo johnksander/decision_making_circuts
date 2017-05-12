@@ -3,7 +3,7 @@ function options = reset_options_paths(options)
 
 bigmem_basedir = '/data/netapp/jksander/rotation/Simulation/';
 bender_basedir = '/Users/ksander/Desktop/work/ACClab/rotation/project/';
-
+%bender_basedir = 'C:/Users/jksander.000/Desktop/rotation/project/';
 
 optfields = fieldnames(options);
 for idx = 1:numel(optfields)
