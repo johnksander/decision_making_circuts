@@ -11,7 +11,7 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 %specify simulation
 %---sim setup-----------------
 config_options.modeltype = 'JK';
-config_options.sim_name = 'find_baseline_noD_smallstep';
+config_options.sim_name = 'switching_bias7_reparam';
 options = set_options(config_options);
 
 %get results

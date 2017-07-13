@@ -11,7 +11,7 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 %specify simulation
 %---sim setup-----------------
 config_options.modeltype = 'JK';
-config_options.sim_name = 'switching_bias6_Gext_neuroq';
+config_options.sim_name = 'switching_bias8_reparam2';
 options = set_options(config_options);
 
 %get results

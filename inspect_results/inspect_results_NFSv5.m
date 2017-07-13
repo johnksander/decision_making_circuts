@@ -4,6 +4,7 @@ close all
 format compact
 
 %result summaries
+timecourse2plot = 'short'; %'full' | 'short' %-200 to +100 ms or -100 to +100 ms
 fontsz = 12;
 trial_hists = 'on';
 stim_labels = {'stim A','stim B'};
@@ -20,10 +21,11 @@ var_inds = [rtNoise,rtSpikes]; %this is dumb just go with it, don't wana loose t
 orange = [250 70 22]./255;
 matblue = [0,0.4470,0.7410];
 
+
 %specify simulation
 %---sim setup-----------------
 config_options.modeltype = 'JK';
-config_options.sim_name = 'NFSv3_Iswitch';
+config_options.sim_name = 'NFSv5_Estay';
 options = set_options(config_options);
 
 %get results
@@ -37,7 +39,7 @@ options.trial_hists = trial_hists;
 options.conv2secs = timestep;
 
 
-%Now... make sure the force switch worked. Take only the trials where this is true 
+%Now... make sure the force switch worked. Take only the trials where this is true
 NFS_onset_min = options.NFS_onset_min / timestep; %minimum state duration for forced switch
 NFS_stoppush = NFS_onset_min + (options.NFS_stoppush / timestep); %end of noise push
 
@@ -46,15 +48,16 @@ stimA = cellfun(@(x) x{1},sim_output,'UniformOutput', false); %take only stay du
 %get stim A durations
 stimA = cellfun(@(x) x(1:2:end),stimA,'UniformOutput', false);
 %REMOVE THE FIRST artifically induced switch
-stimA = cellfun(@(x) [NaN;x(2:end)],stimA,'UniformOutput', false); %REMOVE THE FIRST artifically induced switch by NaNing it  
-%tell me how many are actually valid 
+stimA = cellfun(@(x) [NaN;x(2:end)],stimA,'UniformOutput', false); %REMOVE THE FIRST artifically induced switch by NaNing it
+%tell me how many are actually valid
+%(this should match number of recorded switches if options.recording window is set correcty)
 stimA = cell2mat(stimA);
 valid_forcedswitches = stimA >= NFS_onset_min & stimA <= NFS_stoppush;
 lnbreak = '-------------------';
 fprintf('\r%s\rvalid forced switches = %i\rtotal switches from tarpet state = %i\rovershoots = %i\r%s\r',...
     lnbreak,sum(valid_forcedswitches),numel(valid_forcedswitches),sum(stimA > NFS_stoppush),lnbreak);
 
-constant_switchtime = [1.09 1.095];
+constant_switchtime = options.NFS_recordwindow;
 constant_switchtime = constant_switchtime / timestep;
 constant_switchtime = stimA(valid_forcedswitches) >= min(constant_switchtime) ...
     & stimA(valid_forcedswitches) <= max(constant_switchtime);
@@ -69,22 +72,18 @@ fprintf('\r%s\rConstant-time switches = %i\r%s\r',...
 %   4.3709e+03 Eswitch
 
 
-
-
-
-
 % %----- visualization code -----
 % %f = histogram(stimA(stimA <  13575) * timestep);
 % f = histogram(stimA * timestep);
 % f = histogram((stimA(valid_forcedswitches) * timestep) / 1e-3);
 % %f.NumBins = 40;
 % hold on
-% 
+%
 % plot(timestep * repmat(NFS_stoppush,numel([min(f.Parent.YLim):1:max(f.Parent.YLim)]),1),...
 %     [min(f.Parent.YLim):1:max(f.Parent.YLim)]','linewidth',2,'Color','r')
 % plot(timestep * repmat(NFS_onset_min,numel([min(f.Parent.YLim):1:max(f.Parent.YLim)]),1),...
 %     [min(f.Parent.YLim):1:max(f.Parent.YLim)]','linewidth',2,'Color','r')
-% 
+%
 % hold off
 % % %----- visualization code -----
 
@@ -100,9 +99,9 @@ avg_timecourse = summed_timecourses ./ stateswich_counts;
 
 
 %remake celltype logicals.. (if you use this code again, check this over!!!!!)
-pool_options.num_cells = 150;
+pool_options.num_cells = 250;
 pool_options.sz_pools = [.5 .5]; %proportion stay & switch
-pool_options.sz_EI = [2/3 1/3]; %proportion excitable % inhibitory
+pool_options.sz_EI = [.8 .2]; %proportion excitable % inhibitory
 pool_options.p_conn = .5; %connection probability 50%
 celltype = celltype_logicals(pool_options);
 
@@ -113,7 +112,7 @@ bin_magic = [numel(cell_spkrates(:,1)), num_binsamps, numel(cell_spkrates(1,:))/
 cell_spkrates = reshape(cell_spkrates,bin_magic);
 cell_spkrates = squeeze(sum(cell_spkrates,2)) ./ (num_binsamps * timestep); %convert to Hz
 cell_spkrates = repmat(cell_spkrates,[num_binsamps 1 1]);
-avg_timecourse(:,:,rtSpikes) = reshape(cell_spkrates,size(avg_timecourse(:,:,rtSpikes))); %put the rabit back in the hat 
+avg_timecourse(:,:,rtSpikes) = reshape(cell_spkrates,size(avg_timecourse(:,:,rtSpikes))); %put the rabit back in the hat
 
 
 
@@ -122,14 +121,31 @@ fig_fn = 'switching_timecourse';
 figIDs = {'noise','Sg','D','spikes'};
 base_title = {'cell-type mean timecourse';'stimuli A (1.5 x current) to switch-state (1 x current)'};
 %legloc = {'southwest','northwest','West','southwest'};
-legloc = {'west','northwest','West','west'};
+legloc = {'east','northwest','West','northwest'};
 Yax_labs = {'current noise (picoamps)','synaptic gating','synaptic depression','spike rate (Hz) per 2ms bin'};
-%I only did noise & spikes, just index these so I dont have to copy & paste etc.. 
+%I only did noise & spikes, just index these so I dont have to copy & paste etc..
 fixvars = [1 4];
 figIDs = figIDs(fixvars);
 legloc = legloc(fixvars);
 Yax_labs = Yax_labs(fixvars);
 
+switch timecourse2plot
+    case 'full'
+        fig_dir = fullfile(options.save_dir,'full_timecourse');
+        preswitch_plottime = 200e-3;
+    case 'short'
+        fig_dir = fullfile(options.save_dir,'short_timecourse');
+        preswitch_plottime = 100e-3;
+end
+if ~isdir(fig_dir),mkdir(fig_dir),end
+
+%only plot -Xms to +100ms (full timecourse)
+record_duration = size(avg_timecourse,2);
+recorded_switchtime =  250e-3/timestep; %actual switchtime
+plotting_window = 1+(recorded_switchtime - (preswitch_plottime/timestep)):recorded_switchtime + (100e-3/timestep);
+onset_switch = 1 + recorded_switchtime - min(plotting_window); %adjusted to the new plotting window
+%cut down the data matrix to this window
+avg_timecourse = avg_timecourse(:,plotting_window,:);
 
 for figidx = 1:num_vars2record
     
@@ -146,7 +162,6 @@ for figidx = 1:num_vars2record
     Eswitch = mean(timecourse_data(Eswitch,:));
     Istay = mean(timecourse_data(Istay,:));
     Iswitch = mean(timecourse_data(Iswitch,:));
-    
     %plot the aggregated timecourses
     figure(1)
     hold on
@@ -157,13 +172,11 @@ for figidx = 1:num_vars2record
     hold off
     
     legend({'Excit. stay','Excit. switch','Inhib. stay','Inhib. switch'},'location',legloc{figidx},...
-        'Fontsize',fontsz)
-    
-    onset_switch = 250e-3/timestep; %add the switching time
+        'Fontsize',fontsz);
     Xticks = num2cell(get(gca,'Xtick'));
     Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
-    
     set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
+    
     if figidx == rtNoise %just do for noise..
         Yticks = num2cell(get(gca,'Ytick'));
         Ylabs = cellfun(@(x) sprintf('%.0f',x/1e-12),Yticks,'UniformOutput', false);
@@ -174,9 +187,15 @@ for figidx = 1:num_vars2record
     title(base_title)
     y_range = get(gca,'YLim');
     x_range = get(gca,'XLim');
-    text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
+    
+    if figidx == rtNoise
+        text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
+    elseif figidx == rtSpikes
+        text(.045*max(x_range),.75*max(y_range),sprintf('n switches = %i',stateswich_counts))
+    end
+    
     set(gca,'Fontsize',fontsz)
-    print(fullfile(options.save_dir,[fig_fn '_' figIDs{figidx}]),'-djpeg')
+    print(fullfile(fig_dir,[fig_fn '_' figIDs{figidx}]),'-djpeg')
     
     close all
     %now with a smoothed line (only noise)
@@ -194,7 +213,6 @@ for figidx = 1:num_vars2record
         legend({'Excit. stay','Excit. switch','Inhib. stay','Inhib. switch'},'location',legloc{figidx},...
             'Fontsize',fontsz)
         
-        onset_switch = 250e-3/timestep; %add the switching time
         Xticks = num2cell(get(gca,'Xtick'));
         Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false);
         set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
@@ -210,40 +228,42 @@ for figidx = 1:num_vars2record
         x_range = get(gca,'XLim');
         text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
         set(gca,'Fontsize',fontsz)
-        print(fullfile(options.save_dir,[fig_fn '_' figIDs{figidx} '_smooth']),'-djpeg')
+        print(fullfile(fig_dir,[fig_fn '_' figIDs{figidx} '_smooth']),'-djpeg')
         close all
-    end
-    
-    %(only for spikerates)
-    %plot the spikerate timecourses scaled down by some factor
-    if figidx == rtSpikes
-        figure(3)
-        scalefac = 2;
-        hold on
-        plot(Estay ./ scalefac,'Linewidth',2)
-        plot(Eswitch ./ scalefac,'Linewidth',2)
-        plot(Istay ./ scalefac,'Linewidth',2)
-        plot(Iswitch ./ scalefac,'Linewidth',2)
-        hold off
-        legend({'Excit. stay','Excit. switch','Inhib. stay','Inhib. switch'},'location',legloc{figidx},...
-            'Fontsize',fontsz)
-        
-        onset_switch = 250e-3/timestep; %add the switching time
-        Xticks = num2cell(get(gca,'Xtick'));
-        Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
-        
-        set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
-        xlabel('state switch timecourse (ms)')
-        ylabel(Yax_labs{figidx})
-        title(vertcat(base_title,{sprintf('plot scaled down: factor of %i',scalefac)}))
-        y_range = get(gca,'YLim');
-        x_range = get(gca,'XLim');
-        text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
-        set(gca,'Fontsize',fontsz)
-        print(fullfile(options.save_dir,[fig_fn '_' figIDs{figidx} '_scaled']),'-djpeg')
-        close all
-        
     end
 end
+
+
+%scaled spikerate not needed here, spikerates more realistic
+%     %(only for spikerates)
+%     %plot the spikerate timecourses scaled down by some factor
+%     if figidx == rtSpikes
+%         figure(3)
+%         scalefac = 2;
+%         hold on
+%         plot(Estay ./ scalefac,'Linewidth',2)
+%         plot(Eswitch ./ scalefac,'Linewidth',2)
+%         plot(Istay ./ scalefac,'Linewidth',2)
+%         plot(Iswitch ./ scalefac,'Linewidth',2)
+%         hold off
+%         legend({'Excit. stay','Excit. switch','Inhib. stay','Inhib. switch'},'location',legloc{figidx},...
+%             'Fontsize',fontsz)
+%
+%         Xticks = num2cell(get(gca,'Xtick'));
+%         Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
+%
+%         set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
+%         xlabel('state switch timecourse (ms)')
+%         ylabel(Yax_labs{figidx})
+%         title(vertcat(base_title,{sprintf('plot scaled down: factor of %i',scalefac)}))
+%         y_range = get(gca,'YLim');
+%         x_range = get(gca,'XLim');
+%         text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
+%         set(gca,'Fontsize',fontsz)
+%         print(fullfile(options.save_dir,[fig_fn '_' figIDs{figidx} '_scaled']),'-djpeg')
+%         close all
+%
+%     end
+
 
 

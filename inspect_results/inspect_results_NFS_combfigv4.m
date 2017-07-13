@@ -3,11 +3,12 @@ clc
 close all
 format compact
 
+%MORE IMPORTANT NOTE: this code looks like it was messed with... 
 %NOTE: this script requires 2017a. Local function below. 
 
 scaled_plot = 'off';
 scalefac = 2;
-fig_dir = '/Users/ksander/Desktop/work/ACClab/rotation/project/Results/NFSv3_combfigs';
+fig_dir = '/Users/ksander/Desktop/work/ACClab/rotation/project/Results/NFSv4_combfigs';
 if ~isdir(fig_dir)
     mkdir(fig_dir)
 end
@@ -29,7 +30,7 @@ var_inds = [rtNoise,rtSpikes]; %this is dumb just go with it, don't wana loose t
 orange = [250 70 22]./255;
 matblue = [0,0.4470,0.7410];
 
-sims2load = {'NFSv3_Estay','NFSv3_Eswitch','NFSv3_Iswitch','NFSv3_Istay'};
+sims2load = {'NFSv4_Estay','NFSv4_Eswitch','NFSv4_Iswitch','NFSv4_Istay'};
 simlabels = {'Exit. stay (-)','Exit. switch (+)','Inhib. switch (-)','Inhib. stay (+)'};
 num_sims = numel(sims2load);
 
@@ -65,6 +66,14 @@ num_vars2record = 1;
 rtNoise = NaN;rtSpikes = 1; %just so I don't loose track of matrix inds
 var_inds = [rtSpikes]; %this is dumb just go with it, don't wana loose track
 
+%only plot -100ms to +100ms 
+record_duration = size(cat(1,spike_data{:}),2); %get the duration of recorded timecourses
+recorded_switchtime =  250e-3/timestep; %actual switchtime 
+plotting_window = 1+(recorded_switchtime - (100e-3/timestep)):recorded_switchtime + (100e-3/timestep);
+onset_switch = 1 + recorded_switchtime - min(plotting_window); %adjusted to the new plotting window 
+%cut down the data matrix to this window 
+spike_data = cellfun(@(x) x(:,plotting_window),spike_data,'UniformOutput',false);
+
 
 for figidx = 1:num_vars2record
     
@@ -99,10 +108,9 @@ for figidx = 1:num_vars2record
                 plot(Iswitch,'Linewidth',2)
                 hold off
                 
-                Xlim_max = numel(timecourse_data(1,:)); %this is really annoying, probably remove this if timecourse changes and it's unneeded. 
-                onset_switch = 250e-3/timestep; %add the switching time
+                %Xlim_max = numel(timecourse_data(1,:)); %this is really annoying, probably remove this if timecourse changes and it's unneeded. 
                 Xticks = num2cell(get(gca,'Xtick'));
-                Xticks{end} = Xlim_max;
+                %Xticks{end} = Xlim_max;
                 Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
                 set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
                
@@ -119,7 +127,7 @@ for figidx = 1:num_vars2record
                 
                 %y_range = get(gca,'YLim');
                 %x_range = get(gca,'XLim');
-                set(gca,'XLim',[0 Xlim_max]);
+                %set(gca,'XLim',[0 Xlim_max]);
                 %text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
                 set(gca,'Fontsize',fontsz)
                 
@@ -135,10 +143,9 @@ for figidx = 1:num_vars2record
                 plot(Iswitch ./ scalefac,'Linewidth',2)
                 hold off
                 
-                Xlim_max = numel(timecourse_data(1,:)); %this is really annoying, probably remove this if timecourse changes and it's unneeded.
-                onset_switch = 250e-3/timestep; %add the switching time
+                %Xlim_max = numel(timecourse_data(1,:)); %this is really annoying, probably remove this if timecourse changes and it's unneeded.
                 Xticks = num2cell(get(gca,'Xtick'));
-                Xticks{end} = Xlim_max;
+                %Xticks{end} = Xlim_max;
                 Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
                 
                 set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
@@ -149,16 +156,29 @@ for figidx = 1:num_vars2record
                 title(simlabels{simidx})
                 %y_range = get(gca,'YLim');
                 %x_range = get(gca,'XLim');
-                set(gca,'XLim',[0 Xlim_max]);
+                %set(gca,'XLim',[0 Xlim_max]);
                 %text(.025*max(x_range),.9*max(y_range),sprintf('n switches = %i',stateswich_counts))
                 set(gca,'Fontsize',fontsz)
                 
         end
         
-        if simidx == 3
-            legend({'E-stay','E-switch','I-stay','I-switch'},'location','northwest',...
-                'Fontsize',fontsz)
+        if simidx == 4
+            leg = legend({'E-stay','E-switch','I-stay','I-switch'},'Fontsize',fontsz);
+            legpos = get(leg,'Position'); %keep width & height
+            legpos(1) = 1 - legpos(3);
+            legpos(2) = legpos(2) + .07;
+            set(leg,'Position',legpos,'Units','normalized');
         end
+%         if simidx == 1
+%             
+%             leg = legend({'E-stay','E-switch','I-stay','I-switch'},...
+%                 'Fontsize',fontsz,'orientation','horizontal');
+%             
+%             legpos = get(leg,'Position'); %keep width & height
+%             legpos(1) = .01; 
+%             legpos(2) = 1 - legpos(4); 
+%             set(leg,'Position',legpos,'Units','normalized');
+%         end
     end
     switch scaled_plot
         case 'off'
@@ -169,7 +189,6 @@ for figidx = 1:num_vars2record
 end
 
 function avg_timecourse = sim_spikerate(sim_name,timestep,rtSpikes)
-% MYMEDIAN Another example of a local function.
 
 config_options.modeltype = 'JK';
 config_options.sim_name = sim_name;

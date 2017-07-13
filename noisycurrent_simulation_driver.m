@@ -8,7 +8,7 @@ format compact
 %my model 
 %---setup---------------------
 config_options.modeltype = 'JK';
-config_options.sim_name = 'NFS_Estay';
+config_options.sim_name = 'switching_dynamics_EIunbal_try2';
 options = set_options(config_options);
 options.current_pulse = 'off';  %'on' | 'off' set off for low memory implementation
 options.tmax = 7500; %trial simulation time (s) 
@@ -17,10 +17,6 @@ stimA = stimA + .5; %set stim A bias to 1.5
 stimB = ones(size(stimA)); %current modifiers for stimuli (col vectors!)
 %stimA = [1:.02:1.5]'; stimB = ones(size(stimA)); %current modifiers for stimuli (col vectors!)
 options.trial_currents = [stimA,stimB]; %must be trials X stims (num_trials = numel(rows);)
-options.NFS = 'Estay'; %cells driving forced switch:  Estay | Eswitch | Istay | Iswitch
-options.NFS_onset_min = 1; %minimum state duration for forced switch (seconds)
-options.NFS_stoppush = 50e-3; %noise push duration (ms) 
-options.NFS_noisepush = 3e-9; %push noise by 3 picoamps 
 options.parforlog = 'on'; 
 %---parfor--------------------
 num_workers = 16; %parpool workers

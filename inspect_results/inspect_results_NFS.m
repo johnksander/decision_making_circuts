@@ -23,7 +23,8 @@ matblue = [0,0.4470,0.7410];
 %specify simulation
 %---sim setup-----------------
 config_options.modeltype = 'JK';
-config_options.sim_name = 'NFSv3_Eswitch';
+%config_options.sim_name = 'NFSv3_Iswitch';
+config_options.sim_name = 'switching_dynamics_EIunbal_try2';
 options = set_options(config_options);
 
 %get results
@@ -48,14 +49,13 @@ stimA = cellfun(@(x) x(1:2:end),stimA,'UniformOutput', false);
 %REMOVE THE FIRST artifically induced switch
 stimA = cellfun(@(x) [NaN;x(2:end)],stimA,'UniformOutput', false); %REMOVE THE FIRST artifically induced switch by NaNing it  
 %tell me how many are actually valid 
-%(this should match number of recorded switches if options.recording window is set correcty)
 stimA = cell2mat(stimA);
 valid_forcedswitches = stimA >= NFS_onset_min & stimA <= NFS_stoppush;
 lnbreak = '-------------------';
 fprintf('\r%s\rvalid forced switches = %i\rtotal switches from tarpet state = %i\rovershoots = %i\r%s\r',...
     lnbreak,sum(valid_forcedswitches),numel(valid_forcedswitches),sum(stimA > NFS_stoppush),lnbreak);
 
-constant_switchtime = options.NFS_recordwindow;
+constant_switchtime = [1.09 1.095];
 constant_switchtime = constant_switchtime / timestep;
 constant_switchtime = stimA(valid_forcedswitches) >= min(constant_switchtime) ...
     & stimA(valid_forcedswitches) <= max(constant_switchtime);

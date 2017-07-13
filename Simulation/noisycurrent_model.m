@@ -10,9 +10,9 @@ mkdir(dump_dir)
 %set up the circut
 %--------------------------------------------------------------------------
 %----circit parameters--------
-pool_options.num_cells = 150;
+pool_options.num_cells = 250;
 pool_options.sz_pools = [.5 .5]; %proportion stay & switch
-pool_options.sz_EI = [2/3 1/3]; %proportion excitable % inhibitory
+pool_options.sz_EI = [.8 .2]; %proportion excitable % inhibitory
 pool_options.p_conn = .5; %connection probability 50%
 %--------------------------------------------------------------------------
 %build the connectivity matrix
@@ -26,9 +26,9 @@ connection_scheme = EtoE | EtoI | ItoE;  %plan is:  EtoE | EtoI | ItoE;
 W = rand(pool_options.num_cells) < pool_options.p_conn; %connection matrix
 W = double(W & connection_scheme); %filter out connections not allowed by scheme
 %modify connection weights
-W(W > 0 & EtoE) = .25;
-W(ItoE) = 5; %ItoE connection probability is 100% now
-W(W > 0 & EtoI) = .075; %adjusted from .01 for Eonly current
+W(W > 0 & EtoE) = (.0675 * .75);   %(.125 / 1.85);
+W(W > 0 & ItoE) = (4.15 * .65);    %(20 / 4.8); 
+W(W > 0 & EtoI) = (.075 * 2.35);    %(.0375 * 2); 
 %reorder weight matrix for column indexing in loop
 W = reorder_weightmat(W,celltype);
 %--------------------------------------------------------------------------
@@ -224,14 +224,9 @@ parfor trialidx = 1:num_trials
                         stateswich_timecourse = stateswich_timecourse + rolling_timecourse; %add the current noise
                         num_switches_recorded = num_switches_recorded + 1; %count it
                         %we're dumping switching timecourses to text files now 
-                        %(an elegant solution for a more civilized age...)
-                        dumpdata = NaN(4,num_switch_samples); %one for each kinda cell 
-                        dumpdata(1,:) = sum(rolling_timecourse(celltype.excit & celltype.pool_stay,:,rtSpikes));
-                        dumpdata(2,:) = sum(rolling_timecourse(celltype.inhib & celltype.pool_stay,:,rtSpikes));
-                        dumpdata(3,:) = sum(rolling_timecourse(celltype.excit & celltype.pool_switch,:,rtSpikes));
-                        dumpdata(4,:) = sum(rolling_timecourse(celltype.inhib & celltype.pool_switch,:,rtSpikes));
-                        dumpfn = ['switch_' num2str(trialidx) '_' num2str(num_switches_recorded) '.txt']; 
-                        dlmwrite(fullfile(dump_dir,dumpfn),dumpdata);
+                        dumpfn = ['switch_' num2str(trialidx) '_' num2str(num_switches_recorded) '_' num2str(last_duration) '.txt']; 
+                        dumpfn = fullfile(dump_dir,dumpfn);
+                        dump_data(rolling_timecourse,celltype,rtSpikes,rtNoise,dumpfn)
                     end
                 end
             end

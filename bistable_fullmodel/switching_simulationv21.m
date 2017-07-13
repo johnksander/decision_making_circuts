@@ -2,20 +2,22 @@ clear
 clc
 close all
 format compact
-%rng('shuffle') %this is probably important... 
-
+rng('shuffle') %this is probably important... 
 
 basedir = '/Users/ksander/Desktop/work/ACClab/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
-%now with noisy conductance
+%same as v20, now shooting for a model which switches quickly when all
+%things are equal. Adding a stimulus should delay switching. 
+%This looks good, switches probably a little higher than 1 sec on average,
+%spikerates in the I = ~30hz and E = ~15hz sweet zone 
 
 %set up the circut
 %--------------------------------------------------------------------------
 %----circit parameters--------
-pool_options.num_cells = 150;
+pool_options.num_cells = 250;
 pool_options.sz_pools = [.5 .5]; %proportion stay & switch
-pool_options.sz_EI = [2/3 1/3]; %proportion excitable % inhibitory
+pool_options.sz_EI = [.8 .2]; %proportion excitable % inhibitory
 pool_options.p_conn = .5; %connection probability 50%
 %--------------------------------------------------------------------------
 %build the connectivity matrix
@@ -29,9 +31,9 @@ connection_scheme = EtoE | EtoI | ItoE;  %plan is:  EtoE | EtoI | ItoE;
 W = rand(pool_options.num_cells) < pool_options.p_conn; %connection matrix
 W = double(W & connection_scheme); %filter out connections not allowed by scheme
 %modify connection weights
-W(W > 0 & EtoE) = .225; %(strength was .25 in v18!!!)
-W(ItoE) = 5; %ItoE connection probability is 100% now (also- strength was 5 in v18!!!)
-W(W > 0 & EtoI) = .2; %(strength was .075 in v18!!!)
+W(W > 0 & EtoE) = .0675 * 1;   %.0675 * 1
+W(W > 0 & ItoE) = (4.15 * .15);    %(4.15 * .15)
+W(W > 0 & EtoI) = .26;    %.25
 %reorder weight matrix for column indexing in loop
 W = reorder_weightmat(W,celltype);
 %--------------------------------------------------------------------------
@@ -39,7 +41,8 @@ W = reorder_weightmat(W,celltype);
 %set up simulation parameters
 %--------------------------------------------------------------------------
 %----current and noise--------
-current_val = .1e-9; %applied current in nano amps %current & noise adjusted from v16
+%current_val = .1e-9; %applied current in nano amps %current & noise adjusted from v16
+current_val = 0;
 %noise_sigma = 10e-12; %noise variance in picoamps
 current_pulse = 'off'; %switch for adding transient pulses
 %----cell connections---------
@@ -70,7 +73,7 @@ Tau_ext(celltype.excit) = 2e-3;
 Tau_ext(celltype.inhib) = 5e-3;
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
-Rext = 1000; %poisson spike train rate for noise, Hz
+Rext = 1500; %poisson spike train rate for noise, Hz
 %---adaptation conductance----
 Vth = -50e-3; %ALEIF spike threshold mV
 delta_th = 2e-3; %max voltage threshold, mV  (deltaVth in equation)
@@ -79,7 +82,7 @@ Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
 detlaGsra = 12.5e-9; %increase adaptation conductance, nano Siemens
 %----timecourse---------------
-tmax = 30; %simulation end (s)
+tmax = 100; %simulation end (s)
 timestep = .25e-3; %.01 milisecond timestep
 timevec = 0:timestep:tmax;
 switch current_pulse
@@ -174,61 +177,70 @@ example_cells = [60 20];
 figure(1)
 spikeplot = make_spikeplot(spikes);
 imagesc(spikeplot)
-Xtick_seconds=0:.5:tmax;
-Xtick_pos = find(mod(timevec,.5) == 0);
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
+
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 title({'spikes','(spikes in matrix enlarged for visualization)'})
 ylabel('cell')
 xlabel('time (s)')
 % figure(2)
 % imagesc(Iapp)
-% set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
 % title('current')
 % ylabel('cell')
 % xlabel('time (s)')
-
-figure(3)
-subplot(2,1,1)
-plot(D(example_cells(1),:))
-hold on
-plot(D(example_cells(2),:))
-hold off
-title('synaptic depression (stay pool example cells)')
-xlabel('time (s)')
-legend('inhibitory','excitatory')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-subplot(2,1,2)
-plot(D(example_cells(1) + sum(celltype.pool_stay),:))
-hold on
-plot(D(example_cells(2) + sum(celltype.pool_stay),:))
-hold off
-title('synaptic depression (switch pool example cells)')
-xlabel('time (s)')
-legend('inhibitory','excitatory')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 
 
+% figure(3)
+% subplot(2,1,1)
+% plot(D(example_cells(1),:))
+% hold on
+% plot(D(example_cells(2),:))
+% hold off
+% title('synaptic depression (stay pool example cells)')
+% xlabel('time (s)')
+% legend('inhibitory','excitatory')
+% Xticks = num2cell(get(gca,'Xtick'));
+% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+% subplot(2,1,2)
+% plot(D(example_cells(1) + sum(celltype.pool_stay),:))
+% hold on
+% plot(D(example_cells(2) + sum(celltype.pool_stay),:))
+% hold off
+% title('synaptic depression (switch pool example cells)')
+% xlabel('time (s)')
+% legend('inhibitory','excitatory')
+% Xticks = num2cell(get(gca,'Xtick'));
+% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 
 
-figure(4)
-subplot(2,1,1)
-plot(Sg(example_cells(1),:))
-hold on
-plot(Sg(example_cells(2),:))
-title('synaptic gating (stay pool example cells)')
-xlabel('time (s)')
-legend('inhibitory','excitatory')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-hold off
-subplot(2,1,2)
-plot(Sg(example_cells(1) + sum(celltype.pool_stay),:))
-hold on
-plot(Sg(example_cells(2) + sum(celltype.pool_stay),:))
-title('synaptic gating (switch pool example cells)')
-xlabel('time (s)')
-legend('inhibitory','excitatory')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-hold off
+
+% figure(4)
+% subplot(2,1,1)
+% plot(Sg(example_cells(1),:))
+% hold on
+% plot(Sg(example_cells(2),:))
+% title('synaptic gating (stay pool example cells)')
+% xlabel('time (s)')
+% legend('inhibitory','excitatory')
+% Xticks = num2cell(get(gca,'Xtick'));
+% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+% hold off
+% subplot(2,1,2)
+% plot(Sg(example_cells(1) + sum(celltype.pool_stay),:))
+% hold on
+% plot(Sg(example_cells(2) + sum(celltype.pool_stay),:))
+% title('synaptic gating (switch pool example cells)')
+% xlabel('time (s)')
+% legend('inhibitory','excitatory')
+% Xticks = num2cell(get(gca,'Xtick'));
+% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+% hold off
 
 figure(5)
 subplot(2,1,1)
@@ -238,7 +250,9 @@ plot(V(example_cells(2),:))
 title('membrane voltage (stay pool example cells)')
 xlabel('time (s)')
 legend('inhibitory','excitatory')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 hold off
 subplot(2,1,2)
 plot(V(example_cells(1) + sum(celltype.pool_stay),:))
@@ -247,31 +261,36 @@ plot(V(example_cells(2) + sum(celltype.pool_stay),:))
 title('membrane voltage (switch pool example cells)')
 xlabel('time (s)')
 legend('inhibitory','excitatory')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 hold off
 
 
 
-figure(6)
-subplot(2,1,1)
-plot(Gsra(example_cells(1),:))
-hold on
-plot(Gsra(example_cells(2),:))
-hold off
-legend('inhibitory','excitatory')
-title('Adaptation conductance (stay pool example cells)')
-xlabel('time (s)')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-subplot(2,1,2)
-plot(Gsra(example_cells(1) + sum(celltype.pool_stay),:))
-hold on
-plot(Gsra(example_cells(2) + sum(celltype.pool_stay),:))
-hold off
-legend('inhibitory','excitatory')
-title('Adaptation conductance (switch pool example cells)')
-xlabel('time (s)')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-
+% figure(6)
+% subplot(2,1,1)
+% plot(Gsra(example_cells(1),:))
+% hold on
+% plot(Gsra(example_cells(2),:))
+% hold off
+% legend('inhibitory','excitatory')
+% title('Adaptation conductance (stay pool example cells)')
+% xlabel('time (s)')
+% Xticks = num2cell(get(gca,'Xtick'));
+% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+% subplot(2,1,2)
+% plot(Gsra(example_cells(1) + sum(celltype.pool_stay),:))
+% hold on
+% plot(Gsra(example_cells(2) + sum(celltype.pool_stay),:))
+% hold off
+% legend('inhibitory','excitatory')
+% title('Adaptation conductance (switch pool example cells)')
+% xlabel('time (s)')
+% Xticks = num2cell(get(gca,'Xtick'));
+% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 
 figure(7)
 subplot(2,1,1)
@@ -285,8 +304,11 @@ plot(Erateplot,'linewidth',2)
 title('stay pool cells')
 legend('inhibitory','excitatory')
 ylabel({'average cell rate (Hz)','(mean cell 1/ISI at each timepoint)'})
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 xlabel('time (s)')
+set(gca,'Xlim',[0 numel(Erateplot)])
 hold off
 subplot(2,1,2)
 Irateplot = make_spikerate_plot(spikes,celltype.pool_switch & celltype.inhib,timestep);
@@ -299,34 +321,40 @@ plot(Erateplot,'linewidth',2)
 title('switch pool cells')
 legend('inhibitory','excitatory')
 ylabel({'average cell rate (Hz)','(mean cell 1/ISI at each timepoint)'})
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 xlabel('time (s)')
+set(gca,'Xlim',[0 numel(Erateplot)])
 hold off
 
-figure(8)
+% figure(8)
+% histogram(Iapp(1,:))
+% title('current distribution, cell #1')
+
+figure(9)
 subplot(2,1,1)
 plot(Gext(example_cells(1),:))
 hold on
 plot(Gext(example_cells(2),:))
 hold off
 legend('inhibitory','excitatory')
-title('Noisy conductance (stay pool example cells)')
+title('Noisy background conductance (stay pool example cells)')
 xlabel('time (s)')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 subplot(2,1,2)
 plot(Gext(example_cells(1) + sum(celltype.pool_stay),:))
 hold on
 plot(Gext(example_cells(2) + sum(celltype.pool_stay),:))
 hold off
 legend('inhibitory','excitatory')
-title('Noisy conductance (switch pool example cells)')
+title('Noisy background conductance (switch pool example cells)')
 xlabel('time (s)')
-set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-
-
-% figure(8)
-% histogram(Iapp(1,:))
-% title('current distribution, cell #1')
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 
 
 
@@ -339,16 +367,17 @@ set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtic
 % Irate = sum(spikes(celltype.pool_stay & celltype.inhib,pulse_time),2);
 % Irate = mean(Irate) / (sum(pulse_time) * timestep);
 % disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
-disp('---during last two seconds (stay):')
-pulse_time = (timevec-tmax) <= 2;
+cuttoff_time = 13;
+disp(['---during t+ ' num2str(cuttoff_time) ' seconds (stay):'])
+pulse_time = timevec >= cuttoff_time;
 Erate = sum(spikes(celltype.pool_stay & celltype.excit,pulse_time),2);
 Erate = mean(Erate) / (sum(pulse_time) * timestep);
 disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
 Irate = sum(spikes(celltype.pool_stay & celltype.inhib,pulse_time),2);
 Irate = mean(Irate) / (sum(pulse_time) * timestep);
 disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
-disp('---during last two seconds (switch):')
-pulse_time = (timevec-tmax) <= 2;
+disp(['---during t+ ' num2str(cuttoff_time) ' seconds (switch):'])
+pulse_time = timevec >= cuttoff_time;
 Erate = sum(spikes(celltype.pool_switch & celltype.excit,pulse_time),2);
 Erate = mean(Erate) / (sum(pulse_time) * timestep);
 disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
@@ -369,7 +398,7 @@ disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
 
 %mean plots:
 
-%
+% 
 % figure(4)
 % subplot(2,1,1)
 % plot(mean(Sg(celltype.pool_stay & celltype.inhib,:)))
@@ -389,8 +418,8 @@ disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
 % legend('inhibitory','excitatory')
 % set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
 % hold off
-%
-%
+% 
+% 
 % figure(5)
 % subplot(2,1,1)
 % plot(mean(V(celltype.pool_stay & celltype.inhib,:)))
