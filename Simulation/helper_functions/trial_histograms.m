@@ -12,7 +12,7 @@ switch options.trial_hists
             xlabel('state duration (s)','Fontsize',fontsz)
             ylabel('frequency','Fontsize',fontsz)
             tile4plot = {options.stim_labels{idx}, [' (' num2str(stim_current)...
-                ' x base current)']};
+               ' x base current)']};
             title(tile4plot,'Fontsize',fontsz)
             set(ax(idx),'fontsize',fontsz)
         end
@@ -29,7 +29,7 @@ switch options.trial_hists
         if ~isdir(fig_dir)
             mkdir(fig_dir)
         end
-       
+        
         print(fullfile(fig_dir,fig_name),'-djpeg')
         pause(.1)
 end

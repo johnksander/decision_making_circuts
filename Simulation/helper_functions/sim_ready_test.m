@@ -1,6 +1,6 @@
 function [state,durations,experiment_set2go] = sim_ready_test(Sg,state,durations,experiment_set2go)
 %see if the simuluation is in the correct state to begin the experiment
-
+%DEPRECIATED!!!!
 
 %do the normal switching business
 if mean(Sg(state.pools2compare(:,state.now))) * 4 < mean(Sg(state.pools2compare(:,~state.now))) %difference by factor of 4

@@ -1,17 +1,14 @@
-function modelfile = JK_model(options)
+function modelfile = parsweep_model(options)
 
 modelfile = mfilename; %for backup purposes
-options.sim_name = ['JK_' options.sim_name];
-output_log = fullfile(options.save_dir,'JK_output_log.txt');
-special_progress_tracker = fullfile(options.save_dir,'JK_SPT.txt');
 
 
 %set up the circut
 %--------------------------------------------------------------------------
 %----circit parameters--------
-pool_options.num_cells = 150;
+pool_options.num_cells = 250;
 pool_options.sz_pools = [.5 .5]; %proportion stay & switch
-pool_options.sz_EI = [2/3 1/3]; %proportion excitable % inhibitory
+pool_options.sz_EI = [.8 .2]; %proportion excitable % inhibitory
 pool_options.p_conn = .5; %connection probability 50%
 %--------------------------------------------------------------------------
 %build the connectivity matrix
@@ -25,19 +22,15 @@ connection_scheme = EtoE | EtoI | ItoE;  %plan is:  EtoE | EtoI | ItoE;
 W = rand(pool_options.num_cells) < pool_options.p_conn; %connection matrix
 W = double(W & connection_scheme); %filter out connections not allowed by scheme
 %modify connection weights
-W(W > 0 & EtoE) = .225; %(strength was .25 in v18!!!)
-W(ItoE) = 5; %ItoE connection probability is 100% now
-W(W > 0 & EtoI) = .2; %(strength was .075 in v18!!!)
+W(W > 0 & EtoE) = (.0675 * .6);
+W(W > 0 & ItoE) = (4.15 * .15);
+W(W > 0 & EtoI) = .175;
 %reorder weight matrix for column indexing in loop
 W = reorder_weightmat(W,celltype);
 %--------------------------------------------------------------------------
 
 %set up simulation parameters
 %--------------------------------------------------------------------------
-%----current and noise--------
-current_val = .1e-9; %applied current in nano amps
-noise_sigma = 0; %noise variance in picoamps
-current_pulse = options.current_pulse; %switch for adding transient pulses
 %----cell connections---------
 Erev = NaN(pool_options.num_cells,1); %reversal potential vector
 Erev(celltype.excit) = 0; %reversal potential, excitatory
@@ -66,7 +59,7 @@ Tau_ext(celltype.excit) = 2e-3;
 Tau_ext(celltype.inhib) = 5e-3;
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
-Rext = 1000; %poisson spike train rate for noise, Hz
+Rext = 1400; %poisson spike train rate for noise, Hz
 %---adaptation conductance----
 Vth = -50e-3; %ALEIF spike threshold mV
 delta_th = 2e-3; %max voltage threshold, mV  (deltaVth in equation)
@@ -75,41 +68,39 @@ Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
 detlaGsra = 12.5e-9; %increase adaptation conductance, nano Siemens
 %----timecourse---------------
-tmax = options.tmax; %simulation end (s)
 timestep = .25e-3; %.25 milisecond timestep
-timevec = 0:timestep:tmax;
+timevec = 0:timestep:options.tmax;
 num_timepoints = numel(timevec);
-switch current_pulse
-    case 'on'
-        update_logfile('WARNING: current pulse functions not configured for low memory',output_log)
-end
-noise_sigma = noise_sigma/sqrt(timestep); %take care of timestep adjustment
 Lext = Rext * timestep; %poisson lambda for noisy conductance
 
 %simulation trial loop
 %-------------------------------------------------------------------------
-update_logfile(':::Starting simulation:::',output_log)
-num_trials = numel(options.trial_currents(:,1));
+update_logfile(':::Starting simulation:::',options.output_log)
+num_trials = numel(options.trial_stimuli(:,1));
 sim_results = cell(num_trials,1);
 
-parfor trialidx = 1:num_trials
+for trialidx = 1:num_trials
     
     %preallocate variables
     %-------------------------------------------------------------------------
     %---membrane potential--------
     V = NaN(pool_options.num_cells,2);
     V(:,1) = El; %inital value of membrane potential is leak potential
-    %---stimuli current ----------
-    stimA_curr = options.trial_currents(trialidx,1);
-    stimB_curr = options.trial_currents(trialidx,2);
-    %---timepoint current info----
-    current_info = struct();
-    current_info.stimA = stimA_curr;
-    current_info.stimB = stimB_curr;
-    current_info.basecurr = current_val;
-    current_info.noise_sigma = noise_sigma; %already adjusted for timestep
-    current_info.initpulse_time = 300; %just index number, should be invariant across units (i.e. PMvsJK)
-    current_info.num_cells = pool_options.num_cells; %just so I don't have to pass pool_options as well
+    %---stimuli info--------------
+    stim_info = struct();
+    switch options.stim_targs
+        case 'Eswitch'
+            stim_info.targ_cells = celltype.excit & celltype.pool_switch; %Eswitch cells
+        case 'Estay'
+            stim_info.targ_cells = celltype.pool_stay & celltype.excit; %Estay
+        case 'baseline'
+            stim_info.targ_cells = logical(zeros(pool_options.num_cells,1)); %no targets
+    end
+    stimA = options.trial_stimuli(trialidx,1);
+    stimB = options.trial_stimuli(trialidx,2);
+    stim_info.stimA_lambda = stimA * timestep; %poisson lambda for stimulus conductance
+    stim_info.stimB_lambda = stimB * timestep;
+    stim_info.num_cells = pool_options.num_cells; %just so I don't have to pass pool_options as well
     %---noisy conductance---------
     Gext = NaN(size(V)); %noisy conductance
     Gext(:,1) = initGext; %initialize at leak conductance
@@ -125,14 +116,25 @@ parfor trialidx = 1:num_trials
     %disabled for memory usage
     %spikes = zeros(size(V));
     %---state tracker-------------
+    state = struct();
     state.stay = logical([1 0]);
     state.switch = logical([0 1]);
     durations = cell(1,2); %record duration times (stay, switch)
     state.now = state.stay; %pick one state to start with, add pulse to that pool to be sure (make sure this is consistent)
+    state.stim_labels = {'A','B'};
+    state.current_stimulus = logical([1 0]); %initialize in stim A
     state.count = 0;
     state.pools2compare = [celltype.pool_stay & celltype.excit,...
         celltype.pool_switch & celltype.excit]; %pass in this format, avoid many computations
-
+    %state.ready_mintime = .4 / timestep; %minimum time for ready2go check
+    state.init_check_Lext = options.init_check_Rext * timestep;
+    state.init_check_stop = options.init_check_tmax / timestep; %minimum time for ready2go check
+    state.noswitch_timeout = options.noswitch_timeout / timestep;
+    if options.force_back2stay
+        state.back2stay_min = .5 / timestep; %wait in a stay state for this long before forcing switch back
+    end
+    %---last init-----------------
+    experiment_set2go = false; %when experiment is ready to go
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
     
@@ -141,11 +143,10 @@ parfor trialidx = 1:num_trials
         timepoint_counter = timepoint_counter+1;
         
         %get current for this timepoint
-        current_info.timeidx = timepoint_counter; %just so I don't have to pass a million things...
-        I = timepoint_current(options,current_info,state,durations,celltype);
+        stim_info.timeidx = timepoint_counter; %just so I don't have to pass a million things...
         
         %loop equations
-        I = I + (unique(Erev(celltype.excit)) - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*unique(Gg(celltype.excit));
+        I = (unique(Erev(celltype.excit)) - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*unique(Gg(celltype.excit));
         I = I + (unique(Erev(celltype.inhib)) - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*unique(Gg(celltype.inhib));
         dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
             + (Gsra(:,idx-1).*(Ek-V(:,idx-1)))...
@@ -158,7 +159,8 @@ parfor trialidx = 1:num_trials
         D(:,idx) = D(:,idx-1) + (((1 - D(:,idx-1))./Td) .* timestep); %synaptic depression
         Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
         
-        if  sum(V(:,idx) > spike_thresh) > 0
+        spiking_cells = V(:,idx) > spike_thresh;
+        if sum(spiking_cells) > 0
             spiking_cells = V(:,idx) > spike_thresh;
             Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
             Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
@@ -167,12 +169,35 @@ parfor trialidx = 1:num_trials
             V(spiking_cells,idx) = Vreset;
             %spikes(spiking_cells,idx) = 1;
         end
-        ext_spikes = poissrnd(Lext,pool_options.num_cells,1); %external spikes to noise conductance
-        Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes); %don't have to index, they get an increase or zero
         
-        if timepoint_counter > current_info.initpulse_time
-            [state,durations] = test4switch(Sg(:,idx),state,durations);
+        [state,durations] = test4switch(Sg(:,idx),state,durations);
+        
+        if ~experiment_set2go
+            %run the bistability check
+            [BScheck,Pspikes] = check_bistability(Sg(:,idx),state,durations);
+            %add pulse spikes (same as below) 
+            Gext(:,idx) = Gext(:,idx) + (deltaGext.*Pspikes);
+            switch BScheck.status
+                case 'fail'
+                    update_logfile(':::Bistability check failure:::',options.output_log)
+                    update_logfile(sprintf('---at t=%.2f(s)',timepoint_counter*timestep),options.output_log)
+                    update_logfile(BScheck.Fcode,options.output_log)
+                    return
+                case 'pass'
+                    update_logfile('---passed bistability check',options.output_log)
+                    experiment_set2go = true; %we're ready to roll
+            end
         end
+        
+        
+        %input spikes, noise & stimulus
+        ext_spikes = poissrnd(Lext,pool_options.num_cells,1); %external spikes to noise conductance
+        stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
+        ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
+        if options.force_back2stay
+            ext_spikes = back2stay(ext_spikes,state,celltype); %if in switch state, force back to a stay state
+        end
+        Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes); %don't have to index, they get an increase or zero
         
         %lag equation vars for next timepoint
         V = next_timepoint(V);
@@ -181,22 +206,29 @@ parfor trialidx = 1:num_trials
         D = next_timepoint(D);
         Sg = next_timepoint(Sg);
         
+        %check timeout for non-switching
+        if state.count >= state.noswitch_timeout
+            update_logfile(':::Bistability check failure:::',options.output_log)
+            TOF = timepoint_counter*timestep;
+            update_logfile(sprintf('---no switch timeout at t=%.2f(s)',TOF),options.output_log)
+            return
+        end
+        
+        %progress tracking...
+        if mod(timepoint_counter,floor(num_timepoints * .05)) == 0 %5 percent
+            progress = (timepoint_counter /  num_timepoints) * 100;
+            message = sprintf('Simulation %.1f percent complete',progress);
+            update_logfile(message,options.output_log)
+        end
+        
     end
+    
+    %remove the first artificially induced stay state & subsequent switch state
+    durations = cellfun(@(x) x(2:end,:),durations,'UniformOutput',false);
     sim_results{trialidx} = durations;
-    switch options.parforlog %parfor progress tracking
-        case 'on'
-            txtappend(special_progress_tracker,'1\n')
-            SPT_fid = fopen(special_progress_tracker,'r');
-            progress = fscanf(SPT_fid,'%i');
-            fclose(SPT_fid);
-            if mod(sum(progress),floor(num_trials * .05)) == 0 %5 percent
-                progress = (sum(progress) /  num_trials) * 100;
-                message = sprintf('Stimulation %.1f percent complete',progress);
-                update_logfile(message,output_log)
-            end
-    end
+    
 end
-update_logfile('---Simulation complete---',output_log)
+update_logfile('---Simulation complete---',options.output_log)
 savename = fullfile(options.save_dir,options.sim_name);
 save(savename,'sim_results','options')
 
