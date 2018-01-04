@@ -35,14 +35,14 @@ if strcmp(options.modeltype,'PS')
     if ~isdir(options.save_dir),mkdir(options.save_dir);end
     options.output_log = fullfile(options.save_dir,'output_log.txt');
     
-    options.noswitch_timeout = 500; %timeout without a switch (s)
+    options.noswitch_timeout = 750; %timeout without a switch (s)
     
     %-----pick connection params-----
     dealers_choice = @(a,b) (a + (b-a).*rand(1));
     
     options.EtoE = .0405; %fixed
     
-    options.ItoE = dealers_choice(0.3, 0.65 *2);  %double "fastswitch"
+    options.ItoE = dealers_choice(0.15, 0.65 *2);  %double "fastswitch"
     
     options.EtoI = dealers_choice(0.15, 0.35 *2);  %double "slowswitch"
 end

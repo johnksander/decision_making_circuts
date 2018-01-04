@@ -22,9 +22,9 @@ connection_scheme = EtoE | EtoI | ItoE;  %plan is:  EtoE | EtoI | ItoE;
 W = rand(pool_options.num_cells) < pool_options.p_conn; %connection matrix
 W = double(W & connection_scheme); %filter out connections not allowed by scheme
 %modify connection weights
-W(W > 0 & EtoE) = (.0675 * .6);
-W(W > 0 & ItoE) = (4.15 * .15);
-W(W > 0 & EtoI) = .175;
+W(W > 0 & EtoE) = options.EtoE;
+W(W > 0 & ItoE) = options.ItoE;
+W(W > 0 & EtoI) = options.EtoI;
 %reorder weight matrix for column indexing in loop
 W = reorder_weightmat(W,celltype);
 %--------------------------------------------------------------------------
