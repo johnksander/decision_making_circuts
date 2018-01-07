@@ -31,9 +31,9 @@ if ~isdir(options.save_dir),mkdir(options.save_dir);end
 if strcmp(options.modeltype,'PS')
     options.jobID = config_options.jobID;
     options.sim_name = sprintf('PS_%s_%i',options.sim_name,options.jobID);
-    options.save_dir = fullfile(options.save_dir,options.sim_name);
+    %options.save_dir = fullfile(options.save_dir,options.sim_name);
     if ~isdir(options.save_dir),mkdir(options.save_dir);end
-    options.output_log = fullfile(options.save_dir,'output_log.txt');
+    options.output_log = fullfile(options.save_dir,sprintf('output_log_%i.txt',options.jobID));
     
     options.noswitch_timeout = 750; %timeout without a switch (s)
     
