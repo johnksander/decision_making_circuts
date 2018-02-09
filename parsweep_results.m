@@ -16,6 +16,7 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 %---sim setup-----------------
 sim_name = 'parsweep_baseline';
 basedir = '/Users/ksander/Desktop/work/ACClab/rotation/project';
+figdir = fullfile(basedir,'Results',[sim_name '_figures']);
 resdir = fullfile(basedir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
@@ -74,11 +75,69 @@ EtoI = cellfun(@(x)  x.EtoI,result_data(:,2));
 switch outcome_stat
     case 'mu'
         outcome = mu_duration;
+        Zlabel = 'mean duration (s)';
+        figdir = fullfile(figdir,'mean_duration');
     case 'med'
         outcome = med_duration;
+        Zlabel = 'median duration (s)';
+        figdir = fullfile(figdir,'med_duration');
     case 'logmu'
         outcome = logmu_dur;
+        Zlabel = 'mean log duration [ log(s) ]';
+        figdir = fullfile(figdir,'logmean_duration');
 end
+
+if ~isdir(figdir),mkdir(figdir);end
+
+
+%inhibition scatter
+net_inhibition = ItoE.*EtoI;
+%EtoI & ItoE parameter ranges are different (EtoI goes lower, ItoE goes much higher)
+%plotting so that the ranges are equal
+NI_range = EtoI >= min(ItoE) & ItoE <= max(EtoI);
+h1 = subplot(2,2,1);
+larger_param = ItoE > EtoI & NI_range;
+scatter(net_inhibition(larger_param),outcome(larger_param));
+title('I-to-E > E-to-I')
+ylabel(Zlabel)
+xlabel('net inhibition')
+set(gca,'FontSize',12)
+h2 = subplot(2,2,3);
+larger_param = ItoE < EtoI & NI_range;
+scatter(net_inhibition(larger_param),outcome(larger_param));
+title('I-to-E < E-to-I')
+ylabel(Zlabel)
+xlabel('net inhibition')
+set(gca,'FontSize',12)
+linkaxes([h1,h2],'xy')
+axis tight
+
+h1 = subplot(2,2,2);
+larger_param = ItoE > EtoI & NI_range;
+histogram(ItoE(larger_param));
+hold on
+histogram(EtoI(larger_param));
+hold off
+legend('I-to-E','E-to-I')
+title('parameter range')
+ylabel('frequency')
+xlabel('strength')
+set(gca,'FontSize',12)
+h2 = subplot(2,2,4);
+larger_param = ItoE < EtoI & NI_range;
+histogram(ItoE(larger_param));
+hold on
+histogram(EtoI(larger_param));
+hold off
+legend('I-to-E','E-to-I')
+title('parameter range')
+ylabel('frequency')
+xlabel('strength')
+set(gca,'FontSize',12)
+linkaxes([h1,h2],'xy')
+axis tight
+print(fullfile(figdir,'net_inhib_scatter'),'-djpeg')
+keyboard
 
 
 %surface plot
@@ -92,18 +151,17 @@ Z = f(X,Y);
 mask = tril(ones(size(Z)),30);
 mask = logical(flipud(mask));
 Z(~mask) = NaN;
-figure
+figure;
 mesh(X,Y,Z) %interpolated
 axis tight; hold on
 plot3(ItoE,EtoI,outcome,'.','MarkerSize',25,'color','red') %nonuniform
-xlabel('ItoE')
-ylabel('EtoI')
-zlabel('mu duration')
+xlabel('I-to-E strength')
+ylabel('E-to-I strength')
+zlabel(Zlabel)
 %setting view to overhead gives heatmap!!
 %view(0,90) %that looks good too
 hidden off
 rotate3d on
-
 %also see--
 %https://www.mathworks.com/help/matlab/math/interpolating-scattered-data.html#bsovi2t
 switch rescale_plane
@@ -115,6 +173,9 @@ switch rescale_plane
         caxis(Zlim)
 end
 %https://www.mathworks.com/matlabcentral/answers/41800-remove-sidewalls-from-surface-plots
+set(gca,'FontSize',fontsz)
+savefig(fullfile(figdir,'surface_plot'))
+
 
 
 figure
@@ -135,8 +196,8 @@ end
 mask = tril(ones(size(Z)),100);
 mask = logical(mask);
 Z(~mask) = NaN;
-figure
 colormap(parula)
+figure
 imagesc(Z)
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
@@ -151,29 +212,28 @@ Yticks = linspace(max(EtoI),min(EtoI),numel(Yticks));
 Ylabs = cellfun(@(x) sprintf('%.2f',x),num2cell(Yticks),'UniformOutput', false);
 set(gca, 'YTickLabel', Ylabs')
 colb = colorbar;
-colb.Label.String = 'mean duration (s)';
+colb.Label.String = Zlabel;
 colb.FontSize = 16;
+set(gca,'FontSize',fontsz)
+print(fullfile(figdir,'heatmap'),'-djpeg')
 
 
-hold off
-
-
-%this is okay.....
-sz = linspace(25,400,num_jobs);
-c = colormap(summer(num_jobs));
-[~,inds] = sort(outcome,'descend');
-c = c(inds,:);
-sz = sz(inds);
-figure
-scatter(ItoE,EtoI,sz,c,'filled')
-colb = colorbar;
-Tlabs = colb.TickLabels;
-Tlabs = linspace(min(outcome),max(outcome),numel(Tlabs));
-Tlabs = num2cell(Tlabs);
-Tlabs = cellfun(@(x) sprintf('%.2f',x),Tlabs,'UniformOutput', false);
-colb.TickLabels = Tlabs;
-xlabel('I-to-E strength')
-ylabel('E-to-I strength')
+% %this is okay.....
+% sz = linspace(25,400,num_jobs);
+% c = colormap(summer(num_jobs));
+% [~,inds] = sort(outcome,'descend');
+% c = c(inds,:);
+% sz = sz(inds);
+% figure
+% scatter(ItoE,EtoI,sz,c,'filled')
+% colb = colorbar;
+% Tlabs = colb.TickLabels;
+% Tlabs = linspace(min(outcome),max(outcome),numel(Tlabs));
+% Tlabs = num2cell(Tlabs);
+% Tlabs = cellfun(@(x) sprintf('%.2f',x),Tlabs,'UniformOutput', false);
+% colb.TickLabels = Tlabs;
+% xlabel('I-to-E strength')
+% ylabel('E-to-I strength')
 
 
 hold off
@@ -199,22 +259,36 @@ figure
 levs = h.LevelList;
 h.LevelList = levs(1:2:end);
 clabel(c,h);
-
+title('State durations')
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
+set(gca,'FontSize',fontsz)
+print(fullfile(figdir,'contour'),'-djpeg')
+
 
 %this 3D contour plot is really good actually
-figure
+H = figure;
 [c,h] = contour3(X,Y,Z,'LineWidth',5);
 levs = h.LevelList;
 h.LevelList = levs(1:2:end);
 %clabel(c,h);
 axis tight; hold on
 plot3(ItoE,EtoI,outcome,'.','MarkerSize',25,'color','red') %nonuniform
-
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
-zlabel('mu duration')
+zlabel(Zlabel)
+set(gca,'FontSize',fontsz)
+savefig(H,fullfile(figdir,'contour3D_plot'),'compact')
+
+
+hold off
+figure
+histogram(outcome)
+ylabel('frequency')
+xlabel(Zlabel)
+title('State durations')
+set(gca,'FontSize',fontsz)
+print(fullfile(figdir,'histogram'),'-djpeg')
 
 
 
