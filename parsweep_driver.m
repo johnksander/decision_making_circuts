@@ -9,9 +9,9 @@ format compact
 %---setup---------------------
 config_options.modeltype = 'PS';
 config_options.sim_name = 'parsweep_baseline';
-%config_options.jobID = str2num(getenv('SGE_TASK_ID'));
-config_options.jobID = 5;
-config_options.tmax = 100; %trial simulation time (s) 
+config_options.jobID = str2num(getenv('SGE_TASK_ID'));
+%config_options.jobID = 5;
+config_options.tmax = 5000; %trial simulation time (s) 
 options = set_options(config_options);
 %---stimulus------------------
 options.stim_targs = 'baseline'; % Eswitch | Estay | baseline

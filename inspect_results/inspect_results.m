@@ -7,7 +7,7 @@ fontsz = 16;
 trial_hists = 'on';
 stim_labels = {'stim A','stim B'};
 timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
-
+cd('/Users/ksander/Desktop/work/ACClab/rotation/project/')
 %specify simulation
 %---sim setup-----------------
 config_options.modeltype = 'JK';
@@ -67,6 +67,7 @@ end
 %     plot(options.trial_currents(:,stimidx),stim_duration_means(:,stimidx),'linewidth',2)
 %     hold on %!MUST FIX FOR REAL SIMULATION ^^^
 % end
+
 ylabel('Average state duration (s)')
 xlabel('Stim A current bias')
 title('State durations')
@@ -78,6 +79,33 @@ Xlabs = cellfun(@(x) sprintf('%.0f%%',x*100),Xticks,'UniformOutput', false);
 set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
 hold off
 fig_fn = [options.sim_name '_mean_durations'];
+print(fullfile(options.save_dir,fig_fn),'-djpeg')
+
+
+%for brownbag
+
+figure
+curr_diff = options.trial_currents(:,1) - options.trial_currents(:,2);
+for stimidx = 1:num_stims
+    precision_cutoff = curr_diff <= .2;
+    plot(curr_diff(precision_cutoff),stim_duration_means(precision_cutoff,stimidx),'linewidth',3)
+    hold on 
+end
+
+ylabel('Stay duration (s)','FontWeight','b')
+xlabel('Palatability difference','FontWeight','b')
+%title('State durations')
+%legend({'strong stimulus','weak stimulus'},'FontWeight','b','Location','northoutside','Orientation','horizontal')
+legend({'strong stimulus','weak stimulus'},'FontWeight','b')
+ylim([0,1000])
+set(gca,'Fontsize',20)
+box off
+orient landscape
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.0f%%',x*100),Xticks,'UniformOutput', false);
+set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
+hold off
+fig_fn = [options.sim_name '_brownbag_fig'];
 print(fullfile(options.save_dir,fig_fn),'-djpeg')
 
 

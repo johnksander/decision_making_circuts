@@ -4,7 +4,7 @@ format compact
 hold off;close all
 
 rescale_plane = 'on';
-outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
+outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
 
 %result summaries
 fontsz = 16;
@@ -14,13 +14,25 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_baseline';
-basedir = '/Users/ksander/Desktop/work/ACClab/rotation/project';
+sim_name = 'parsweep_stims';
+basedir = '/home/acclab/Desktop/ksander/rotation';
 figdir = fullfile(basedir,'Results',[sim_name '_figures']);
 resdir = fullfile(basedir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
+BL_fns = dir(fullfile([resdir '_BL'],['*',sim_name,'*.mat']));
+BL_fns = cellfun(@(x,y) fullfile(x,y),{BL_fns.folder},{BL_fns.name},'UniformOutput',false);
+output_fns = cat(2,BL_fns,output_fns);
+
 num_files = numel(output_fns);
+stimtarg_vals = {'baseline','Estay','Eswitch'}; %this is dumb
+network_pair_info = load(fullfile(basedir,'helper_functions','network_pairs'));
+network_pair_info = network_pair_info.network_pairs;
+network_pair_info = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Estay','fast')],...
+    network_pair_info,'UniformOutput',false);
+network_pair_info = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Eswitch','slow')],...
+    network_pair_info,'UniformOutput',false);
+
 %get results
 file_data = cell(num_files,2);
 for idx = 1:num_files
@@ -30,9 +42,10 @@ for idx = 1:num_files
     %get state durations
     state_durations = curr_file.sim_results;
     state_durations = state_durations{:};
-    %just get all of them, baseline test
-    state_durations = cellfun(@(x) x(:,1),state_durations,'UniformOutput',false);
-    state_durations = vertcat(state_durations{:});
+    %take only stimulus state durations
+    state_durations = state_durations{1}(:,1);
+    %     state_durations = cellfun(@(x) x(:,1),state_durations,'UniformOutput',false);
+    %     state_durations = vertcat(state_durations{:});
     state_durations = vertcat(state_durations{:}); %ooo that's annoying
     %convert to time
     state_durations = state_durations * timestep;
@@ -41,7 +54,9 @@ end
 
 %search for jobs with identical parameters, collapse distributions
 %get the randomized network parameters
-job_params = cellfun(@(x)  [x.ItoE, x.EtoI],file_data(:,2),'UniformOutput',false);
+job_params = cellfun(@(x)...
+    [x.ItoE, x.EtoI,unique(x.trial_stimuli),find(strcmpi(x.stim_targs, stimtarg_vals))],...
+    file_data(:,2),'UniformOutput',false); %matching "network_pair_info" format
 job_params = vertcat(job_params{:});
 uniq_params = unique(job_params,'rows');
 num_jobs = size(uniq_params,1);
@@ -50,16 +65,22 @@ fprintf('num jobs = %i\nunique parameter sets = %i\nduplicates = %i\n',num_files
 
 %collapse duplicate job parameters
 result_data = cell(num_jobs,2);
+Nruns = NaN(num_jobs,1); %record the number of successful jobs..
 for idx = 1:num_jobs
     %find all matching
     curr_file = ismember(job_params,uniq_params(idx,:),'rows');
+    Nruns(idx) = sum(curr_file);
+    fprintf('---\nparameter set %.3f %.3f %.3f %s, n files = %i\n',uniq_params(idx,1:3),...
+        stimtarg_vals{uniq_params(idx,4)},Nruns(idx))
     %collapse & reallocate
     result_data{idx,1} = cell2mat(file_data(curr_file,1));
+    fprintf('------n states = %i\n',numel(result_data{idx,1}))
     %just grab the first options file... that shouldn't matter here
     result_data{idx,2} = file_data{find(curr_file,1),2};
 end
 
-
+need_more = cellfun(@(x) numel(x{1}),num2cell(result_data,2));
+need_more = need_more < 10000;
 
 %just grab some simple stats here
 num_states = cellfun(@(x) numel(x),result_data(:,1));
@@ -70,12 +91,18 @@ logmu_dur = cellfun(@(x) mean(log(x)),result_data(:,1));
 EtoE = cellfun(@(x)  x.EtoE,result_data(:,2));
 ItoE = cellfun(@(x)  x.ItoE,result_data(:,2));
 EtoI = cellfun(@(x)  x.EtoI,result_data(:,2));
+stim_value = cellfun(@(x)  unique(x.trial_stimuli),result_data(:,2));
 
+net_type = num2cell(num2cell(uniq_params),2);
+net_type = cellfun(@(x)  [x(1:3),stimtarg_vals{x{4}}],net_type,'UniformOutput',false);
+net_type = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Estay','fast')],net_type,'UniformOutput',false);
+net_type = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Eswitch','slow')],net_type,'UniformOutput',false);
 
 switch outcome_stat
     case 'mu'
         outcome = mu_duration;
-        Zlabel = 'mean duration (s)';
+        %Zlabel = 'mean duration (s)';
+        Zlabel = 'state duration (s)';
         figdir = fullfile(figdir,'mean_duration');
     case 'med'
         outcome = med_duration;
@@ -83,11 +110,153 @@ switch outcome_stat
         figdir = fullfile(figdir,'med_duration');
     case 'logmu'
         outcome = logmu_dur;
-        Zlabel = {'mean stay duration';'log(s)'};
+        %Zlabel = 'mean log duration [ log(s) ]';
+        Zlabel = 'log(s) state duration';
         figdir = fullfile(figdir,'logmean_duration');
 end
 
 if ~isdir(figdir),mkdir(figdir);end
+
+
+
+num_types = numel(network_pair_info);
+plt_idx = 0;
+for idx = 1:num_types
+    
+    curr_net_info = network_pair_info{idx};
+    for j = 1:2
+        
+        plt_idx = plt_idx + 1;
+        h(plt_idx) = subplot(5,2,plt_idx);
+        hold on
+        %find the right results for network set-up
+        curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),net_type,'UniformOutput',false);
+        curr_data = cat(1,curr_data{:});
+        curr_data = cell2mat(result_data(curr_data,1));
+        if ~isempty(curr_data) %skip plot if no data...
+            switch outcome_stat
+                case 'logmu'
+                    curr_data = log(curr_data);
+                    [kde,kde_i] = ksdensity(curr_data);
+                    plot(kde_i,kde,'LineWidth',2);
+                case 'mu'
+                    histogram(curr_data)
+            end
+        end
+        %take control data
+        BLinfo = [curr_net_info(j,1:2), {0,'baseline'}];
+        curr_data = cellfun(@(x) isequal(x,BLinfo),net_type,'UniformOutput',false);
+        curr_data = cat(1,curr_data{:});
+        curr_data = cell2mat(result_data(curr_data,1));
+        if ~isempty(curr_data) %skip plot if no data...
+            switch outcome_stat
+                case 'logmu'
+                    curr_data = log(curr_data);
+                    [kde,kde_i] = ksdensity(curr_data);
+                    plot(kde_i,kde,'LineWidth',2);
+                case 'mu'
+                    histogram(curr_data)
+            end
+        end
+        hold off
+        legend(sprintf('%.0fHz',curr_net_info{j,3}))
+        
+        if plt_idx == 9 || plt_idx == 10
+            xlabel(Zlabel)
+        end
+        if plt_idx == 1 || plt_idx == 2
+            title(sprintf('%s networks',curr_net_info{j,4}),'Fontsize',14)
+        end
+        if mod(plt_idx,2) == 1
+            ylabel(sprintf('network #%i p(x)',idx))
+        end
+        
+    end
+end
+orient tall
+linkaxes(h,'x')
+axis tight
+print(fullfile(figdir,'duration_dists'),'-djpeg')
+
+
+
+num_states = cellfun(@(x) numel(x{1}),num2cell(result_data,2));
+need_more = num_states < 10000;
+need_more = net_type(need_more);
+current_count = num_states(num_states < 10000);
+for idx = 1:num_types
+    curr_net_info = network_pair_info{idx};
+    for j = 1:2
+        curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),need_more,'UniformOutput',false);
+        curr_data = cat(1,curr_data{:});
+        if sum(curr_data) > 0
+           fprintf('\nnetwork #%i %s has < 10k states (%i)',idx,curr_net_info{j,4},current_count(curr_data))
+           fprintf('\n---parameter set:\n')
+           disp(curr_net_info(j,:))
+           fprintf('\n------------------------\n')
+        end
+        
+        BLinfo = [curr_net_info(j,1:2), {0,'baseline'}];
+        curr_data = cellfun(@(x) isequal(x,BLinfo),need_more,'UniformOutput',false);
+        curr_data = cat(1,curr_data{:});
+        if sum(curr_data) > 0
+           fprintf('\nnetwork #%i %s has < 10k states (%i)',idx,BLinfo{4},current_count(curr_data))
+           fprintf('\n---parameter set:\n')
+           disp(BLinfo)
+           fprintf('\n------------------------\n')
+        end
+        
+        
+    end
+        
+end
+
+maxout = (150*10)+3000;
+%stims
+lol = 3002:10:maxout;
+%BL
+lol = 3001:10:maxout;
+lol = 3003:10:maxout;
+lol = 3005:10:maxout;
+lol = 3007:10:maxout;
+lol = 3009:10:maxout;
+
+%hacky code for irregular jobs
+
+%BLname = 'parsweep_stims_BL';
+%BL_fns = dir(fullfile(basedir,'Results',BLname,['*',BLname,'*.mat']));
+
+% fprintf('\nWARN: hardcode-resetting parameters\n')
+% for idx = 1:numel(network_pair_info)
+%    fix_these = strcmpi(network_pair_info{idx},'fast');
+%    fix_these = [fix_these(:,2:end),[0;0]];
+%    network_pair_info{idx}(logical(fix_these)) = {200};
+% end
+
+
+
+
+
+h1 = subplot(2,2,1);
+larger_param = ItoE > EtoI & NI_range;
+scatter(net_inhibition(larger_param),outcome(larger_param));
+title('I-to-E > E-to-I')
+ylabel(Zlabel)
+xlabel('net inhibition')
+set(gca,'FontSize',12)
+h2 = subplot(2,2,3);
+larger_param = ItoE < EtoI & NI_range;
+scatter(net_inhibition(larger_param),outcome(larger_param));
+title('I-to-E < E-to-I')
+ylabel(Zlabel)
+xlabel('net inhibition')
+set(gca,'FontSize',12)
+linkaxes([h1,h2],'xy')
+axis tight
+keyboard
+
+
+
 
 
 %inhibition scatter
@@ -136,17 +305,14 @@ xlabel('strength')
 set(gca,'FontSize',12)
 linkaxes([h1,h2],'xy')
 axis tight
-%print(fullfile(figdir,'net_inhib_scatter'),'-djpeg')
-
+print(fullfile(figdir,'net_inhib_scatter'),'-djpeg')
+keyboard
 
 
 %surface plot
-hold off;close all
-fontsz = 20;
-plt_alph = .75;
-num_gridlines = 400;
-xlin = linspace(min(ItoE),max(ItoE),num_gridlines);
-ylin = linspace(min(EtoI),max(EtoI),num_gridlines);
+
+xlin = linspace(min(ItoE),max(ItoE),400);
+ylin = linspace(min(EtoI),max(EtoI),400);
 [X,Y] = meshgrid(xlin,ylin);
 f = scatteredInterpolant(ItoE,EtoI,outcome);
 f.Method = 'natural';
@@ -154,17 +320,13 @@ Z = f(X,Y);
 mask = tril(ones(size(Z)),30);
 mask = logical(flipud(mask));
 Z(~mask) = NaN;
-mesh(X,Y,Z,'FaceAlpha',plt_alph,'EdgeAlpha',plt_alph) %interpolated
+figure;
+mesh(X,Y,Z) %interpolated
 axis tight; hold on
-%these feel like they need to be slightly bigger 
-%scatter3(ItoE,EtoI,outcome,25,'black','filled','MarkerEdgeAlpha',1,'MarkerEdgeAlpha',1) %give them outlines
-scatter3(ItoE,EtoI,outcome,30,'red','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1) 
-xlabel({'within-pool inhibition';'(I-to-E strength)'},'FontWeight','b')
-ylabel({'cross-pool inhibition';'(E-to-I strength)'},'FontWeight','b')
-zlabel(Zlabel,'FontWeight','b')
-set(gca,'FontSize',fontsz)
-view(-45,27)
-%view(-24,24)
+plot3(ItoE,EtoI,outcome,'.','MarkerSize',25,'color','red') %nonuniform
+xlabel('I-to-E strength')
+ylabel('E-to-I strength')
+zlabel(Zlabel)
 %setting view to overhead gives heatmap!!
 %view(0,90) %that looks good too
 hidden off
@@ -179,24 +341,11 @@ switch rescale_plane
         set(gca,'ZLim',Zlim);
         caxis(Zlim)
 end
-%savefig(fullfile(figdir,'surface_plot'))
-%make it big
-set(gcf,'units','normalized','outerposition',[0 0 .75 1])
-%fix the labels 
-xh = get(gca,'XLabel'); % Handle of the x label
-set(xh, 'Units', 'Normalized')
-xh_pos = get(xh, 'Position');
-set(xh, 'Position',xh_pos+[.05,.1,0],'Rotation',20.5)
-yh = get(gca,'YLabel'); % Handle of the y label
-set(yh, 'Units', 'Normalized')
-yh_pos = get(yh, 'Position');
-set(yh, 'Position',yh_pos+ [-.075,.15,0],'Rotation',-19)
-%print high-res
-print(fullfile(figdir,'brownbag_surface_plot'),'-djpeg','-r300')
-
 %https://www.mathworks.com/matlabcentral/answers/41800-remove-sidewalls-from-surface-plots
-%savefig(fullfile(figdir,'surface_plot'))
-%view(-24,24)
+set(gca,'FontSize',fontsz)
+savefig(fullfile(figdir,'surface_plot'))
+
+
 
 figure
 hold off
@@ -217,6 +366,7 @@ mask = tril(ones(size(Z)),100);
 mask = logical(mask);
 Z(~mask) = NaN;
 colormap(parula)
+figure
 imagesc(Z)
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
@@ -309,28 +459,7 @@ title('State durations')
 set(gca,'FontSize',fontsz)
 print(fullfile(figdir,'histogram'),'-djpeg')
 
-% 
-% searchlight_radius = .05;
-% mesh2keep = zeros(size(X));
-% for idx = 1:num_jobs
-%     x = ItoE(idx);
-%     y = EtoI(idx);
-%     z = outcome(idx);
-% %     sphere_voxels = logical((Y - y(1)).^2 + ...
-% %         (X - x(1)).^2 + (Z - z(1)).^2 ...
-% %         <= searchlight_radius.^2); %adds a logical
-% 
-% sphere_voxels = (Y - y(1)) <= .01 & ...
-%     (X - x(1)) <= .01 & (Z - z(1)) <= .1;
-% 
-%     mesh2keep(sphere_voxels) = 1;
-% end
-% %imagesc(mesh2keep)
-% 
-% X(~mesh2keep) = NaN;
-% Y(~mesh2keep) = NaN;
-% Z(~mesh2keep) = NaN;
-% 
+
 
 %this does grid just around the dataponts, doesn't look great tho..
 
