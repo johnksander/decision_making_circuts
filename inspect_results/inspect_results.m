@@ -3,8 +3,8 @@ clc
 format compact
 
 %result summaries
-fontsz = 16;
-trial_hists = 'on';
+fontsz = 36;
+trial_hists = 'off';
 stim_labels = {'stim A','stim B'};
 timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
 cd('/Users/ksander/Desktop/work/ACClab/rotation/project/')
@@ -82,13 +82,13 @@ fig_fn = [options.sim_name '_mean_durations'];
 print(fullfile(options.save_dir,fig_fn),'-djpeg')
 
 
-%for brownbag
+%for brownbag/CNS
 
 figure
 curr_diff = options.trial_currents(:,1) - options.trial_currents(:,2);
 for stimidx = 1:num_stims
     precision_cutoff = curr_diff <= .2;
-    plot(curr_diff(precision_cutoff),stim_duration_means(precision_cutoff,stimidx),'linewidth',3)
+    plot(curr_diff(precision_cutoff),stim_duration_means(precision_cutoff,stimidx),'linewidth',4)
     hold on 
 end
 
@@ -96,9 +96,16 @@ ylabel('Stay duration (s)','FontWeight','b')
 xlabel('Palatability difference','FontWeight','b')
 %title('State durations')
 %legend({'strong stimulus','weak stimulus'},'FontWeight','b','Location','northoutside','Orientation','horizontal')
-legend({'strong stimulus','weak stimulus'},'FontWeight','b')
+%legend({'strong stimulus','weak stimulus'},'FontWeight','b','Location','north','FontSize',fontsz-8)
+legend({'strong stimulus','weak stimulus'},'Location','north','FontSize',fontsz-8)
+legend('boxoff')
 ylim([0,1000])
-set(gca,'Fontsize',20)
+%set(gca,'Fontsize',fontsz)
+%different font sizes for axes ticks % axes labels 
+TL = cellfun(@(x) get(gca,x),{'XAxis','YAxis'},'UniformOutput',false);
+AL = cellfun(@(x) get(gca,x),{'XLabel','YLabel'},'UniformOutput',false);
+cellfun(@(x) set(x,'FontSize',fontsz),AL,'UniformOutput',false) %reset axes label first
+cellfun(@(x) set(x,'FontSize',fontsz-8),TL,'UniformOutput',false)
 box off
 orient landscape
 Xticks = num2cell(get(gca,'Xtick'));
