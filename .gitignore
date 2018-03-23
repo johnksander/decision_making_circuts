@@ -8,9 +8,5 @@
 ehthumbs.db
 Thumbs.db
 
-# big results
-/Results/fastswitch_baseline/
-/Results/fastswitch_stimulus/
-/Results/slowswitch_baseline/
-/Results/slowswitch_stimulus/
-/Results/parsweep*
+# don't repo the results anymore, make this practical...
+/Results/
