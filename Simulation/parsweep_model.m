@@ -191,8 +191,12 @@ for trialidx = 1:num_trials
         
         
         %input spikes, noise & stimulus
+        if experiment_set2go
+            stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
+        else
+            stim_spikes = 0; %let baseline test do its thing 
+        end
         ext_spikes = poissrnd(Lext,pool_options.num_cells,1); %external spikes to noise conductance
-        stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
         ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
         if options.force_back2stay
             ext_spikes = back2stay(ext_spikes,state,celltype); %if in switch state, force back to a stay state

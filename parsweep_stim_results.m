@@ -4,7 +4,8 @@ format compact
 hold off;close all
 
 rescale_plane = 'on';
-outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
+outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
+print_anything = 'no'; %'yes' | 'no';
 
 %result summaries
 fontsz = 16;
@@ -15,7 +16,7 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 %specify simulation
 %---sim setup-----------------
 sim_name = 'parsweep_stims';
-basedir = '/home/acclab/Desktop/ksander/rotation';
+basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',[sim_name '_figures']);
 resdir = fullfile(basedir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
@@ -79,9 +80,6 @@ for idx = 1:num_jobs
     result_data{idx,2} = file_data{find(curr_file,1),2};
 end
 
-need_more = cellfun(@(x) numel(x{1}),num2cell(result_data,2));
-need_more = need_more < 10000;
-
 %just grab some simple stats here
 num_states = cellfun(@(x) numel(x),result_data(:,1));
 mu_duration = cellfun(@(x) mean(x),result_data(:,1));
@@ -116,7 +114,6 @@ switch outcome_stat
 end
 
 if ~isdir(figdir),mkdir(figdir);end
-
 
 
 num_types = numel(network_pair_info);
@@ -176,10 +173,12 @@ end
 orient tall
 linkaxes(h,'x')
 axis tight
-print(fullfile(figdir,'duration_dists'),'-djpeg')
+switch print_anything
+    case 'yes'
+        print(fullfile(figdir,'duration_dists'),'-djpeg')
+end
 
-
-
+%info about simulation
 num_states = cellfun(@(x) numel(x{1}),num2cell(result_data,2));
 need_more = num_states < 10000;
 need_more = net_type(need_more);
@@ -190,36 +189,54 @@ for idx = 1:num_types
         curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),need_more,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
         if sum(curr_data) > 0
-           fprintf('\nnetwork #%i %s has < 10k states (%i)',idx,curr_net_info{j,4},current_count(curr_data))
-           fprintf('\n---parameter set:\n')
-           disp(curr_net_info(j,:))
-           fprintf('\n------------------------\n')
+            fprintf('\nnetwork #%i %s has < 10k states (%i)',idx,curr_net_info{j,4},current_count(curr_data))
+            fprintf('\n---parameter set:\n')
+            disp(curr_net_info(j,:))
+            fprintf('\n------------------------\n')
         end
         
         BLinfo = [curr_net_info(j,1:2), {0,'baseline'}];
         curr_data = cellfun(@(x) isequal(x,BLinfo),need_more,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
         if sum(curr_data) > 0
-           fprintf('\nnetwork #%i %s has < 10k states (%i)',idx,BLinfo{4},current_count(curr_data))
-           fprintf('\n---parameter set:\n')
-           disp(BLinfo)
-           fprintf('\n------------------------\n')
+            fprintf('\nnetwork #%i %s has < 10k states (%i)',idx,BLinfo{4},current_count(curr_data))
+            fprintf('\n---parameter set:\n')
+            disp(BLinfo)
+            fprintf('\n------------------------\n')
         end
         
         
     end
-        
+    
 end
 
-maxout = (150*10)+3000;
-%stims
-lol = 3002:10:maxout;
-%BL
-lol = 3001:10:maxout;
-lol = 3003:10:maxout;
-lol = 3005:10:maxout;
-lol = 3007:10:maxout;
-lol = 3009:10:maxout;
+%summary stats
+fprintf('\n------------------------\n')
+fprintf('Summary statistics\n')
+fprintf('%s:\n',Zlabel)
+fprintf('------------------------\n\n')
+%outcome = logmu_dur;
+
+for idx = 1:num_types
+    fprintf('\n------------------------\nNetwork #%i\n',idx)
+    curr_net_info = network_pair_info{idx};
+    for j = 1:2
+        fprintf('---type: %s\n',curr_net_info{j,end})
+        %find the right results for network set-up
+        curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),net_type,'UniformOutput',false);
+        curr_data = cat(1,curr_data{:});
+        fprintf('            stimulus = %.2f\n',outcome(curr_data))
+        
+        %take control data
+        BLinfo = [curr_net_info(j,1:2), {0,'baseline'}];
+        curr_data = cellfun(@(x) isequal(x,BLinfo),net_type,'UniformOutput',false);
+        curr_data = cat(1,curr_data{:});
+        fprintf('            baseline = %.2f\n',outcome(curr_data))
+
+        
+    end
+end
+keyboard
 
 %hacky code for irregular jobs
 
@@ -253,10 +270,6 @@ xlabel('net inhibition')
 set(gca,'FontSize',12)
 linkaxes([h1,h2],'xy')
 axis tight
-keyboard
-
-
-
 
 
 %inhibition scatter
@@ -305,8 +318,11 @@ xlabel('strength')
 set(gca,'FontSize',12)
 linkaxes([h1,h2],'xy')
 axis tight
-print(fullfile(figdir,'net_inhib_scatter'),'-djpeg')
-keyboard
+switch print_anything
+    case 'yes'
+        print(fullfile(figdir,'net_inhib_scatter'),'-djpeg')
+end
+
 
 
 %surface plot
@@ -384,8 +400,10 @@ colb = colorbar;
 colb.Label.String = Zlabel;
 colb.FontSize = 16;
 set(gca,'FontSize',fontsz)
-print(fullfile(figdir,'heatmap'),'-djpeg')
-
+switch print_anything
+    case 'yes'
+        print(fullfile(figdir,'heatmap'),'-djpeg')
+end
 
 % %this is okay.....
 % sz = linspace(25,400,num_jobs);
@@ -432,8 +450,10 @@ title('State durations')
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
 set(gca,'FontSize',fontsz)
-print(fullfile(figdir,'contour'),'-djpeg')
-
+switch print_anything
+    case 'yes'
+        print(fullfile(figdir,'contour'),'-djpeg')
+end
 
 %this 3D contour plot is really good actually
 H = figure;
@@ -447,8 +467,10 @@ xlabel('I-to-E strength')
 ylabel('E-to-I strength')
 zlabel(Zlabel)
 set(gca,'FontSize',fontsz)
-savefig(H,fullfile(figdir,'contour3D_plot'),'compact')
-
+switch print_anything
+    case 'yes'
+        savefig(H,fullfile(figdir,'contour3D_plot'),'compact')
+end
 
 hold off
 figure
@@ -457,8 +479,10 @@ ylabel('frequency')
 xlabel(Zlabel)
 title('State durations')
 set(gca,'FontSize',fontsz)
-print(fullfile(figdir,'histogram'),'-djpeg')
-
+switch print_anything
+    case 'yes'
+        print(fullfile(figdir,'histogram'),'-djpeg')
+end
 
 
 %this does grid just around the dataponts, doesn't look great tho..

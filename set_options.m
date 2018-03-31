@@ -1,9 +1,12 @@
 function options = set_options(config_options)
 %basic options template
 
-location = 'bender';
+location = 'hpc';
 
 switch location
+    case 'woodstock'
+        basedir = '/home/acclab/Desktop/ksander/rotation/project';
+        options.rand_info = 'shuffle';
     case 'lab_desk'
         basedir = 'C:\Users\jksander.000\Desktop\rotation\project';
         options.rand_info = 'shuffle';
@@ -60,33 +63,8 @@ if strcmp(options.modeltype,'PS_stim')
     %-----set network params-----
     do_config = mod(options.jobID,10);
     options.EtoE = .0405; %fixed
-    switch do_config
-        case 1
-            options.ItoE = 1.2904; options.EtoI = 0.1948; Rstim = 75; options.stim_targs = 'Eswitch';
-        case 2
-            options.ItoE = 1.2877; options.EtoI =  0.1734; Rstim = 100; options.stim_targs = 'Estay';
-        case 3
-            options.ItoE = 0.8069; options.EtoI = 0.2067; Rstim = 49.7632; options.stim_targs = 'Eswitch';
-        case 4
-            options.ItoE = 0.7936; options.EtoI = 0.1878; Rstim = 59.2903; options.stim_targs = 'Estay';
-        case 5
-            options.ItoE = 0.3679; options.EtoI = 0.2737; Rstim = 30.0436; options.stim_targs = 'Eswitch';
-        case 6
-            options.ItoE = 0.3161; options.EtoI = 0.2482; Rstim = 175; options.stim_targs = 'Estay';
-        case 7
-            options.ItoE = 0.2800; options.EtoI = 0.4228; Rstim = 47.0955; options.stim_targs = 'Eswitch';
-        case 8
-            options.ItoE = 0.2355; options.EtoI = 0.4250; Rstim = 175; options.stim_targs = 'Estay';
-        case 9
-            options.ItoE = 0.2921; options.EtoI = 0.6927; Rstim = 45; options.stim_targs = 'Eswitch';
-        case 0
-            options.ItoE = 0.2119; options.EtoI = 0.6799; Rstim = 175; options.stim_targs = 'Estay';
-        otherwise
-            error('config disaser')
-            
-    end
-    options.trial_stimuli = [Rstim,Rstim];
-    
+    %pull ItoE, EtoI, Rstim, and stim cell targets for network ID 
+    options = get_network_params(do_config,options); 
 end
 
 %trial simulation time
@@ -118,7 +96,7 @@ else
     options.init_check_tmax = .9; %pulse must keep steady state for (s)
 end
 
-if ~strcmp(options.modeltype,'JK')
+if ~strcmp(options.modeltype,'JK') %don't run this block for outdated jobs 
     update_logfile('initializing job params...',options.output_log)
     update_logfile(sprintf('tmax = %i',options.tmax),options.output_log)
     update_logfile(sprintf('force back2stay = %s',string(options.force_back2stay)),options.output_log)
@@ -134,7 +112,8 @@ if ~strcmp(options.modeltype,'JK')
     update_logfile(sprintf('---EtoE = %.3f',options.EtoE),options.output_log)
     update_logfile(sprintf('---ItoE = %.3f',options.ItoE),options.output_log)
     update_logfile(sprintf('---EtoI = %.3f',options.EtoI),options.output_log)
-    
+    update_logfile(sprintf('---trial stimuli = %.1f Hz, %.1f Hz',options.trial_stimuli),options.output_log)
+
     update_logfile('--------------------------',options.output_log)
     
 end
