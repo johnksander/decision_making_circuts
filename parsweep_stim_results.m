@@ -5,7 +5,7 @@ hold off;close all
 
 rescale_plane = 'on';
 outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
-print_anything = 'no'; %'yes' | 'no';
+print_anything = 'yes'; %'yes' | 'no';
 
 %result summaries
 fontsz = 16;
@@ -15,11 +15,15 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 
 %specify simulation
 %---sim setup-----------------
+run_num = 3; %for seperate figure directories & restricting file loading 
 sim_name = 'parsweep_stims';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
+addpath(fullfile(basedir,'helper_functions'))
 figdir = fullfile(basedir,'Results',[sim_name '_figures']);
+figdir = fullfile(figdir,sprintf('run%i_figs',run_num));
 resdir = fullfile(basedir,'Results',sim_name);
-output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
+output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+%output_fns = dir(fullfile(resdir,sprintf('*%s*run%i*.mat',sim_name,run_num)));
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 BL_fns = dir(fullfile([resdir '_BL'],['*',sim_name,'*.mat']));
 BL_fns = cellfun(@(x,y) fullfile(x,y),{BL_fns.folder},{BL_fns.name},'UniformOutput',false);
@@ -27,8 +31,22 @@ output_fns = cat(2,BL_fns,output_fns);
 
 num_files = numel(output_fns);
 stimtarg_vals = {'baseline','Estay','Eswitch'}; %this is dumb
-network_pair_info = load(fullfile(basedir,'helper_functions','network_pairs'));
-network_pair_info = network_pair_info.network_pairs;
+%this file was being created "by hand" with parsweep_find_examples
+%network_pair_info = load(fullfile(basedir,'helper_functions','network_pairs'));
+%network_pair_info = network_pair_info.network_pairs;
+%take this stuff directly from get_network_params()
+%look in get_network_params() for this NPjobs, 0 is the last one paired w/ 9.. 
+NPjobs = cat(1,[1:2:9],[2:2:9,0])'; %u-g-l-y
+network_pair_info = cell(size(NPjobs,1),1);
+for idx = 1:numel(NPjobs)/2
+   CP = num2cell(NPjobs(idx,:))';
+   CP = cellfun(@(x,y) {get_network_params(x,y)}, CP,repmat({struct()},2,1));
+   CP = cellfun(@(x) {x.ItoE,x.EtoI,unique(x.trial_stimuli),x.stim_targs},...
+       CP,'UniformOutput',false);
+   network_pair_info{idx} = cat(1,CP{:});
+end
+
+%this code is holdover from when it was loaded.. also dumb. 
 network_pair_info = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Estay','fast')],...
     network_pair_info,'UniformOutput',false);
 network_pair_info = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Eswitch','slow')],...
@@ -115,6 +133,10 @@ end
 
 if ~isdir(figdir),mkdir(figdir);end
 
+matblue = [0,0.4470,0.7410];
+matorange = [0.8500,0.3250,0.0980];
+BLcol = [103 115 122] ./ 255;
+alph = .5;
 
 num_types = numel(network_pair_info);
 plt_idx = 0;
@@ -126,16 +148,27 @@ for idx = 1:num_types
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(5,2,plt_idx);
         hold on
+        
+        
+        %get the right color
+        if strcmpi(curr_net_info{j,end},'slow')
+            lcol = matorange;
+        elseif strcmpi(curr_net_info{j,end},'fast')
+            lcol = matblue;
+        end
+        
         %find the right results for network set-up
         curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),net_type,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
         curr_data = cell2mat(result_data(curr_data,1));
+                
         if ~isempty(curr_data) %skip plot if no data...
             switch outcome_stat
                 case 'logmu'
                     curr_data = log(curr_data);
                     [kde,kde_i] = ksdensity(curr_data);
-                    plot(kde_i,kde,'LineWidth',2);
+                    %plot(kde_i,kde,'LineWidth',2);
+                    area(kde_i,kde,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);  
                 case 'mu'
                     histogram(curr_data)
             end
@@ -150,13 +183,14 @@ for idx = 1:num_types
                 case 'logmu'
                     curr_data = log(curr_data);
                     [kde,kde_i] = ksdensity(curr_data);
-                    plot(kde_i,kde,'LineWidth',2);
+                    %plot(kde_i,kde,'LineWidth',2);
+                    area(kde_i,kde,'FaceColor',BLcol,'EdgeColor',BLcol,'FaceAlpha',alph);
                 case 'mu'
                     histogram(curr_data)
             end
         end
         hold off
-        legend(sprintf('%.0fHz',curr_net_info{j,3}))
+        legend(sprintf('%.0fHz',curr_net_info{j,3}),'location','best')
         
         if plt_idx == 9 || plt_idx == 10
             xlabel(Zlabel)
@@ -167,7 +201,7 @@ for idx = 1:num_types
         if mod(plt_idx,2) == 1
             ylabel(sprintf('network #%i p(x)',idx))
         end
-        
+          
     end
 end
 orient tall
@@ -220,21 +254,34 @@ fprintf('------------------------\n\n')
 for idx = 1:num_types
     fprintf('\n------------------------\nNetwork #%i\n',idx)
     curr_net_info = network_pair_info{idx};
+    Xstim = cell(2,1); %for testing difference between stim distributions
     for j = 1:2
         fprintf('---type: %s\n',curr_net_info{j,end})
         %find the right results for network set-up
         curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),net_type,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
+        Xstim{j} = result_data{curr_data,1};
         fprintf('            stimulus = %.2f\n',outcome(curr_data))
         
         %take control data
         BLinfo = [curr_net_info(j,1:2), {0,'baseline'}];
         curr_data = cellfun(@(x) isequal(x,BLinfo),net_type,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
-        fprintf('            baseline = %.2f\n',outcome(curr_data))
-
-        
+        fprintf('            baseline = %.2f\n',outcome(curr_data))  
     end
+    
+    fprintf('\n---hyp. test: mu stim durrations\n')
+    switch outcome_stat
+        case 'logmu'
+            Xstim = cellfun(@log,Xstim,'UniformOutput',false);
+    end
+    %[~,pval] = ttest2(Xstim{1},Xstim{2}) %regular old t-test
+    fprintf('t-test p = %.3f\n',pval)
+    [CI,H] = boot_mean_diffs(Xstim{1},Xstim{2},10000);
+    fprintf('bootstrap test: %s\n',H)
+    fprintf('bootstrap CI: %.2f, %.2f\n',CI)
+    
+    
 end
 keyboard
 

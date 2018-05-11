@@ -66,6 +66,7 @@ sortrows(data(showme,:),3)
 
 %make this into a data structure...
 
+%original --------------------
 network_pairs = cell(5,1);
 %...
 network_pairs{1} = [{1.2904, 0.1948, 75, 'Eswitch'};
@@ -82,9 +83,27 @@ network_pairs{4} = [{0.2800, 0.4228, 47.0955, 'Eswitch'};
 
 network_pairs{5} =  [{0.2921, 0.6927, 45, 'Eswitch'};
     {0.2119, 0.6799, 175, 'Estay'}];
+%end originial --------------------
+
+%now trying to equate------------------
+%03212018: I'm just halfing each E-switch stim 
+network_pairs{1} = [{1.2904, 0.1948, 75/2, 'Eswitch'};
+    {1.2877,  0.1734, 100, 'Estay'}];
+
+network_pairs{2} = [{0.8069, 0.2067, 49.7632/2, 'Eswitch'};
+    {0.7936, 0.1878, 59.2903, 'Estay'}];
+
+network_pairs{3} = [{0.3679, 0.2737, 30.0436/2, 'Eswitch'};
+    {0.3161, 0.2482, 175, 'Estay'}];
+
+network_pairs{4} = [{0.2800, 0.4228, 47.0955/2, 'Eswitch'};
+    {0.2355, 0.4250, 175, 'Estay'}];
+
+network_pairs{5} =  [{0.2921, 0.6927, 45/2, 'Eswitch'};
+    {0.2119, 0.6799, 175, 'Estay'}];
 
 
-
+%---------------------------------------
 durations = cell(5,1);
 %...
 durations{1} = [{143.4682};

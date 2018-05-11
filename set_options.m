@@ -1,7 +1,7 @@
 function options = set_options(config_options)
 %basic options template
 
-location = 'hpc';
+location = 'woodstock';
 
 switch location
     case 'woodstock'
