@@ -19,16 +19,22 @@ output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestr
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 if ~isdir(fig_dir),mkdir(fig_dir);end
 fig_name = 'combfig';
-print_anything = 'yes';
-fig_fn = 'switching_timecourse';
-%fig_fn = 'preswitch_timecourse';
+Tcourse = 'preswitch'; %'preswitch' | 'all'
+print_anything = 'no';
+zoomed_fig = 'no'; %ignore I-stay spiking for Y limits
+
+switch Tcourse
+    case 'preswitch'
+        fig_fn = 'preswitch_timecourse';
+        preswitch_plottime = 105e-3; %preswitch duration to plot (T0-X)
+        postswitch_plottime = -5e-3; %postwitch duration to plot (T+X)
+    case 'all'
+        fig_fn = 'switching_timecourse';
+        preswitch_plottime = 250e-3; %preswitch duration to plot (T0-X)
+        postswitch_plottime = 150e-3; %postwitch duration to plot (T+X)
+end
 
 recorded_switchtime =  250e-3; %actual switchtime in recorded switch
-preswitch_plottime = 250e-3; %preswitch duration to plot (T0-X)
-postswitch_plottime = 150e-3; %postwitch duration to plot (T+X)
-%preswitch_plottime = 105e-3; %preswitch duration to plot (T0-X)
-%postswitch_plottime = -5e-3; %postwitch duration to plot (T+X)
-
 timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
 
 %result summaries
@@ -68,28 +74,29 @@ Psets = num2cell(cat(1,network_pair_info{:}),2);
 result_data = num2cell(zeros(size(Psets)));
 switch_counts = zeros(size(result_data));
 
-for idx = 1:num_files
-    if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
-    curr_file = load(output_fns{idx});
-    %find parameter set
-    p = curr_file.options;
-    p = {p.ItoE,p.EtoI,unique(p.trial_stimuli),p.stim_targs};
-    p = cellfun(@(x) isequal(x,p),Psets); %index
-    %file data
-    fdata = curr_file.sim_results{2};
-    switch_counts(p) = switch_counts(p) + size(fdata,3); %keep track of how many timecourses
-    fdata = sum(fdata,3); %sum over the switches from this file
-    %add to the rest of them
-    result_data{p} = result_data{p} + fdata;
-end
-%very quickly check for guys that don't have many observations
-for idx = 1:numel(switch_counts)
-    if switch_counts(idx) < 10000
-        fprintf('\nnetwork:\n--- [ItoE: %.2f] [EtoI: %.2f] [stim: %.2f hz] [%s]\nhas < 10k states (%i)\n',...
-            Psets{idx}{:},switch_counts(idx))
-    end
-end
-save('checkpoint','result_data','switch_counts')
+% for idx = 1:num_files
+%     if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
+%     curr_file = load(output_fns{idx});
+%     %find parameter set
+%     p = curr_file.options;
+%     p = {p.ItoE,p.EtoI,unique(p.trial_stimuli),p.stim_targs};
+%     p = cellfun(@(x) isequal(x,p),Psets); %index
+%     %file data
+%     fdata = curr_file.sim_results{2};
+%     switch_counts(p) = switch_counts(p) + size(fdata,3); %keep track of how many timecourses
+%     fdata = sum(fdata,3); %sum over the switches from this file
+%     %add to the rest of them
+%     result_data{p} = result_data{p} + fdata;
+% end
+% %very quickly check for guys that don't have many observations
+% for idx = 1:numel(switch_counts)
+%     if switch_counts(idx) < 10000
+%         fprintf('\nnetwork:\n--- [ItoE: %.2f] [EtoI: %.2f] [stim: %.2f hz] [%s]\nhas < 10k states (%i)\n',...
+%             Psets{idx}{:},switch_counts(idx))
+%     end
+% end
+%save('checkpoint','result_data','switch_counts')
+load('checkpoint.mat')
 
 %now divide the summed spike timecourses 
 switch_counts = num2cell(switch_counts);
@@ -168,35 +175,130 @@ for idx = 1:num_types
             title(sprintf('%s networks',Nspeed),'Fontsize',14)
         end
         if mod(plt_idx,2) == 1
-            ylabel(sprintf('net #%i spikerate',idx))
+            ylabel(sprintf('net #%i spiking (hz)',idx))
         end
           
     end
 end
 orient tall
+
+switch zoomed_fig
+    case 'yes'
+        %zoom in better
+        Yl = arrayfun(@(x) x.Children,h,'UniformOutput',false);
+        %skip legend & I-stay
+        Yl = cellfun(@(x) x([2,4,5]),Yl,'UniformOutput',false);
+        Yl = cellfun(@(x) cat(1,x(:).YData),Yl,'UniformOutput',false);
+        Yl = cellfun(@(x) max(x(:)),Yl);
+        arrayfun(@(x,y) ylim(x,[0,y]),h,Yl,'UniformOutput',false);
+        fig_fn = [fig_fn '_zoomed'];
+    case 'no'
+        axis tight
+end
+
 linkaxes(h,'x')
-axis tight
 switch print_anything
     case 'yes'
         print(fullfile(fig_dir,fig_fn),'-djpeg','-r300')
 end
-
 
 close all;hold off
 %print a legend seperately
 
 %plot the aggregated timecourses
 hold on
-plot(NaN,'Linewidth',lnsz)
-plot(NaN,'Linewidth',lnsz)
-plot(NaN,'Linewidth',lnsz)
-plot(NaN,'Linewidth',lnsz)
+for idx = 1:numel(legend_labels)
+    tr_col(idx) = plot(NaN,'Linewidth',lnsz);
+end
 hold off
 legend(legend_labels)
 switch print_anything
     case 'yes'
         print(fullfile(fig_dir,sprintf('%s_legend',fig_fn)),'-djpeg','-r300')
 end
+
+%save the line colors for below 
+tr_col = arrayfun(@(x) x.Color,tr_col,'UniformOutput',false);
+        
+%do the like... crossing time plot 
+close all;hold off
+
+
+plt_idx = 0;
+for idx = 1:num_types
+    
+    curr_net_info = network_pair_info{idx};
+    for j = 1:2
+        
+        plt_idx = plt_idx + 1;
+        h(plt_idx) = subplot(5,2,plt_idx);
+        
+        %get the right color
+        if strcmpi(curr_net_info{j,end},'Eswitch')
+            Nspeed = 'slow';
+            lcol = orange;
+        elseif strcmpi(curr_net_info{j,end},'Estay')
+            Nspeed = 'fast';
+            lcol = matblue;
+        end
+
+        %find the right results for network set-up
+        curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),Psets,'UniformOutput',false);
+        curr_data = cat(1,curr_data{:});
+        curr_data = result_data{curr_data};
+                
+        %plot by celltype
+        
+        %normal people indexing that makes sense, then take the mean 
+        Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
+        Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
+        Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
+        Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
+        
+        %now find the crossover times
+        all_groups = [Estay;Eswitch;Istay;Iswitch];%use legend labels as ref if you get confused
+        Cpoints = find_crossover_points(all_groups);
+        hold on
+        for Cidx = 1:numel(Cpoints)
+            my_color = tr_col{Cidx};
+            Cp = Cpoints{Cidx};
+            head_up = cellfun(@(x) strcmp(x{3},'up'),Cp);
+            Cp(head_up) = cellfun(@(x) {x{1},x{2}+.1,'^'},Cp(head_up),'UniformOutput',false);
+            Cp(~head_up) = cellfun(@(x) {x{1},x{2}-.1,'v'},Cp(~head_up),'UniformOutput',false);
+%             Cp = cellfun(@(x) [x(1:2),{strrep(x{3},'down','v')}],Cp,'UniformOutput',false);
+%             Cp = cellfun(@(x) [x(1:2),{strrep(x{3},'up','^')}],Cp,'UniformOutput',false);
+            cellfun(@(x) scatter(x{1},x{2},100,my_color,x{3},'Filled'),Cp)
+            
+        end
+        
+        l = plot(NaN,'Color',lcol,'LineWidth',lnsz); %for legend
+        
+        hold off
+        Xlim_max = numel(curr_data(1,:));
+        set(gca,'XLim',[0 Xlim_max]);
+        Xticks = num2cell(get(gca,'Xtick'));
+        %Xticks = Xticks(2:2:end-1);
+        if numel(Xticks) > 5,Xticks = Xticks(1:2:numel(Xticks)); end %for crowded axes
+        Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
+        set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
+        legend(l,sprintf('%.0fHz',curr_net_info{j,3}),'location','best')
+        
+        if plt_idx == 9 || plt_idx == 10
+            xlabel('Leave decision (ms)')
+        end
+        if plt_idx == 1 || plt_idx == 2
+            title(sprintf('%s networks',Nspeed),'Fontsize',14)
+        end
+        if mod(plt_idx,2) == 1
+            ylabel(sprintf('net #%i spiking (hz)',idx))
+        end
+          
+    end
+end
+
+
+
+
 
 
 
