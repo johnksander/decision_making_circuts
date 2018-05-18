@@ -20,7 +20,7 @@ output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},
 if ~isdir(fig_dir),mkdir(fig_dir);end
 fig_name = 'combfig';
 Tcourse = 'preswitch'; %'preswitch' | 'all'
-print_anything = 'no';
+print_anything = 'yes';
 zoomed_fig = 'no'; %ignore I-stay spiking for Y limits
 
 switch Tcourse
@@ -258,17 +258,20 @@ for idx = 1:num_types
         %now find the crossover times
         all_groups = [Estay;Eswitch;Istay;Iswitch];%use legend labels as ref if you get confused
         Cpoints = find_crossover_points(all_groups);
+        Yscale = cell2mat(Cpoints(:,2));
+        Yscale = range(Yscale)*.05;
         hold on
-        for Cidx = 1:numel(Cpoints)
-            my_color = tr_col{Cidx};
-            Cp = Cpoints{Cidx};
-            head_up = cellfun(@(x) strcmp(x{3},'up'),Cp);
-            Cp(head_up) = cellfun(@(x) {x{1},x{2}+.1,'^'},Cp(head_up),'UniformOutput',false);
-            Cp(~head_up) = cellfun(@(x) {x{1},x{2}-.1,'v'},Cp(~head_up),'UniformOutput',false);
-%             Cp = cellfun(@(x) [x(1:2),{strrep(x{3},'down','v')}],Cp,'UniformOutput',false);
-%             Cp = cellfun(@(x) [x(1:2),{strrep(x{3},'up','^')}],Cp,'UniformOutput',false);
-            cellfun(@(x) scatter(x{1},x{2},100,my_color,x{3},'Filled'),Cp)
-            
+        for Cidx = 1:numel(Cpoints(:,1))
+            %my_color = tr_col{Cidx};
+            Cp = Cpoints(Cidx,:); 
+            %find the traces intersecting & which way they're going
+            up_trace = cellfun(@(x) strcmp(x,'up'),Cp);
+            up_trace = Cp{find(up_trace)-1};
+            down_trace = cellfun(@(x) strcmp(x,'down'),Cp);
+            down_trace = Cp{find(down_trace)-1};
+            %plot in their respective colors 
+            scatter(Cp{1},Cp{2}+Yscale,100,tr_col{up_trace},'^','Filled')
+            scatter(Cp{1},Cp{2}-Yscale,100,tr_col{down_trace},'v','Filled')
         end
         
         l = plot(NaN,'Color',lcol,'LineWidth',lnsz); %for legend
@@ -295,10 +298,30 @@ for idx = 1:num_types
           
     end
 end
+orient tall
+int_fig_fn = [fig_fn '_xover'];
 
+switch zoomed_fig
+    case 'yes'
+        %zoom in better
+        Yl = arrayfun(@(x) x.Children,h,'UniformOutput',false);
+        %skip legend & I-stay
+        Yl = cellfun(@(x) x([2,4,5]),Yl,'UniformOutput',false);
+        Yl = cellfun(@(x) cat(1,x(:).YData),Yl,'UniformOutput',false);
+        Yl = cellfun(@(x) max(x(:)),Yl);
+        arrayfun(@(x,y) ylim(x,[0,y]),h,Yl,'UniformOutput',false);
+        int_fig_fn = [int_fig_fn '_zoomed'];
+    case 'no'
+        axis tight
+end
 
+linkaxes(h,'x')
+switch print_anything
+    case 'yes'
+        print(fullfile(fig_dir,int_fig_fn),'-djpeg','-r300')
+end
 
-
+close all;hold off
 
 
 
