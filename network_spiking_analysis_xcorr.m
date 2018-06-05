@@ -8,7 +8,7 @@ format compact
 %NOTE: this script requires 2017a. Local function below.
 %home_dir = '/Users/ksander/Desktop/work/ACClab/rotation/project';
 sim_name = 'network_spiking';
-name4plots = 'combfig'; %added to basic fig directory, distingish different timecourse plots etc
+name4plots = 'Xcorr'; %added to basic fig directory, distingish different timecourse plots etc
 home_dir = '~/Desktop/ksander/rotation/project';
 addpath(home_dir)
 addpath(fullfile(home_dir,'helper_functions'))
@@ -17,11 +17,12 @@ fig_dir = fullfile(fig_dir,name4plots);
 resdir = fullfile(home_dir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
-fig_name = 'combfig';
-Tcourse = 'presw250to5'; %'preswitch' | 'all' |presw250to5
-treat_data = 'none'; % zscore | base0 | minmax
+
+Xcor_method = 'coeff';
+Tcourse = 'preswitch'; %'preswitch' | 'all'
+treat_data = 'minmax'; % zscore | base0 | minmax
 print_anything = 'yes';
-zoomed_fig = 'yes'; %ignore I-stay spiking for Y limits
+zoomed_fig = 'no'; %ignore I-stay spiking for Y limits
 
 
 switch treat_data
@@ -44,10 +45,6 @@ switch Tcourse
         fig_fn = 'switching_timecourse';
         preswitch_plottime = 250e-3; %preswitch duration to plot (T0-X)
         postswitch_plottime = 150e-3; %postwitch duration to plot (T+X)
-    case 'presw250to5'
-        fig_fn = 'presw250to5';
-        preswitch_plottime = 250e-3; %preswitch duration to plot (T0-X)
-        postswitch_plottime = -5e-3; %postwitch duration to plot (T+
 end
 
 recorded_switchtime =  250e-3; %actual switchtime in recorded switch
@@ -55,7 +52,7 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 
 %result summaries
 fontsz = 30;
-lnsz = 3; %spikerate plots 
+lnsz = 3; %spikerate plots
 orange = [250 70 22]./255;
 matblue = [0,0.4470,0.7410];
 legend_labels = {'E-stay','E-switch','I-stay','I-switch'};
@@ -70,15 +67,15 @@ celltype = celltype_logicals(pool_options);
 
 
 %replace with like... "network types"
-%look in get_network_params() for this NPjobs, 0 is the last one paired w/ 9.. 
+%look in get_network_params() for this NPjobs, 0 is the last one paired w/ 9..
 NPjobs = cat(1,[1:2:9],[2:2:9,0])'; %u-g-l-y
 network_pair_info = cell(size(NPjobs,1),1);
 for idx = 1:numel(NPjobs)/2
-   CP = num2cell(NPjobs(idx,:))';
-   CP = cellfun(@(x,y) {get_network_params(x,y)}, CP,repmat({struct()},2,1));
-   CP = cellfun(@(x) {x.ItoE,x.EtoI,unique(x.trial_stimuli),x.stim_targs},...
-       CP,'UniformOutput',false);
-   network_pair_info{idx} = cat(1,CP{:});
+    CP = num2cell(NPjobs(idx,:))';
+    CP = cellfun(@(x,y) {get_network_params(x,y)}, CP,repmat({struct()},2,1));
+    CP = cellfun(@(x) {x.ItoE,x.EtoI,unique(x.trial_stimuli),x.stim_targs},...
+        CP,'UniformOutput',false);
+    network_pair_info{idx} = cat(1,CP{:});
 end
 
 %get results & sort into network type
@@ -114,25 +111,23 @@ switch_counts = zeros(size(result_data));
 %save('checkpoint','result_data','switch_counts')
 load('checkpoint.mat')
 
-%now divide the summed spike timecourses 
+%now divide the summed spike timecourses
 switch_counts = num2cell(switch_counts);
 result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
 result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput',false);
 
-figIDs = 'spikes';
-legloc = 'west';
-switch treat_data
-    case 'zscore'
-        Yax_labs = 'Z spiking';
-    case 'base0'
-        Yax_labs = 'rate - min (Hz)';
-    case 'minmax'
-        Yax_labs = 'spiking 0-1';
-    otherwise 
-        Yax_labs = 'spiking (Hz)';
-end
+% switch treat_data
+%     case 'zscore'
+%         Yax_labs = 'Z spiking';
+%     case 'base0'
+%         Yax_labs = 'rate - min (Hz)';
+%     case 'minmax'
+%         Yax_labs = 'spiking 0-1';
+%     otherwise
+%         Yax_labs = 'spiking (Hz)';
+% end
 
-
+title_lab = 'E-stay * E-switch';
 
 %only plot -Xms to +Xms
 recorded_switchtime = recorded_switchtime/timestep; %actual switchtime in recorded switch
@@ -156,14 +151,17 @@ switch treat_data
         result_data = cellfun(@(x,y,z) bsxfun(@rdivide,x,z-y),result_data,Xmin,Xmax,'UniformOutput',false);
 end
 
-plt_idx = 0;
+%nah, this time overlap the plots--- so it's 5x1 subplot
+
+%plt_idx = 0;
 for idx = 1:num_types
-    
+    h(idx) = subplot(5,1,idx);
     curr_net_info = network_pair_info{idx};
+    hold on
     for j = 1:2
         
-        plt_idx = plt_idx + 1;
-        h(plt_idx) = subplot(5,2,plt_idx);
+        %plt_idx = plt_idx + 1;
+        %h(plt_idx) = subplot(5,2,plt_idx);
         
         %get the right color
         if strcmpi(curr_net_info{j,end},'Eswitch')
@@ -173,53 +171,53 @@ for idx = 1:num_types
             Nspeed = 'fast';
             lcol = matblue;
         end
-
+        
         %find the right results for network set-up
         curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),Psets,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
         curr_data = result_data{curr_data};
-                
+        
         %plot by celltype
         
-        %normal people indexing that makes sense, then take the mean 
+        %normal people indexing that makes sense, then take the mean
         Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
         Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
         Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
         Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
         
+        %find the Xcorrs between excit pools
+        %[Xr,laginds] = xcorr(Estay,Eswitch,Xcor_method); %do Xcorr\
+        %[Xr,laginds] = xcorr(Istay,Eswitch,Xcor_method); %do Xcorr
+        %[Xr,laginds] = xcorr(Iswitch,Eswitch,Xcor_method); %do Xcorr
         
-        %plot the aggregated timecourses
-        hold on
-        plot(Estay,'Linewidth',lnsz)
-        plot(Eswitch,'Linewidth',lnsz)
-        plot(Istay,'Linewidth',lnsz)
-        plot(Iswitch,'Linewidth',lnsz)
-        l = plot(NaN,'Color',lcol,'LineWidth',lnsz); %for legend
+        %these two look the most different honestly 
+        %[Xr,laginds] = xcorr(Istay,Eswitch,Xcor_method); %do Xcorr
+        %[Xr,laginds] = xcorr(Iswitch,Eswitch,Xcor_method); %do Xcorr
+
         
-        hold off
-        Xlim_max = numel(curr_data(1,:));
-        set(gca,'XLim',[0 Xlim_max]);
-        Xticks = num2cell(get(gca,'Xtick'));
-        %Xticks = Xticks(2:2:end-1);
-        if numel(Xticks) > 5,Xticks = Xticks(1:2:numel(Xticks)); end %for crowded axes
-        Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
-        set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
-        legend(l,sprintf('%.0fHz',curr_net_info{j,3}),'location','best')
-        
-        if plt_idx == 9 || plt_idx == 10
-            xlabel('Leave decision (ms)')
-        end
-        if plt_idx == 1 || plt_idx == 2
-            title(sprintf('%s networks',Nspeed),'Fontsize',14)
-        end
-        if mod(plt_idx,2) == 1
-            ylabel(sprintf('net #%i %s',idx,Yax_labs))
-        end
-          
+        plot(laginds,Xr,'Linewidth',2,'color',lcol);
     end
+    %set(gca,'XLim',[min(laginds)-1 max(laginds)+1]);
+    Xticks = num2cell(get(gca,'Xtick'));
+    Xlabs = cellfun(@(x) sprintf('%+i',round((x*timestep)/1e-3)),Xticks,'UniformOutput', false); %this is for normal stuff
+    set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
+    leg_info = curr_net_info(:,end)';
+    leg_info = strrep(leg_info,'Eswitch','slow');
+    leg_info = strrep(leg_info,'Estay','fast');
+    legend(leg_info,'location','best')
+    hold off
+    if idx == num_types
+        xlabel('E-switch lag offset (ms)')
+    end
+    if idx == 1
+        title(title_lab,'Fontsize',14)
+    end
+    ylabel(sprintf('net #%i %s',idx))
+    
+    
 end
 orient tall
-
+keyboard
 switch zoomed_fig
     case 'yes'
         %zoom in better
@@ -255,10 +253,10 @@ switch print_anything
         print(fullfile(fig_dir,sprintf('%s_legend',fig_fn)),'-djpeg','-r300')
 end
 
-%save the line colors for below 
+%save the line colors for below
 tr_col = arrayfun(@(x) x.Color,tr_col,'UniformOutput',false);
-        
-%do the like... crossing time plot 
+
+%do the like... crossing time plot
 close all;hold off
 
 
@@ -279,15 +277,15 @@ for idx = 1:num_types
             Nspeed = 'fast';
             lcol = matblue;
         end
-
+        
         %find the right results for network set-up
         curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),Psets,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
         curr_data = result_data{curr_data};
-                
+        
         %plot by celltype
         
-        %normal people indexing that makes sense, then take the mean 
+        %normal people indexing that makes sense, then take the mean
         Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
         Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
         Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
@@ -301,13 +299,13 @@ for idx = 1:num_types
         hold on
         for Cidx = 1:numel(Cpoints(:,1))
             %my_color = tr_col{Cidx};
-            Cp = Cpoints(Cidx,:); 
+            Cp = Cpoints(Cidx,:);
             %find the traces intersecting & which way they're going
             up_trace = cellfun(@(x) strcmp(x,'up'),Cp);
             down_trace = cellfun(@(x) strcmp(x,'down'),Cp);
             
             if sum(up_trace) == 0 && sum(down_trace) == 0 %they didn't really cross...
-                scatter(Cp{1},Cp{2}+Yscale,100,tr_col{Cp{3}},'Filled') %just plot 'em 
+                scatter(Cp{1},Cp{2}+Yscale,100,tr_col{Cp{3}},'Filled') %just plot 'em
                 scatter(Cp{1},Cp{2}-Yscale,100,tr_col{Cp{5}},'Filled')
             else
                 up_trace = Cp{find(up_trace)-1};
@@ -337,9 +335,9 @@ for idx = 1:num_types
             title(sprintf('%s networks',Nspeed),'Fontsize',14)
         end
         if mod(plt_idx,2) == 1
-            ylabel(sprintf('net #%i %s',idx,Yax_labs))
+            ylabel(sprintf('net #%i %s',idx,title_lab))
         end
-          
+        
     end
 end
 orient tall

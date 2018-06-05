@@ -21,6 +21,7 @@ for i = 1:Ntraces
             Jtrace = data(j,:);
             Cx = intersections(T,trace_data,T,Jtrace);
             Cx = round(Cx); %crossover time
+            Cx(Cx == max(T)) = max(T)-1; %don't let it be last timepoint for heading calc
             Cy = trace_data(Cx)'; %Y coordinate
             num_ints = numel(Cx);
             %find directionality by just comapring Cx+1
