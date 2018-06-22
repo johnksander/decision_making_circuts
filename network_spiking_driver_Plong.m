@@ -8,11 +8,11 @@ format compact
 %my model 
 %---setup---------------------
 config_options.modeltype = 'PS_stim';
-config_options.sim_name = 'network_spiking_Pshort';
+config_options.sim_name = 'network_spiking_Plong';
 config_options.jobID = str2num(getenv('SGE_TASK_ID'));
 config_options.tmax = 755; %trial simulation time (s) 
 config_options.force_back2stay = true;
-config_options.stim_pulse = [1, 1]; %on, off (s) 
+config_options.stim_pulse = [1, 10]; %on, off (s) 
 options = set_options(config_options);
 %---stimulus & network---------
 

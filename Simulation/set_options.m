@@ -82,6 +82,14 @@ else
     options.force_back2stay = false;
 end
 
+%pulse stimulus delivery (more realistic licking) 
+if isfield(config_options,'stim_pulse')
+    options.stim_pulse = config_options.stim_pulse; %format is [on, off] in seconds. 
+    %options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI
+else 
+    options.stim_pulse = [NaN, NaN]; 
+end
+
 %pulse for checking bistability @ sim outset
 if isfield(config_options,'init_check_Rext')
     options.init_check_Rext = config_options.init_check_Rext;

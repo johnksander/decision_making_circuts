@@ -2,10 +2,10 @@ function [state,durations] = test4switch(Sg,state,durations)
 
 if mean(Sg(state.pools2compare(:,state.now))) * 4 < mean(Sg(state.pools2compare(:,~state.now))) %difference by factor of 4
     %switch!
-    if sum(state.stay == state.now) == numel(state.now) %we were just in a stay state
+    if all(state.stay == state.now)%we were just in a stay state
         record_stim_label = state.stim_labels{state.current_stimulus}; %record stimulus label
         state.current_stimulus = ~state.current_stimulus; %switch to the other stimulus for next stay-state
-    else %we were just in a switch state
+    elseif all(state.switch == state.now) %we were just in a switch state
         record_stim_label = NaN;
     end
     durations{state.now} = vertcat(durations{state.now},{state.count,record_stim_label}); %record duration in num timesteps

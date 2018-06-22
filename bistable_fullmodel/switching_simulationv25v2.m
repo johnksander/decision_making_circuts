@@ -8,20 +8,15 @@ basedir = '~/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
 %----parameterization from the parsweep networks: adding pulse stimulus
-%This is intended to eye-ball test pulse stimulus network behavior 
+%same as v25, but with new functionality from spikeout_model()
 
 force_back2stay = true;
-% options.Rstim = 100; %rate for stimulus input spikes
-% options.EtoE = .0405;
-% options.ItoE = 1.2877;
-% options.EtoI = 0.1734;
-% options.stim_targs = 'Estay'; %'Eswitch' | 'Estay'
-
-options.Rstim = 175; %rate for stimulus input spikes
+options.Rstim = 75 *.25; %rate for stimulus input spikes
 options.EtoE = .0405;
-options.ItoE = 0.2119;
-options.EtoI = 0.6799;
-options.stim_targs = 'Estay'; %'Eswitch' | 'Estay'
+options.ItoE = 1.2904;
+options.EtoI = 0.1948;
+options.stim_targs = 'Eswitch'; %'Eswitch' | 'Estay'
+options.stim_pulse = [1, 10]; %format is [on, off] in seconds. 
 
 %set up the circut
 %--------------------------------------------------------------------------
@@ -95,7 +90,7 @@ Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
 detlaGsra = 12.5e-9; %increase adaptation conductance, nano Siemens
 %----timecourse---------------
-tmax = 9; %simulation end (s)
+tmax = 60; %simulation end (s)
 timestep = .25e-3; %.01 milisecond timestep
 timevec = 0:timestep:tmax;
 %-------------------------------------------------------------------------
@@ -140,6 +135,14 @@ stim_info.targ_cells = stim_targs; %Estay
 stim_info.stimA_lambda = Rstim * timestep; %poisson lambda for stimulus conductance
 stim_info.stimB_lambda = Rstim * timestep;
 stim_info.num_cells = pool_options.num_cells; %just so I don't have to pass pool_options as well
+if all(~isnan(options.stim_pulse))
+    stim_info.delivery = 'pulse';
+    stim_info.pulse = options.stim_pulse ./ timestep;
+else
+    stim_info.delivery = 'constant';
+end
+undecided_state = false; %in between stimulus delivery pulses in stay state
+    
 
 timepoint_idx = 1;
 
@@ -170,29 +173,32 @@ for idx = 2:numel(timevec)
         spikes(spiking_cells,idx) = 1;
     end
     
-    [state,durations] = test4switch(Sg(:,idx),state,durations);
+    %make sure we're not in an undecided state (pulse stimulus delivery)
+    undecided_state = check_undecided_state(stim_info,state);
     
-    if (idx > (1/timestep) && idx < (1/timestep)*2) || ...
-        (idx > (1/timestep)*3 && idx < (1/timestep)*4) || ...
-        (idx > (1/timestep)*5 && idx < (1/timestep)*6) || ...
-        (idx > (1/timestep)*7 && idx < (1/timestep)*8) 
-        %2 sec pulse starting at T+1s & regular noise 
-        stim_spikes = timepoint_stimulus(stim_info,state);
-        ext_spikes = poissrnd(Lext,pool_options.num_cells,1); %external spikes to noise conductance
+    %test for state transition
+    if ~undecided_state
+        [state,durations] = test4switch(Sg(:,idx),state,durations);
     else
-        % no stimulus & half-noise for "undecided state" to E-pools
-        stim_spikes = zeros(pool_options.num_cells,1);
-        ext_spikes = NaN(pool_options.num_cells,1);
-        ext_spikes(celltype.inhib) = poissrnd(Lext,sum(celltype.inhib),1); %normal noise I-cells 
+        state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside
+    end
+    
+    
+    %input spikes: noise & stimulus
+    %---noisy spiking input from elsewhere
+    ext_spikes = poissrnd(Lext,pool_options.num_cells,1);
+    if undecided_state
+        %we're in between stimulus delivery pulses
+        %do half-noise to all E-cells-- gives barely spiking undecided state
         ext_spikes(celltype.excit) = poissrnd(Lext*.5,sum(celltype.excit),1); %half noise E-cells
-
     end
-    
-    ext_spikes = ext_spikes + stim_spikes;
+    %---spiking input from stimulus
+    stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
+    ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
+    %if in switch state, force back to a stay state (after back2stay_min time)
     if force_back2stay
-        ext_spikes = back2stay(ext_spikes,state,celltype); %if in switch state, force back to a stay state
+        ext_spikes = back2stay(ext_spikes,state,celltype);
     end
-    
     
     Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes); %don't have to index, they get an increase or zero
     
@@ -239,15 +245,6 @@ xlabel('time (s)')
 legend('inhibitory','excitatory')
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.2f',round(x*timestep,1)),Xticks,'UniformOutput', false); %this is for normal stuff
-set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-
-
-figure(4)
-imagesc(D)
-title('synaptic depression')
-%Xticks = num2cell(get(gca,'Xtick'));
-Xticks = num2cell((.5/timestep):.5/timestep:(1/timestep)*tmax);
-Xlabs = cellfun(@(x) sprintf('%.1f',round(x*timestep,1)),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 
 
@@ -365,29 +362,29 @@ hold off
 % histogram(Iapp(1,:))
 % title('current distribution, cell #1')
 
-%figure(9)
-% subplot(2,1,1)
-% plot(Gext(example_cells(1),:))
-% hold on
-% plot(Gext(example_cells(2),:))
-% hold off
-% legend('inhibitory','excitatory')
-% title('Noisy background conductance (stay pool example cells)')
-% xlabel('time (s)')
-% Xticks = num2cell(get(gca,'Xtick'));
-% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
-% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-% subplot(2,1,2)
-% plot(Gext(example_cells(1) + sum(celltype.pool_stay),:))
-% hold on
-% plot(Gext(example_cells(2) + sum(celltype.pool_stay),:))
-% hold off
-% legend('inhibitory','excitatory')
-% title('Noisy background conductance (switch pool example cells)')
-% xlabel('time (s)')
-% Xticks = num2cell(get(gca,'Xtick'));
-% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
-% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+figure(9)
+subplot(2,1,1)
+plot(Gext(example_cells(1),:))
+hold on
+plot(Gext(example_cells(2),:))
+hold off
+legend('inhibitory','excitatory')
+title('Input conductance (stay pool example cells)')
+xlabel('time (s)')
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+subplot(2,1,2)
+plot(Gext(example_cells(1) + sum(celltype.pool_stay),:))
+hold on
+plot(Gext(example_cells(2) + sum(celltype.pool_stay),:))
+hold off
+legend('inhibitory','excitatory')
+title('Input conductance (switch pool example cells)')
+xlabel('time (s)')
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 
 
 
@@ -400,23 +397,24 @@ hold off
 % Irate = sum(spikes(celltype.pool_stay & celltype.inhib,pulse_time),2);
 % Irate = mean(Irate) / (sum(pulse_time) * timestep);
 % disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
-cuttoff_time = 18;
-disp(['---during t+ ' num2str(cuttoff_time) ' seconds (stay):'])
-pulse_time = timevec >= cuttoff_time;
-Erate = sum(spikes(celltype.pool_stay & celltype.excit,pulse_time),2);
-Erate = mean(Erate) / (sum(pulse_time) * timestep);
-disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
-Irate = sum(spikes(celltype.pool_stay & celltype.inhib,pulse_time),2);
-Irate = mean(Irate) / (sum(pulse_time) * timestep);
-disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
-disp(['---during t+ ' num2str(cuttoff_time) ' seconds (switch):'])
-pulse_time = timevec >= cuttoff_time;
-Erate = sum(spikes(celltype.pool_switch & celltype.excit,pulse_time),2);
-Erate = mean(Erate) / (sum(pulse_time) * timestep);
-disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
-Irate = sum(spikes(celltype.pool_switch & celltype.inhib,pulse_time),2);
-Irate = mean(Irate) / (sum(pulse_time) * timestep);
-disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
+
+% cuttoff_time = 18;
+% disp(['---during t+ ' num2str(cuttoff_time) ' seconds (stay):'])
+% pulse_time = timevec >= cuttoff_time;
+% Erate = sum(spikes(celltype.pool_stay & celltype.excit,pulse_time),2);
+% Erate = mean(Erate) / (sum(pulse_time) * timestep);
+% disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
+% Irate = sum(spikes(celltype.pool_stay & celltype.inhib,pulse_time),2);
+% Irate = mean(Irate) / (sum(pulse_time) * timestep);
+% disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
+% disp(['---during t+ ' num2str(cuttoff_time) ' seconds (switch):'])
+% pulse_time = timevec >= cuttoff_time;
+% Erate = sum(spikes(celltype.pool_switch & celltype.excit,pulse_time),2);
+% Erate = mean(Erate) / (sum(pulse_time) * timestep);
+% disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
+% Irate = sum(spikes(celltype.pool_switch & celltype.inhib,pulse_time),2);
+% Irate = mean(Irate) / (sum(pulse_time) * timestep);
+% disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
 
 
 % figure(2)

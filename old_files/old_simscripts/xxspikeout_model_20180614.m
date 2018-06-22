@@ -1,4 +1,4 @@
-function modelfile = spikeout_model(options)
+function modelfile = xxspikeout_model_20180614(options)
 %this model func designed to save whole spiking matrix, for short jobs 
 modelfile = mfilename; %for backup purposes
 
@@ -101,12 +101,6 @@ for trialidx = 1:num_trials
     stim_info.stimA_lambda = stimA * timestep; %poisson lambda for stimulus conductance
     stim_info.stimB_lambda = stimB * timestep;
     stim_info.num_cells = pool_options.num_cells; %just so I don't have to pass pool_options as well
-    if all(~isnan(options.stim_pulse))
-        stim_info.delivery = 'pulse';
-        stim_info.pulse = options.stim_pulse ./ timestep;
-    else 
-        stim_info.delivery = 'constant';
-    end
     %---noisy conductance---------
     Gext = NaN(size(V)); %noisy conductance
     Gext(:,1) = initGext; %initialize at leak conductance
@@ -146,7 +140,6 @@ for trialidx = 1:num_trials
     switch_record = {};
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
-    undecided_state = false; %in between stimulus delivery pulses in stay state
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
     
@@ -182,20 +175,10 @@ for trialidx = 1:num_trials
             spikes(spiking_cells,timepoint_counter) = 1;
         end
         
-        %make sure we're not in an undecided state (pulse stimulus delivery)
-        if experiment_set2go
-            undecided_state = check_undecided_state(stim_info,state);
-        end
+        [state,durations] = test4switch(Sg(:,idx),state,durations);
         
-        %test for state transition
-        if ~undecided_state
-            [state,durations] = test4switch(Sg(:,idx),state,durations);
-        else
-            state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside 
-        end
-        
-        %run the bistability check
-        if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
+        if ~experiment_set2go
+            %run the bistability check
             [BScheck,Pspikes] = check_bistability(Sg(:,idx),state,durations);
             %add pulse spikes (same as below)
             Gext(:,idx) = Gext(:,idx) + (deltaGext.*Pspikes);
@@ -211,25 +194,19 @@ for trialidx = 1:num_trials
             end
         end
         
-        %input spikes: noise & stimulus
-        %---noisy spiking input from elsewhere
-        ext_spikes = poissrnd(Lext,pool_options.num_cells,1);
-        if undecided_state
-             %we're in between stimulus delivery pulses
-             %do half-noise to all E-cells-- gives barely spiking undecided state
-             ext_spikes(celltype.excit) = poissrnd(Lext*.5,sum(celltype.excit),1); %half noise E-cells
-        end
-        %---spiking input from stimulus  
-        if experiment_set2go 
+        
+        %input spikes, noise & stimulus
+        if experiment_set2go
             stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
-            ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
+        else
+            stim_spikes = 0; %let baseline test do its thing 
         end
-        %if in switch state, force back to a stay state (after back2stay_min time)
+        ext_spikes = poissrnd(Lext,pool_options.num_cells,1); %external spikes to noise conductance
+        ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
         if options.force_back2stay
-            ext_spikes = back2stay(ext_spikes,state,celltype); 
+            ext_spikes = back2stay(ext_spikes,state,celltype); %if in switch state, force back to a stay state
         end
-        %update Gexternal. Don't have to index, they get an increase or zero
-        Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes); 
+        Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes); %don't have to index, they get an increase or zero
         
         %lag equation vars for next timepoint
         V = next_timepoint(V);
@@ -255,10 +232,6 @@ for trialidx = 1:num_trials
                 prev_state = durations{state.stay}; %find info on the stay state we just switched out of
                 %get duration, make sure it's > num_preswitch_samples (don't want to see another switch in there)
                 last_duration = prev_state{end,1};
-                switch stim_info.delivery %or see undecided state (non)activity, in pulse scenario
-                    case 'pulse' %see how long you've actually been in decided state (mod(t,squence time))
-                      last_duration = mod(last_duration,sum(stim_info.pulse));
-                end
                 if last_duration > num_preswitch_samples
                     %record the switch time, stimulus type, state duration
                     prev_ST = timepoint_counter - state.count;
@@ -274,6 +247,7 @@ for trialidx = 1:num_trials
             message = sprintf('Simulation %.1f percent complete',progress);
             update_logfile(message,options.output_log)
         end
+        
     end
     
     %remove the first artificially induced stay state & subsequent switch state
@@ -292,6 +266,7 @@ for trialidx = 1:num_trials
     end
     sim_results{trialidx,2} = spiking_output;
     sim_results{trialidx,3} = switch_record; %save this thing along with it
+    
 end
 update_logfile('---Simulation complete---',options.output_log)
 savename = fullfile(options.save_dir,options.sim_name);
