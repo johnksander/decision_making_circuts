@@ -276,6 +276,9 @@ for trialidx = 1:num_trials
         end
     end
     
+    %check if no switches met recording criteria, terminate if needed
+    if isempty(switch_record) | numel(switch_record(:,1)) <= 1,return;end 
+    
     %remove the first artificially induced stay state & subsequent switch state
     durations = cellfun(@(x) x(2:end,:),durations,'UniformOutput',false);
     sim_results{trialidx,1} = durations;

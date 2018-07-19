@@ -7,22 +7,21 @@ format compact
 %changing the figures a bit for brownbag
 %NOTE: this script requires 2017a. Local function below.
 %home_dir = '/Users/ksander/Desktop/work/ACClab/rotation/project';
-sim_name = 'network_spiking';
+sim_name = 'network_spiking_P2_1';
 name4plots = 'combfig'; %added to basic fig directory, distingish different timecourse plots etc
 home_dir = '~/Desktop/ksander/rotation/project';
 addpath(home_dir)
 addpath(fullfile(home_dir,'helper_functions'))
-fig_dir = fullfile(home_dir,'Results','network_spiking_figures');
-fig_dir = fullfile(fig_dir,name4plots);
+fig_dir = fullfile(home_dir,'Results','network_spiking_pulse_figures');
+fig_dir = fullfile(fig_dir,sim_name,name4plots);
+%fig_dir = fullfile(fig_dir,name4plots);
 resdir = fullfile(home_dir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
-fig_name = 'combfig';
 Tcourse = 'presw250to5'; %'preswitch' | 'all' |presw250to5
-treat_data = 'none'; % zscore | base0 | minmax
-print_anything = 'yes';
+treat_data = 'base0'; % zscore | base0 | minmax
+print_anything = 'yes';make_legend = 'no'; %both 'yes'|'no'
 zoomed_fig = 'yes'; %ignore I-stay spiking for Y limits
-
 
 switch treat_data
     case 'zscore'
@@ -55,7 +54,7 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 
 %result summaries
 fontsz = 30;
-lnsz = 3; %spikerate plots 
+lnsz = 3; %spikerate plots
 orange = [250 70 22]./255;
 matblue = [0,0.4470,0.7410];
 legend_labels = {'E-stay','E-switch','I-stay','I-switch'};
@@ -70,15 +69,15 @@ celltype = celltype_logicals(pool_options);
 
 
 %replace with like... "network types"
-%look in get_network_params() for this NPjobs, 0 is the last one paired w/ 9.. 
+%look in get_network_params() for this NPjobs, 0 is the last one paired w/ 9..
 NPjobs = cat(1,[1:2:9],[2:2:9,0])'; %u-g-l-y
 network_pair_info = cell(size(NPjobs,1),1);
 for idx = 1:numel(NPjobs)/2
-   CP = num2cell(NPjobs(idx,:))';
-   CP = cellfun(@(x,y) {get_network_params(x,y)}, CP,repmat({struct()},2,1));
-   CP = cellfun(@(x) {x.ItoE,x.EtoI,unique(x.trial_stimuli),x.stim_targs},...
-       CP,'UniformOutput',false);
-   network_pair_info{idx} = cat(1,CP{:});
+    CP = num2cell(NPjobs(idx,:))';
+    CP = cellfun(@(x,y) {get_network_params(x,y)}, CP,repmat({struct()},2,1));
+    CP = cellfun(@(x) {x.ItoE,x.EtoI,unique(x.trial_stimuli),x.stim_targs},...
+        CP,'UniformOutput',false);
+    network_pair_info{idx} = cat(1,CP{:});
 end
 
 %get results & sort into network type
@@ -111,10 +110,10 @@ switch_counts = zeros(size(result_data));
 %             Psets{idx}{:},switch_counts(idx))
 %     end
 % end
-%save('checkpoint','result_data','switch_counts')
-load('checkpoint.mat')
+% save('checkpoint_P2_1','result_data','switch_counts')
+load('checkpoint_P2_1.mat')
 
-%now divide the summed spike timecourses 
+%now divide the summed spike timecourses
 switch_counts = num2cell(switch_counts);
 result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
 result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput',false);
@@ -128,10 +127,9 @@ switch treat_data
         Yax_labs = 'rate - min (Hz)';
     case 'minmax'
         Yax_labs = 'spiking 0-1';
-    otherwise 
+    otherwise
         Yax_labs = 'spiking (Hz)';
 end
-
 
 
 %only plot -Xms to +Xms
@@ -173,15 +171,15 @@ for idx = 1:num_types
             Nspeed = 'fast';
             lcol = matblue;
         end
-
+        
         %find the right results for network set-up
         curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),Psets,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
         curr_data = result_data{curr_data};
-                
+        
         %plot by celltype
         
-        %normal people indexing that makes sense, then take the mean 
+        %normal people indexing that makes sense, then take the mean
         Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
         Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
         Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
@@ -215,7 +213,7 @@ for idx = 1:num_types
         if mod(plt_idx,2) == 1
             ylabel(sprintf('net #%i %s',idx,Yax_labs))
         end
-          
+        
     end
 end
 orient tall
@@ -243,130 +241,22 @@ end
 close all;hold off
 %print a legend seperately
 
-%plot the aggregated timecourses
-hold on
-for idx = 1:numel(legend_labels)
-    tr_col(idx) = plot(NaN,'Linewidth',lnsz);
-end
-hold off
-legend(legend_labels)
-switch print_anything
+switch make_legend
     case 'yes'
-        print(fullfile(fig_dir,sprintf('%s_legend',fig_fn)),'-djpeg','-r300')
-end
-
-%save the line colors for below 
-tr_col = arrayfun(@(x) x.Color,tr_col,'UniformOutput',false);
-        
-%do the like... crossing time plot 
-close all;hold off
-
-
-plt_idx = 0;
-for idx = 1:num_types
-    
-    curr_net_info = network_pair_info{idx};
-    for j = 1:2
-        
-        plt_idx = plt_idx + 1;
-        h(plt_idx) = subplot(5,2,plt_idx);
-        
-        %get the right color
-        if strcmpi(curr_net_info{j,end},'Eswitch')
-            Nspeed = 'slow';
-            lcol = orange;
-        elseif strcmpi(curr_net_info{j,end},'Estay')
-            Nspeed = 'fast';
-            lcol = matblue;
-        end
-
-        %find the right results for network set-up
-        curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),Psets,'UniformOutput',false);
-        curr_data = cat(1,curr_data{:});
-        curr_data = result_data{curr_data};
-                
-        %plot by celltype
-        
-        %normal people indexing that makes sense, then take the mean 
-        Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
-        Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
-        Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
-        Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
-        
-        %now find the crossover times
-        all_groups = [Estay;Eswitch;Istay;Iswitch];%use legend labels as ref if you get confused
-        Cpoints = find_crossover_points(all_groups);
-        Yscale = cell2mat(Cpoints(:,2));
-        Yscale = range(Yscale)*.05;
+        %plot the aggregated timecourses
         hold on
-        for Cidx = 1:numel(Cpoints(:,1))
-            %my_color = tr_col{Cidx};
-            Cp = Cpoints(Cidx,:); 
-            %find the traces intersecting & which way they're going
-            up_trace = cellfun(@(x) strcmp(x,'up'),Cp);
-            down_trace = cellfun(@(x) strcmp(x,'down'),Cp);
-            
-            if sum(up_trace) == 0 && sum(down_trace) == 0 %they didn't really cross...
-                scatter(Cp{1},Cp{2}+Yscale,100,tr_col{Cp{3}},'Filled') %just plot 'em 
-                scatter(Cp{1},Cp{2}-Yscale,100,tr_col{Cp{5}},'Filled')
-            else
-                up_trace = Cp{find(up_trace)-1};
-                down_trace = Cp{find(down_trace)-1};
-                %plot in their respective colors
-                scatter(Cp{1},Cp{2}+Yscale,100,tr_col{up_trace},'^','Filled')
-                scatter(Cp{1},Cp{2}-Yscale,100,tr_col{down_trace},'v','Filled')
-            end
+        for idx = 1:numel(legend_labels)
+            tr_col(idx) = plot(NaN,'Linewidth',lnsz);
         end
-        
-        l = plot(NaN,'Color',lcol,'LineWidth',lnsz); %for legend
-        
         hold off
-        Xlim_max = numel(curr_data(1,:));
-        set(gca,'XLim',[0 Xlim_max]);
-        Xticks = num2cell(get(gca,'Xtick'));
-        %Xticks = Xticks(2:2:end-1);
-        if numel(Xticks) > 5,Xticks = Xticks(1:2:numel(Xticks)); end %for crowded axes
-        Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
-        set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
-        legend(l,sprintf('%.0fHz',curr_net_info{j,3}),'location','best')
-        
-        if plt_idx == 9 || plt_idx == 10
-            xlabel('Leave decision (ms)')
+        legend(legend_labels)
+        switch print_anything
+            case 'yes'
+                print(fullfile(fig_dir,sprintf('%s_legend',fig_fn)),'-djpeg','-r300')
         end
-        if plt_idx == 1 || plt_idx == 2
-            title(sprintf('%s networks',Nspeed),'Fontsize',14)
-        end
-        if mod(plt_idx,2) == 1
-            ylabel(sprintf('net #%i %s',idx,Yax_labs))
-        end
-          
-    end
+        %save the line colors for below
+        tr_col = arrayfun(@(x) x.Color,tr_col,'UniformOutput',false);
 end
-orient tall
-int_fig_fn = [fig_fn '_xover'];
-
-switch zoomed_fig
-    case 'yes'
-        %zoom in better
-        Yl = arrayfun(@(x) x.Children,h,'UniformOutput',false);
-        %skip legend & I-stay
-        Yl = cellfun(@(x) x([2,4,5]),Yl,'UniformOutput',false);
-        Yl = cellfun(@(x) cat(1,x(:).YData),Yl,'UniformOutput',false);
-        Yl = cellfun(@(x) max(x(:)),Yl);
-        arrayfun(@(x,y) ylim(x,[0,y]),h,Yl,'UniformOutput',false);
-        int_fig_fn = [int_fig_fn '_zoomed'];
-    case 'no'
-        axis tight
-end
-
-linkaxes(h,'x')
-switch print_anything
-    case 'yes'
-        print(fullfile(fig_dir,int_fig_fn),'-djpeg','-r300')
-end
-
-close all;hold off
-
 
 
 function cell_raster = sim_spikerate(cell_raster,timestep)
@@ -383,3 +273,113 @@ end
 
 
 
+%these crossing-time plots were unhelpful
+
+%
+% plt_idx = 0;
+% for idx = 1:num_types
+%
+%     curr_net_info = network_pair_info{idx};
+%     for j = 1:2
+%
+%         plt_idx = plt_idx + 1;
+%         h(plt_idx) = subplot(5,2,plt_idx);
+%
+%         %get the right color
+%         if strcmpi(curr_net_info{j,end},'Eswitch')
+%             Nspeed = 'slow';
+%             lcol = orange;
+%         elseif strcmpi(curr_net_info{j,end},'Estay')
+%             Nspeed = 'fast';
+%             lcol = matblue;
+%         end
+%
+%         %find the right results for network set-up
+%         curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),Psets,'UniformOutput',false);
+%         curr_data = cat(1,curr_data{:});
+%         curr_data = result_data{curr_data};
+%
+%         %plot by celltype
+%
+%         %normal people indexing that makes sense, then take the mean
+%         Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
+%         Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
+%         Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
+%         Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
+%
+%         %now find the crossover times
+%         all_groups = [Estay;Eswitch;Istay;Iswitch];%use legend labels as ref if you get confused
+%         Cpoints = find_crossover_points(all_groups);
+%         Yscale = cell2mat(Cpoints(:,2));
+%         Yscale = range(Yscale)*.05;
+%         hold on
+%         for Cidx = 1:numel(Cpoints(:,1))
+%             %my_color = tr_col{Cidx};
+%             Cp = Cpoints(Cidx,:);
+%             %find the traces intersecting & which way they're going
+%             up_trace = cellfun(@(x) strcmp(x,'up'),Cp);
+%             down_trace = cellfun(@(x) strcmp(x,'down'),Cp);
+%
+%             if sum(up_trace) == 0 && sum(down_trace) == 0 %they didn't really cross...
+%                 scatter(Cp{1},Cp{2}+Yscale,100,tr_col{Cp{3}},'Filled') %just plot 'em
+%                 scatter(Cp{1},Cp{2}-Yscale,100,tr_col{Cp{5}},'Filled')
+%             else
+%                 up_trace = Cp{find(up_trace)-1};
+%                 down_trace = Cp{find(down_trace)-1};
+%                 %plot in their respective colors
+%                 scatter(Cp{1},Cp{2}+Yscale,100,tr_col{up_trace},'^','Filled')
+%                 scatter(Cp{1},Cp{2}-Yscale,100,tr_col{down_trace},'v','Filled')
+%             end
+%         end
+%
+%         l = plot(NaN,'Color',lcol,'LineWidth',lnsz); %for legend
+%
+%         hold off
+%         Xlim_max = numel(curr_data(1,:));
+%         set(gca,'XLim',[0 Xlim_max]);
+%         Xticks = num2cell(get(gca,'Xtick'));
+%         %Xticks = Xticks(2:2:end-1);
+%         if numel(Xticks) > 5,Xticks = Xticks(1:2:numel(Xticks)); end %for crowded axes
+%         Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
+%         set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
+%         legend(l,sprintf('%.0fHz',curr_net_info{j,3}),'location','best')
+%
+%         if plt_idx == 9 || plt_idx == 10
+%             xlabel('Leave decision (ms)')
+%         end
+%         if plt_idx == 1 || plt_idx == 2
+%             title(sprintf('%s networks',Nspeed),'Fontsize',14)
+%         end
+%         if mod(plt_idx,2) == 1
+%             ylabel(sprintf('net #%i %s',idx,Yax_labs))
+%         end
+%
+%     end
+% end
+% orient tall
+% int_fig_fn = [fig_fn '_xover'];
+
+% %zoomed in fig
+% close all;hold off
+%
+% switch zoomed_fig
+%     case 'yes'
+%         %zoom in better
+%         Yl = arrayfun(@(x) x.Children,h,'UniformOutput',false);
+%         %skip legend & I-stay
+%         Yl = cellfun(@(x) x([2,4,5]),Yl,'UniformOutput',false);
+%         Yl = cellfun(@(x) cat(1,x(:).YData),Yl,'UniformOutput',false);
+%         Yl = cellfun(@(x) max(x(:)),Yl);
+%         arrayfun(@(x,y) ylim(x,[0,y]),h,Yl,'UniformOutput',false);
+%         int_fig_fn = [int_fig_fn '_zoomed'];
+%     case 'no'
+%         axis tight
+% end
+%
+% linkaxes(h,'x')
+% switch print_anything
+%     case 'yes'
+%         print(fullfile(fig_dir,int_fig_fn),'-djpeg','-r300')
+% end
+%
+% close all;hold off

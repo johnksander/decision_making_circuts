@@ -5,18 +5,20 @@ format compact
 
 num_workers = 24;
 
-sim_name = 'network_spiking';
+sim_name = 'network_spiking_Pshort';
 name4plots = 'Xover'; %added to basic fig directory, distingish different timecourse plots etc
 home_dir = '~/Desktop/ksander/rotation/project';
 addpath(home_dir)
 addpath(fullfile(home_dir,'helper_functions'))
-fig_dir = fullfile(home_dir,'Results','network_spiking_figures');
-fig_dir = fullfile(fig_dir,name4plots,'cellwise');
+fig_dir = fullfile(home_dir,'Results','network_spiking_pulse_figures');
+%fig_dir = fullfile(fig_dir,name4plots,'cellwise');
+fig_dir = fullfile(fig_dir,sim_name,name4plots); % assume cell-wise for now, trial-wise not implemented
 resdir = fullfile(home_dir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 
-Xgroups = {'I-stay','E-stay'};
+%Xgroups = {'I-switch','I-stay'};
+Xgroups = {'E-stay','I-stay'};
 Tcourse = 'presw250to5'; %'preswitch' | 'all' |presw250to5
 treat_data = 'base0'; % zscore | base0 | minmax
 Nstraps = 25e3;
@@ -128,8 +130,7 @@ switch_counts = zeros(size(result_data));
 % result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
 % result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput',false);
 
-
-load('checkpoint.mat')
+load('checkpoint_Pshort.mat')
 
 
 %only consider -Xms to +Xms

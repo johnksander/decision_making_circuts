@@ -4,7 +4,8 @@ format compact
 hold off;close all
 
 rescale_plane = 'on';
-outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
+outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu' 
+pulse_stim = 'rem'; %'yes' | 'no' | 'rem' whether to treat durations as samples (rem = time during sample)
 print_anything = 'yes'; %'yes' | 'no';
 
 %result summaries
@@ -15,12 +16,13 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 
 %specify simulation
 %---sim setup-----------------
-run_num = 3; %for seperate figure directories & restricting file loading 
-sim_name = 'parsweep_stims';
+%run_num = 3; %for seperate figure directories & restricting file loading 
+sim_name = 'network_spiking_P2_1';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
-figdir = fullfile(basedir,'Results',[sim_name '_figures']);
-figdir = fullfile(figdir,sprintf('run%i_figs',run_num));
+figdir = fullfile(basedir,'Results','network_spiking_pulse_figures','durations',sim_name);
+%figdir = fullfile(basedir,'Results',[sim_name '_figures']);
+%figdir = fullfile(figdir,sprintf('run%i_figs',run_num));
 resdir = fullfile(basedir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 %output_fns = dir(fullfile(resdir,sprintf('*%s*run%i*.mat',sim_name,run_num)));
@@ -55,19 +57,26 @@ network_pair_info = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Eswitch','slow')],...
 %get results
 file_data = cell(num_files,2);
 for idx = 1:num_files
+    if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
     curr_file = load(output_fns{idx});
     %store parameters
     file_data{idx,2} = curr_file.options;
     %get state durations
     state_durations = curr_file.sim_results;
-    state_durations = state_durations{:};
+    state_durations = state_durations{1};
     %take only stimulus state durations
     state_durations = state_durations{1}(:,1);
     %     state_durations = cellfun(@(x) x(:,1),state_durations,'UniformOutput',false);
     %     state_durations = vertcat(state_durations{:});
-    state_durations = vertcat(state_durations{:}); %ooo that's annoying
+    state_durations = cat(1,state_durations{:}); %ooo that's annoying
     %convert to time
     state_durations = state_durations * timestep;
+    switch pulse_stim
+        case 'yes' %just do this now while options is handy 
+            state_durations = floor(state_durations ./ sum(curr_file.options.stim_pulse));
+        case 'rem' %look at when IN the sample switch happened
+            state_durations = mod(state_durations,sum(curr_file.options.stim_pulse));
+    end
     file_data{idx,1} = state_durations;
 end
 
@@ -114,22 +123,38 @@ net_type = cellfun(@(x)  [x(1:3),stimtarg_vals{x{4}}],net_type,'UniformOutput',f
 net_type = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Estay','fast')],net_type,'UniformOutput',false);
 net_type = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Eswitch','slow')],net_type,'UniformOutput',false);
 
+
+switch pulse_stim
+    case 'yes' 
+        unit_measure = 'samples';
+    case 'rem' 
+         unit_measure = 's - onset';
+    otherwise
+        unit_measure = 's'; %like "seconds" not samples
+end
+
 switch outcome_stat
     case 'mu'
         outcome = mu_duration;
         %Zlabel = 'mean duration (s)';
-        Zlabel = 'state duration (s)';
+        Zlabel = sprintf('state duration (%s)',unit_measure);
         figdir = fullfile(figdir,'mean_duration');
     case 'med'
         outcome = med_duration;
-        Zlabel = 'median duration (s)';
+        Zlabel =  sprintf('median duration (%s)',unit_measure);
         figdir = fullfile(figdir,'med_duration');
     case 'logmu'
         outcome = logmu_dur;
         %Zlabel = 'mean log duration [ log(s) ]';
-        Zlabel = 'log(s) state duration';
+        Zlabel = sprintf('log(%s) state duration',unit_measure);
         figdir = fullfile(figdir,'logmean_duration');
 end
+
+switch pulse_stim
+    case {'yes','rem'}
+        figdir = fullfile(figdir,'measured_in_samples');
+end
+
 
 if ~isdir(figdir),mkdir(figdir);end
 
@@ -165,12 +190,15 @@ for idx = 1:num_types
         if ~isempty(curr_data) %skip plot if no data...
             switch outcome_stat
                 case 'logmu'
+                    curr_data = curr_data(curr_data ~= 0);%inf errors
                     curr_data = log(curr_data);
+            end
+            switch pulse_stim
+                case 'yes'
+                    histogram(curr_data,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
+                otherwise
                     [kde,kde_i] = ksdensity(curr_data);
-                    %plot(kde_i,kde,'LineWidth',2);
-                    area(kde_i,kde,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);  
-                case 'mu'
-                    histogram(curr_data)
+                    area(kde_i,kde,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
             end
         end
         %take control data
@@ -181,13 +209,16 @@ for idx = 1:num_types
         if ~isempty(curr_data) %skip plot if no data...
             switch outcome_stat
                 case 'logmu'
+                    curr_data = curr_data(curr_data ~= 0);%inf errors
                     curr_data = log(curr_data);
-                    [kde,kde_i] = ksdensity(curr_data);
-                    %plot(kde_i,kde,'LineWidth',2);
-                    area(kde_i,kde,'FaceColor',BLcol,'EdgeColor',BLcol,'FaceAlpha',alph);
-                case 'mu'
-                    histogram(curr_data)
             end
+            switch pulse_stim
+                case 'yes'
+                    histogram(curr_data,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
+                otherwise
+                    [kde,kde_i] = ksdensity(curr_data);
+                    area(kde_i,kde,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
+            end  
         end
         hold off
         legend(sprintf('%.0fHz',curr_net_info{j,3}),'location','best')
@@ -207,9 +238,16 @@ end
 orient tall
 linkaxes(h,'x')
 axis tight
+
+fig_fn = 'duration_dists';
+
+switch pulse_stim
+    case 'rem' %rename for special case 
+        fig_fn = 'duration_after_stim_onset';
+end
 switch print_anything
     case 'yes'
-        print(fullfile(figdir,'duration_dists'),'-djpeg')
+        print(fullfile(figdir,fig_fn),'-djpeg')
 end
 
 %info about simulation
@@ -250,7 +288,7 @@ fprintf('Summary statistics\n')
 fprintf('%s:\n',Zlabel)
 fprintf('------------------------\n\n')
 %outcome = logmu_dur;
-
+keyboard
 for idx = 1:num_types
     fprintf('\n------------------------\nNetwork #%i\n',idx)
     curr_net_info = network_pair_info{idx};
@@ -275,7 +313,7 @@ for idx = 1:num_types
         case 'logmu'
             Xstim = cellfun(@log,Xstim,'UniformOutput',false);
     end
-    %[~,pval] = ttest2(Xstim{1},Xstim{2}) %regular old t-test
+    [~,pval] = ttest2(Xstim{1},Xstim{2}); %regular old t-test
     fprintf('t-test p = %.3f\n',pval)
     [CI,H] = boot_mean_diffs(Xstim{1},Xstim{2},10000);
     fprintf('bootstrap test: %s\n',H)
