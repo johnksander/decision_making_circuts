@@ -10,3 +10,5 @@ Thumbs.db
 
 # don't repo the results anymore, make this practical...
 /Results/
+#ignore bash files for running jobs
+*.sh
