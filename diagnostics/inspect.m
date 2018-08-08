@@ -12,7 +12,7 @@ addpath('../')
 config_options.modeltype = 'PS_stim';
 config_options.sim_name = 'diagnostics';
 %specify network #1 slow w/ jobID
-config_options.jobID = 2; %str2num(getenv('SGE_TASK_ID'));
+config_options.jobID = 31; %str2num(getenv('SGE_TASK_ID'));
 config_options.tmax = 30; %trial simulation time (s)
 config_options.force_back2stay = true;
 config_options.stim_pulse = [1, 1]; %on, off (s)
@@ -29,6 +29,8 @@ options = set_options(config_options);
 % backup_jobcode(options,driverfile,modelfile)
 % delete(options.output_log) %no need for these right now
 
+fig_dir = fullfile(options.save_dir,options.sim_name);
+if ~isdir(fig_dir),mkdir(fig_dir);end
 
 %get this stuff 
 pool_options.num_cells = 250;
@@ -55,7 +57,7 @@ Vrec = Vrec(:,1:term_idx);
 
 timestep = .25e-3; %.25 milisecond timestep
 lnsz = 3; %spikerate plots
-fontsz = 14;
+fontsz = 12;
 
 %this is what happened, and when 
 durations = sim_results{1};
@@ -68,8 +70,9 @@ event_times = cumsum(cell2mat(timecourse(:,1)));
 timecourse = [num2cell(event_times),num_samps,timecourse];
 timecourse(~cellfun(@isnan,timecourse(:,end)),end) = {'stay'};
 timecourse(~cellfun(@ischar,timecourse(:,end)),end) = {'switch'};
+timecourse(:,1:3) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:3),'UniformOutput',false); %for printing 
 timecourse = cell2table(timecourse,'VariableNames',{'event_time','samples','duration','state'});
-
+writetable(timecourse,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
 
 %do the raster plot 
 spikeplot = make_spikeplot(spikes);
@@ -97,8 +100,8 @@ set(gca,'Xdir','normal','Ytick',Yticks,'YTickLabel', Ylabs);
 xlabel('time (s)','FontWeight','b')
 title({'spikes','(spikes in matrix enlarged for visualization)'})
 set(gca,'FontSize',fontsz)
-
 print(fullfile(fig_dir,'raster'),'-djpeg')
+
 
 %plot the aggregated timecourses
 figure;
@@ -116,11 +119,12 @@ Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 title('Depression')
-ylabel({'Pool average', '(75ms time-bins)'})
+ylabel({'Pool average  (75ms bins)'})
 xlabel('time (s)')
 legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
 set(gca,'FontSize',fontsz)
 hold off
+print(fullfile(fig_dir,'depression'),'-djpeg')
 
 %spikerates
 figure;
@@ -137,11 +141,12 @@ Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 title('Spiking')
-ylabel({'Mean pool Hz','(75ms time-bins)'})
+ylabel({'Mean pool Hz  (75ms bins)'})
 xlabel('time (s)')
 legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
 set(gca,'FontSize',fontsz)
 hold off
+print(fullfile(fig_dir,'spikerates'),'-djpeg')
 
 
 
