@@ -1,9 +1,8 @@
-function [BScheck,Pspikes] = check_bistability(Sg,state,durations)
+function [BScheck,Pspikes,state] = check_bistability(Sg,state)
 
 BScheck.status = 'running'; %initalize
-target_cells = state.pools2compare(:,state.now);
+target_cells = state.pools2compare(:,state.stay);
 Pspikes = zeros(size(target_cells));
-
 %see if we're still in the bistability check window
 check_window = state.count <= state.init_check_stop;
 %add another one for "check over", just in case isnan(state.count) or something...
@@ -12,8 +11,6 @@ check_over = state.count >= state.init_check_stop;
 pulse_window = state.count <= floor(state.init_check_stop *1); % *66 would give 2/3
 %if the pulse window is 1/3 over, start checking state dominance
 check_dom = state.count >= floor(state.init_check_stop *.33) && check_window;
-%should have been zero switches during the check period
-no_switches = numel(vertcat(durations{:})) == 0;
 
 
 if pulse_window
@@ -23,30 +20,43 @@ if pulse_window
 end
 
 if check_dom
-    %see if the current state is actually on & more active than the other
-    targ_active = mean(Sg(state.pools2compare(:,state.now))) > 4 * mean(Sg(state.pools2compare(:,~state.now)));
-    %test4switch() just checks if the opposite is true, sort of 
+    %test if there's an active state, check if it's the targeted cells (E-stay)
+    Smu = [Sg(state.pools2compare(:,1)), Sg(state.pools2compare(:,2))];
+    Smu = mean(Smu);
+    active_state = Smu - fliplr(Smu); %A-B, B-A
+    state.now = active_state > state.test_thresh; %will return undecided, if neither active
+    
+    targ_active = all(state.now == state.stay); %if it's the state we intended
+    if ~targ_active
+        state.thresh_clock = state.thresh_clock + 1; 
+    elseif targ_active
+        state.thresh_clock = 0; %reset the clock
+    end
 end
+
+%network shouldn't leave target state during the check period
+no_switches = state.thresh_clock < state.test_time;
+
 
 %---outcomes---
 
-if ~no_switches && check_window
-    %states have flipped during the pulse window---- fail
-    BScheck.status = 'fail';
-    BScheck.Fcode = '---N > 1 switches';
-end
-
-if check_dom && ~targ_active
-    %targeted cells aren't actually active, or their activity isn't much higher
-    %than cells for the other state---- fail
+if check_dom && ~no_switches
+    %active network state isn't the targeted cells---- fail
     if ~strcmp(BScheck.status,'fail')
         %make sure hasn't already failed, give correct message
         BScheck.status = 'fail';
-        muA = mean(Sg(state.pools2compare(:,state.now)));
-        muB = mean(Sg(state.pools2compare(:,~state.now)));
-        BScheck.Fcode = sprintf('---non-dominance (muA=%.2f,muB=%.2f)',muA,muB);
+        muA = mean(Sg(state.pools2compare(:,state.stay)));
+        muB = mean(Sg(state.pools2compare(:,state.switch)));
+        BScheck.Fcode = sprintf('---non-dominance (muStay=%.2f,muLeave=%.2f)',muA,muB);
     end
 end
+
+%this was an outcome under the old switch-testing scheme 
+% if ~no_switches && check_window
+%     %active network state isn't the targeted cells during the pulse window---- fail
+%     BScheck.status = 'fail';
+%     BScheck.Fcode = '---N > 1 switches';
+% end
 
 no_failure = ~strcmp(BScheck.status,'fail');
 

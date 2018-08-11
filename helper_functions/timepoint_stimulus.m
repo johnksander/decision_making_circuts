@@ -3,11 +3,8 @@ function stim_spikes = timepoint_stimulus(stim_info,state)
 
 stim_spikes = zeros(stim_info.num_cells,1);
 
-%figure out if we need to apply a stimulus 
-if all(state.switch == state.now)
-    %we're in a switch state, don't do anything
-    apply_stimulus = false;
-elseif all(state.stay == state.now) %we're in a stay state
+%figure out if we need to apply a stimulus
+if all(state.stay == state.now) %we're in a stay state
     %we're in a stay state, do something
     switch stim_info.delivery
         case 'constant'
@@ -23,7 +20,12 @@ elseif all(state.stay == state.now) %we're in a stay state
                 apply_stimulus = false;
             end
     end
+else
+    %we're in a switch or undecided state, don't do anything
+    %elseif all(state.switch == state.now) || all(state.undecided == state.now)
+    apply_stimulus = false;
 end
+
 
 
 if apply_stimulus
