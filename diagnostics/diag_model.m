@@ -129,7 +129,7 @@ for trialidx = 1:num_trials
     state.stay = logical([1 0]);
     state.switch = logical([0 1]);
     state.undecided = logical([0 0]); %new: look at this one! new state!
-    state.last_leave = NaN; %new: keep track for ISI
+    state.last_leave_end = NaN; %new: keep track for ISI
     %new: durations has totally changed... shit
     durations = {}; %record duration time, state/stimulus label
     %new: initalized as NaN
@@ -138,6 +138,7 @@ for trialidx = 1:num_trials
     state.test_time = options.state_test_time / timestep;
     state.test_thresh = options.state_test_thresh;
     state.thresh_clock = 0; 
+    state.sample_clock = 0;
     state.cut_leave_state = options.cut_leave_state / timestep;
     %new: all the stuff above
     state.stim_labels = {'stim_A','stim_B'};
@@ -148,6 +149,7 @@ for trialidx = 1:num_trials
     state.init_check_Lext = options.init_check_Rext * timestep;
     state.init_check_stop = options.init_check_tmax / timestep; %minimum time for ready2go check
     state.noswitch_timeout = options.noswitch_timeout / timestep;
+    options.sample_Estay_offset = options.sample_Estay_offset / timestep; %new: this right here 
     %new: get rid of this shit
     if options.force_back2stay
         state.back2stay_min = .5 / timestep; %wait this long before forcing switch back
@@ -205,19 +207,20 @@ for trialidx = 1:num_trials
         %new: ------ lookat check_undecided_state() after you're finished
         %with everything else
         %make sure we're not in an undecided state (pulse stimulus delivery)
-        if experiment_set2go
-            %new: this is check_stim_avail and avail_stim now
-            avail_stim = check_stim_avail(stim_info,state);
-        end
-        
+%         if experiment_set2go
+%             %new: this is check_stim_avail and avail_stim now
+%             avail_stim = check_stim_avail(stim_info,state);
+%         end
         %fix this... it's not figuring out that it's in an undecided state
         %after the leave state b/c test4switch() isn't tripped when the
         %stimuli isn't available (moron). 
         
         %test for state transition
         %new: this is avail_stim now, behavior is reversed
-        if avail_stim && experiment_set2go %new: no testing during bistability check
+        %if avail_stim && experiment_set2go %new: no testing during bistability check
+        if experiment_set2go %new: no testing during bistability check
             [state,durations] = test4switch(Sg(:,idx),state,durations);
+            [state,avail_stim] = check_stim_avail(stim_info,state);%new: this is here.. 
         else
             state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside
         end
@@ -249,6 +252,16 @@ for trialidx = 1:num_trials
             %we're in between stimulus delivery pulses
             %do half-noise to all E-cells-- gives barely spiking undecided state
             ext_spikes(celltype.excit) = poissrnd(Lext*.5,sum(celltype.excit),1); %half noise E-cells
+        elseif avail_stim && strcmp(stim_info.delivery,'pulse') && experiment_set2go %new: this right here 
+            %stimulus is available, and we're doing pulse-sample delivery 
+            Tsample = sum(stim_info.pulse); %how long for a single on, off sequence
+            Tsample = mod(state.sample_clock,Tsample); %find out how far into the sample 
+            if Tsample <= options.sample_Estay_offset 
+                %if during first Xms of a sample, give E-stay full noise &
+                %E-switch half-noise to kick on the stay-state 
+                ext_spikes(celltype.excit & celltype.pool_switch) = ...
+                    poissrnd(Lext*.5,sum(celltype.excit & celltype.pool_switch),1); 
+            end
         end
         %---spiking input from stimulus
         if experiment_set2go
@@ -287,6 +300,7 @@ for trialidx = 1:num_trials
             return
         end
         
+        %new: this needs to be fixed according to however we wana look at the spiking data now 
         %check if we need to record a switch index
         if experiment_set2go
             %find out if we've just switched from A to [the switch before
@@ -339,7 +353,7 @@ for trialidx = 1:num_trials
     oflag = true;
     
     %this is unneeded in the current diagnatostics
-    keyboard
+
     %%check if no switches met recording criteria, terminate if needed
     %if isempty(switch_record) | numel(switch_record(:,1)) <= 1,oflag = false;return;end
     

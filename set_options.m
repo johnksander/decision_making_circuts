@@ -17,6 +17,8 @@ options.state_test_thresh = .03; %difference in mean Sg between E-cell pools
 options.stim_pulse = [NaN, NaN]; %default will be none
 %format is [on, off] in seconds. 
 %options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI
+options.sample_Estay_offset = 40e-3; %init noise offset Estay-Eswitch at the
+%sample availablity onset. This is to kick the network into stay & start sampling 
 %----checking bistability @ sim outset 
 options.init_check_Rext = 200; %pulse strength (Hz to E-stay)
 options.init_check_tmax = .9; %pulse must keep steady state for (s)

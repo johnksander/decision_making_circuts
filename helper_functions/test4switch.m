@@ -14,28 +14,29 @@ end
 
 %over Xms suprathreshold: switch! (or it's undecided)
 if state.thresh_clock == state.test_time 
-
+    
     if all(state.stay == state.now)%we were just in a stay state
         record_stim_label = state.stim_labels{state.current_stimulus}; %record stimulus label
         
     elseif all(state.switch == state.now) %we were just in a switch state
         record_stim_label = 'leave';
-        state.last_leave = state.timeidx;
-        %note--- this will need to be examined more closely if you start having more than one stim again 
+        state.last_leave_end = state.timeidx;
+        %note--- this will need to be examined more closely if you start having more than one stim again
         state.current_stimulus = ~state.current_stimulus; %switch to the other stimulus for next stay-state
         
     elseif all(state.undecided == state.now) %we were just undecided
         record_stim_label = 'undecided';
-       
+        
     end
-    durations = vertcat(durations,{state.timeidx,state.count,record_stim_label});
+    durations = vertcat(durations,...
+        {state.timeidx,state.count,state.sample_clock,record_stim_label});
     state.now = active_state; %switch state
     state.count = 0; %reset the clock
     state.thresh_clock = 0; 
+
 else
     state.count = state.count + 1;
 end
-
 
 %under the old scheme 
 % 

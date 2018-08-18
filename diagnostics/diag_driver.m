@@ -1,7 +1,7 @@
 clear
 clc
 format compact
-
+hold off;close all
 %investigating model behavior
 
 addpath('../')
@@ -10,7 +10,7 @@ addpath('../')
 %---setup---------------------
 options = set_options('modeltype','PS_stim',...
     'sim_name','diagnostics_Sgtest',...
-    'jobID',1,'tmax',20,'stim_pulse',[1,1],...
+    'jobID',1,'tmax',50,'stim_pulse',[1,1],...
     'force_back2stay','true',...
     'comp_location','woodstock');
 

@@ -9,14 +9,12 @@ addpath('../')
 
 %my model
 %---setup---------------------
-config_options.modeltype = 'PS_stim';
-config_options.sim_name = 'diagnostics';
-%specify network #1 slow w/ jobID
-config_options.jobID = 51; %str2num(getenv('SGE_TASK_ID'));
-config_options.tmax = 30; %trial simulation time (s)
-config_options.force_back2stay = true;
-config_options.stim_pulse = [1, 1]; %on, off (s)
-options = set_options(config_options);
+%---setup---------------------
+options = set_options('modeltype','PS_stim',...
+    'sim_name','diagnostics_Sgtest',...
+    'jobID',1,'tmax',20,'stim_pulse',[1,1],...
+    'force_back2stay','true',...
+    'comp_location','woodstock');
 
 % %NOTE: I AM NOT removing the first artificial stay state here.
 % %---run-----------------------
@@ -63,19 +61,32 @@ lnsz = 3; %spikerate plots
 fontsz = 12;
 
 %this is what happened, and when
+%{timeidx,statecount,sample_clock,stim_label}
 durations = sim_results{1};
-timecourse = cell(size(cat(1,durations{:})));
-timecourse(1:2:end,:) = durations{1};
-timecourse(2:2:end,:) = durations{2};
-timecourse(:,1) = cellfun(@(x) x*timestep,timecourse(:,1),'UniformOutput',false);
-num_samps = cellfun(@(x) x./ sum(options.stim_pulse),timecourse(:,1),'UniformOutput',false);
-event_times = cumsum(cell2mat(timecourse(:,1)));
-timecourse = [num2cell(event_times),num_samps,timecourse];
-timecourse(~cellfun(@isnan,timecourse(:,end)),end) = {'stay'};
-timecourse(~cellfun(@ischar,timecourse(:,end)),end) = {'switch'};
-timecourse(:,1:3) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:3),'UniformOutput',false); %for printing
-timecourse = cell2table(timecourse,'VariableNames',{'event_time','samples','duration','state'});
+timecourse = size(durations);
+timecourse(2) = timecourse(2) + 1; 
+timecourse = cell(timecourse);
+timecourse(:,1:3) = cellfun(@(x) x*timestep,durations(:,1:3),'UniformOutput',false);
+timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
+num_samps = cellfun(@(x) x./ sum(options.stim_pulse),timecourse(:,2),'UniformOutput',false);
+timecourse(:,end-1) = num_samps;
+timecourse(:,end) = durations(:,end);
+timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
+timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','samples','state'});
 writetable(timecourse,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
+
+% timecourse = cell(size(cat(1,durations{:})));
+% timecourse(1:2:end,:) = durations{1};
+% timecourse(2:2:end,:) = durations{2};
+% timecourse(:,1) = cellfun(@(x) x*timestep,timecourse(:,1),'UniformOutput',false);
+% num_samps = cellfun(@(x) x./ sum(options.stim_pulse),timecourse(:,1),'UniformOutput',false);
+% event_times = cumsum(cell2mat(timecourse(:,1)));
+% timecourse = [num2cell(event_times),num_samps,timecourse];
+% timecourse(~cellfun(@isnan,timecourse(:,end)),end) = {'stay'};
+% timecourse(~cellfun(@ischar,timecourse(:,end)),end) = {'switch'};
+% timecourse(:,1:3) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:3),'UniformOutput',false); %for printing
+% timecourse = cell2table(timecourse,'VariableNames',{'event_time','samples','duration','state'});
+% writetable(timecourse,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
 
 %do the raster plot
 spikeplot = make_spikeplot(spikes);
