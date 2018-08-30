@@ -18,26 +18,26 @@ addpath(fullfile(basedir,'helper_functions'))
 for i = 1:numel(Snames)
     %whole thing, raw
     opt.Tcourse = 'all'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
-    netspiking_figure(basedir,Snames{i},figdir,opt)
+    nets(basedir,Snames{i},figdir,opt)
     keyboard
     %preswitch, raw
     opt.Tcourse = 'presw250to5'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
-    netspiking_figure(basedir,Snames{i},figdir,opt)
+    special_netspk_res_func(basedir,Snames{i},figdir,opt)
     
     %preswitch, raw & zoomed
     opt.Tcourse = 'presw250to5'; opt.treat_data = 'none'; opt.zoomed_fig = 'yes';
-    netspiking_figure(basedir,Snames{i},figdir,opt)
+    special_netspk_res_func(basedir,Snames{i},figdir,opt)
     
     %preswitch, normalized & zoomed
     opt.Tcourse = 'presw250to5'; opt.treat_data = 'base0'; opt.zoomed_fig = 'yes';
-    netspiking_figure(basedir,Snames{i},figdir,opt)    
+    special_netspk_res_func(basedir,Snames{i},figdir,opt)    
 end
 
 
 
 
 
-function netspiking_figure(home_dir,sim_name,figdir,opt)
+function special_netspk_res_func(home_dir,sim_name,figdir,opt)
 hold off;close all
 
 fig_dir = fullfile(home_dir,'Results',figdir,'spikeplots');

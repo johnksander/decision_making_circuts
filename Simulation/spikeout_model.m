@@ -1,5 +1,5 @@
 function modelfile = spikeout_model(options)
-%this model func designed to save whole spiking matrix, for short jobs 
+%this model func designed to save whole spiking matrix, for short jobs
 modelfile = mfilename; %for backup purposes
 
 
@@ -68,7 +68,7 @@ Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
 detlaGsra = 12.5e-9; %increase adaptation conductance, nano Siemens
 %----timecourse---------------
-timestep = .25e-3; %.25 milisecond timestep
+timestep = options.timestep;
 timevec = 0:timestep:options.tmax;
 num_timepoints = numel(timevec);
 Lext = Rext * timestep; %poisson lambda for noisy conductance
@@ -104,7 +104,8 @@ for trialidx = 1:num_trials
     if all(~isnan(options.stim_pulse))
         stim_info.delivery = 'pulse';
         stim_info.pulse = options.stim_pulse ./ timestep;
-    else 
+        stim_info.sample_schedule = options.stim_schedule;
+    else
         stim_info.delivery = 'constant';
     end
     %---noisy conductance---------
@@ -119,25 +120,11 @@ for trialidx = 1:num_trials
     D = NaN(size(V)); %synaptic depression
     D(:,1) = 1; %initalize at one
     %---spikes--------------------
-    spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one... 
+    spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
     %---state tracker-------------
-    state = struct();
-    state.stay = logical([1 0]);
-    state.switch = logical([0 1]);
-    durations = cell(1,2); %record duration times (stay, switch)
-    state.now = state.stay; %pick one state to start with, add pulse to that pool to be sure (make sure this is consistent)
-    state.stim_labels = {'A','B'};
-    state.current_stimulus = logical([1 0]); %initialize in stim A
-    state.count = 0;
-    state.pools2compare = [celltype.pool_stay & celltype.excit,...
-        celltype.pool_switch & celltype.excit]; %pass in this format, avoid many computations
-    %state.ready_mintime = .4 / timestep; %minimum time for ready2go check
-    state.init_check_Lext = options.init_check_Rext * timestep;
-    state.init_check_stop = options.init_check_tmax / timestep; %minimum time for ready2go check
-    state.noswitch_timeout = options.noswitch_timeout / timestep;
-    if options.force_back2stay
-        state.back2stay_min = .5 / timestep; %wait this long before forcing switch back
-    end
+    durations = {}; %record duration time, state/stimulus label
+    state = init_statevar(celltype,options);
+    options.sample_Estay_offset = options.sample_Estay_offset / timestep;
     %---switch data recording-----
     %250ms before switch, 150ms after
     num_preswitch_samples = 250e-3/timestep;
@@ -146,16 +133,14 @@ for trialidx = 1:num_trials
     switch_record = {};
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
-    undecided_state = false; %in between stimulus delivery pulses in stay state
+    avail_stim = true; %in between stimulus delivery pulses in stay state
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
     
     while timepoint_counter <= num_timepoints
         
         timepoint_counter = timepoint_counter+1;
-        
-        %get current for this timepoint
-        stim_info.timeidx = timepoint_counter; %just so I don't have to pass a million things...
+        state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
         
         %loop equations
         I = (unique(Erev(celltype.excit)) - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*unique(Gg(celltype.excit));
@@ -182,21 +167,17 @@ for trialidx = 1:num_trials
             spikes(spiking_cells,timepoint_counter) = 1;
         end
         
-        %make sure we're not in an undecided state (pulse stimulus delivery)
+        %test for state transition & determine stim availability
         if experiment_set2go
-            undecided_state = check_undecided_state(stim_info,state);
-        end
-        
-        %test for state transition
-        if ~undecided_state
             [state,durations] = test4switch(Sg(:,idx),state,durations);
+            [state,avail_stim] = check_stim_avail(stim_info,state);
         else
-            state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside 
+            state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside
         end
         
         %run the bistability check
         if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
-            [BScheck,Pspikes] = check_bistability(Sg(:,idx),state,durations);
+            [BScheck,Pspikes,state] = check_bistability(Sg(:,idx),state);
             %add pulse spikes (same as below)
             Gext(:,idx) = Gext(:,idx) + (deltaGext.*Pspikes);
             switch BScheck.status
@@ -214,22 +195,29 @@ for trialidx = 1:num_trials
         %input spikes: noise & stimulus
         %---noisy spiking input from elsewhere
         ext_spikes = poissrnd(Lext,pool_options.num_cells,1);
-        if undecided_state
-             %we're in between stimulus delivery pulses
-             %do half-noise to all E-cells-- gives barely spiking undecided state
-             ext_spikes(celltype.excit) = poissrnd(Lext*.5,sum(celltype.excit),1); %half noise E-cells
+        if ~avail_stim
+            %we're in between stimulus delivery pulses
+            %do half-noise to all E-cells-- gives barely spiking undecided state
+            ext_spikes(celltype.excit) = poissrnd(Lext*.5,sum(celltype.excit),1); %half noise E-cells
+        elseif avail_stim && strcmp(stim_info.delivery,'pulse') && experiment_set2go
+            %stimulus is available, and we're doing pulse-sample delivery
+            Tsample = sum(stim_info.pulse); %how long for a single on, off sequence
+            Tsample = mod(state.sample_clock,Tsample); %find out how far into the sample
+            if Tsample <= options.sample_Estay_offset
+                %if during first Xms of a sample, give E-stay full noise &
+                %E-switch half-noise to kick on the stay-state
+                ext_spikes(celltype.excit & celltype.pool_switch) = ...
+                    poissrnd(Lext*.5,sum(celltype.excit & celltype.pool_switch),1);
+            end
         end
-        %---spiking input from stimulus  
-        if experiment_set2go 
+        %---spiking input from stimulus
+        if experiment_set2go
             stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
             ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
         end
-        %if in switch state, force back to a stay state (after back2stay_min time)
-        if options.force_back2stay
-            ext_spikes = back2stay(ext_spikes,state,celltype); 
-        end
+        
         %update Gexternal. Don't have to index, they get an increase or zero
-        Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes); 
+        Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes);
         
         %lag equation vars for next timepoint
         V = next_timepoint(V);
@@ -246,27 +234,6 @@ for trialidx = 1:num_trials
             return
         end
         
-        %check if we need to record a switch index
-        if experiment_set2go
-            %find out if we've just switched from A to [the switch before
-            %B] Xms ago (or vice-verse, this is agnostic to specific stimuli)
-            if state.count == num_postswitch_samples && all(state.now == state.switch)
-                %if switch Xms ago & we're in the switch state
-                prev_state = durations{state.stay}; %find info on the stay state we just switched out of
-                %get duration, make sure it's > num_preswitch_samples (don't want to see another switch in there)
-                last_duration = prev_state{end,1};
-                switch stim_info.delivery %or see undecided state (non)activity, in pulse scenario
-                    case 'pulse' %see how long you've actually been in decided state (mod(t,squence time))
-                      last_duration = mod(last_duration,sum(stim_info.pulse));
-                end
-                if last_duration > num_preswitch_samples
-                    %record the switch time, stimulus type, state duration
-                    prev_ST = timepoint_counter - state.count;
-                    prev_stim = prev_state{end,2}; %find the last stimulus type
-                    switch_record = vertcat(switch_record,{prev_ST,prev_stim,last_duration}); 
-                end
-            end
-        end
         
         %progress tracking...
         if mod(timepoint_counter,floor(num_timepoints * .05)) == 0 %5 percent
@@ -276,16 +243,40 @@ for trialidx = 1:num_trials
         end
     end
     
-    %check if no switches met recording criteria, terminate if needed
-    if isempty(switch_record) | numel(switch_record(:,1)) <= 1,return;end 
     
     %remove the first artificially induced stay state & subsequent switch state
-    durations = cellfun(@(x) x(2:end,:),durations,'UniformOutput',false);
+    trim_Bcheck = find(startsWith(durations(:,end),'leave'), 1, 'first');
+    durations = durations(trim_Bcheck+1:end,:);
     sim_results{trialidx,1} = durations;
     
-    %also remove the first artificially induced stay state from this record
-    switch_record = switch_record(2:end,:);
-    %now get these spike timecourses and save them 
+    %check if we need to record a switch index for spiking data
+    leave_states = find(startsWith(durations(:,end),'leave'));
+    for LSidx = 1:numel(leave_states)
+        leave_durr = durations{leave_states(LSidx),2}; %How long leave-state lasted
+        leave_start = durations{leave_states(LSidx),1} - leave_durr; %when that leave state started
+        curr_rec = durations(1:leave_states(LSidx),:); %duration record up to that point
+        prev_stay = find(startsWith(curr_rec(:,end),'stim'), 1, 'last');
+        %check for no prior stay-state (2 sequential leaves after 1st artificial stay)
+        if ~isempty(prev_stay)
+            prev_stay = curr_rec(prev_stay,:); %stay-state prior to leave-transition
+            last_duration = prev_stay{2}; %how long that stay-state lasted
+            last_ended = prev_stay{1}; %when it ended
+            %stay-state followed by a leave-state within Yms later, and lasted at least Y ms
+            recwin_check = leave_start-last_ended;
+            recwin_check = recwin_check <= num_postswitch_samples ...
+                &&  (recwin_check+leave_durr) >= num_postswitch_samples;
+            %if the state-state lasted at least Xms, and meets above criteria
+            if last_duration > num_preswitch_samples && recwin_check
+                %record this state in the state-record so we can pull its spiking data out later
+                switch_record = vertcat(switch_record,prev_stay);
+            end
+        end
+    end
+    
+    %check if no switches met recording criteria, terminate if needed
+    if isempty(switch_record) | numel(switch_record(:,1)) <= 1,return;end
+    
+    %now get these spike timecourses and save them
     num_switches = numel(switch_record(:,1)); %cannot believe this var name is still free
     spiking_output = NaN(pool_options.num_cells,num_switch_samples,num_switches);
     for tc_idx = 1:num_switches
@@ -293,6 +284,8 @@ for trialidx = 1:num_trials
         record_win = record_win-(num_preswitch_samples-1):record_win+num_postswitch_samples;
         spiking_output(:,:,tc_idx) = spikes(:,record_win);
     end
+    
+    
     sim_results{trialidx,2} = spiking_output;
     sim_results{trialidx,3} = switch_record; %save this thing along with it
 end

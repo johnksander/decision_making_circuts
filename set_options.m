@@ -15,6 +15,7 @@ options.state_test_time = 20e-3; %must be X time above threshold to declare a sw
 options.state_test_thresh = .03; %difference in mean Sg between E-cell pools 
 %----pulse stimulus delivery (more realistic licking) 
 options.stim_pulse = [NaN, NaN]; %default will be none
+options.stim_schedule = 'flexible'; % 'fixed' or 'flexible' only matters for stim-pulse 
 %format is [on, off] in seconds. 
 %options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI
 options.sample_Estay_offset = 40e-3; %init noise offset Estay-Eswitch at the

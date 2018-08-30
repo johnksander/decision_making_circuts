@@ -1,9 +1,48 @@
-function options = set_options(config_options)
+function options = set_options(varargin)
 %basic options template
 
-location = 'hpc';
+%defaults
+options.comp_location = 'woodstock';
+options.modeltype = ''; %forcing this to break if not specified 
+options.sim_name = 'default_name';
+options.jobID = 9999; 
+options.timestep = .25e-3; %.25 milisecond timestep
+options.noswitch_timeout = 750; %timeout without a switch (s)
+options.tmax = 5000; %trial simulation time (s)
+options.force_back2stay = false; %whether to force switch from stay state (default false)
+options.cut_leave_state = 100e-3; %after Xms in a leave state, cut the noise 
+options.state_test_time = 20e-3; %must be X time above threshold to declare a switch 
+options.state_test_thresh = .03; %difference in mean Sg between E-cell pools 
+%----pulse stimulus delivery (more realistic licking) 
+options.stim_pulse = [NaN, NaN]; %default will be none
+options.stim_schedule = 'flexible'; % 'fixed' or 'flexible' only matters for stim-pulse 
+%format is [on, off] in seconds. 
+%options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI
+options.sample_Estay_offset = 40e-3; %init noise offset Estay-Eswitch at the
+%sample availablity onset. This is to kick the network into stay & start sampling 
+%----checking bistability @ sim outset 
+options.init_check_Rext = 200; %pulse strength (Hz to E-stay)
+options.init_check_tmax = .9; %pulse must keep steady state for (s)
 
-switch location
+
+%parse inputs 
+if mod(numel(varargin),2) ~= 0
+    error('arguments must be name-value pairs')
+end
+
+num_args = numel(varargin) / 2;
+fnames = varargin(1:2:end);
+fvals = varargin(2:2:end);
+for idx = 1:num_args
+    %check for typo first
+    if ~isfield(options,fnames{idx})
+        error(sprintf('unknown argument: %s',fnames{idx}))
+    end
+    options.(fnames{idx}) = fvals{idx};
+end
+
+
+switch options.comp_location 
     case 'woodstock'
         basedir = '/home/acclab/Desktop/ksander/rotation/project';
         options.rand_info = 'shuffle';
@@ -21,25 +60,17 @@ end
 
 rng(options.rand_info)
 
-options.modeltype = config_options.modeltype;
-options.sim_name = config_options.sim_name;
 options.helper_funcdir = fullfile(basedir,'helper_functions');
 results_dir = fullfile(basedir,'Results');
 options.save_dir = fullfile(results_dir,options.sim_name);
-
 addpath(options.helper_funcdir)
 if ~isdir(options.save_dir),mkdir(options.save_dir);end
+options.output_log = fullfile(options.save_dir,sprintf('output_log_%i.txt',options.jobID));
+
 
 %for parameter sweep jobs
 if strcmp(options.modeltype,'PS')
-    options.jobID = config_options.jobID;
-    options.sim_name = sprintf('PS_%s_%i',options.sim_name,options.jobID);
-    %options.save_dir = fullfile(options.save_dir,options.sim_name);
-    if ~isdir(options.save_dir),mkdir(options.save_dir);end
-    options.output_log = fullfile(options.save_dir,sprintf('output_log_%i.txt',options.jobID));
-    
-    options.noswitch_timeout = 750; %timeout without a switch (s)
-    
+    options.sim_name = sprintf('PS_%s_%i',options.sim_name,options.jobID);    
     %-----pick connection params-----
     dealers_choice = @(a,b) (a + (b-a).*rand(1));
     
@@ -52,13 +83,7 @@ end
 
 
 if strcmp(options.modeltype,'PS_stim')
-    options.jobID = config_options.jobID;
     options.sim_name = sprintf('PS_%s_%i',options.sim_name,options.jobID);
-    %options.save_dir = fullfile(options.save_dir,options.sim_name);
-    if ~isdir(options.save_dir),mkdir(options.save_dir);end
-    options.output_log = fullfile(options.save_dir,sprintf('output_log_%i.txt',options.jobID));
-    
-    options.noswitch_timeout = 750; %timeout without a switch (s)
     
     %-----set network params-----
     do_config = mod(options.jobID,10);
@@ -66,42 +91,8 @@ if strcmp(options.modeltype,'PS_stim')
     %pull ItoE, EtoI, Rstim, and stim cell targets for network ID 
     options = get_network_params(do_config,options); 
 end
-
-%trial simulation time
-if isfield(config_options,'tmax')
-    options.tmax = config_options.tmax;
-else
-    %trial simulation time (s)
-    options.tmax = 5000;
-end
-
-%whether to force switch from stay state (default false)
-if isfield(config_options,'force_back2stay')
-    options.force_back2stay = config_options.force_back2stay;
-else
-    options.force_back2stay = false;
-end
-
-%pulse stimulus delivery (more realistic licking) 
-if isfield(config_options,'stim_pulse')
-    options.stim_pulse = config_options.stim_pulse; %format is [on, off] in seconds. 
-    %options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI
-else 
-    options.stim_pulse = [NaN, NaN]; 
-end
-
-%pulse for checking bistability @ sim outset
-if isfield(config_options,'init_check_Rext')
-    options.init_check_Rext = config_options.init_check_Rext;
-else
-    options.init_check_Rext = 200; %207.5 hz stimulus to Estay cells
-end
-
-%pulse length for checking bistability @ sim outset
-if isfield(config_options,'init_check_tmax')
-    options.init_check_tmax = config_options.init_check_tmax;
-else
-    options.init_check_tmax = .9; %pulse must keep steady state for (s)
+if numel(unique(options.trial_stimuli)) > 1
+    error('check that test4switch() has the behavior you want here...')
 end
 
 if ~strcmp(options.modeltype,'JK') %don't run this block for outdated jobs 

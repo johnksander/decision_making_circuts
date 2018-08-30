@@ -9,72 +9,73 @@ hold off;close all
 
 %specify simulation
 %---sim setup-----------------
-Snames = {'network_spiking_P1_1','network_spiking_P2_1','network_spiking_P4_1',...
-    'network_spiking_P6_1', 'network_spiking_P8_1', 'network_spiking_P10_1',...
-    'network_spiking_P150_1'};
+% Snames = {'network_spiking_P1_1','network_spiking_P2_1','network_spiking_P4_1',...
+%     'network_spiking_P6_1', 'network_spiking_P8_1', 'network_spiking_P10_1',...
+%     'network_spiking_P150_1'};
 
+Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
+    'sim_v2_P6_1','sim_v2_P8_1'};
 
 figdir = 'network_spiking_pulse_figures';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
-% num_workers = 7;
-% c = parcluster('local');
-% c.NumWorkers = num_workers;
-% parpool(c,c.NumWorkers,'IdleTimeout',Inf)
-% 
-% 
-% parfor i = 1:numel(Snames)
-%     opt = struct();
-%     %sample duration
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'yes';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %duration after stim onset
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'rem';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %log duration after onset
-%     opt.outcome_stat = 'logmu'; opt.pulse_stim = 'rem';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %total time
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'total_time';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %log total time
-%     opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-% end
-% 
-% delete(gcp('nocreate'))
-%
+num_workers = numel(Snames);
+c = parcluster('local');
+c.NumWorkers = num_workers;
+parpool(c,c.NumWorkers,'IdleTimeout',Inf)
+
+parfor i = 1:numel(Snames)
+    opt = struct();
+    %sample duration
+    opt.outcome_stat = 'mu'; opt.pulse_stim = 'yes';
+    make_my_figs(basedir,Snames{i},figdir,opt)
+    %duration after stim onset
+    opt.outcome_stat = 'mu'; opt.pulse_stim = 'rem';
+    make_my_figs(basedir,Snames{i},figdir,opt)
+    %log duration after onset
+    opt.outcome_stat = 'logmu'; opt.pulse_stim = 'rem';
+    make_my_figs(basedir,Snames{i},figdir,opt)
+    %total time
+    opt.outcome_stat = 'mu'; opt.pulse_stim = 'total_time';
+    make_my_figs(basedir,Snames{i},figdir,opt)
+    %log total time
+    opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
+    make_my_figs(basedir,Snames{i},figdir,opt)
+end
+
+delete(gcp('nocreate'))
+
 % opt = struct();
-%
+% 
 % %control, log total time @ 150 pulse
 % opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
 % make_my_figs(basedir,'network_spiking_P150_1',figdir,opt)
-%
+% 
 % %control, log total time @ 10 pulse
 % opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
 % make_my_figs(basedir,'network_spiking_P10_1',figdir,opt)
-%
+% 
 
 %equate X axes for all figs of the same type
 %Snames = Snames(1:end-1);
 figdir =  fullfile(basedir,'Results',figdir,'durations');
 savedir = fullfile(figdir,'Xsynced_dectiming');
 if ~isdir(savedir),mkdir(savedir);end
-%ftypes = {'decision_timing_log','decision_timing','total_time','total_time_log'};
-ftypes = {'decision_timing'};
+ftypes = {'decision_timing_log','decision_timing','total_time','total_time_log','total_samples'};
+
 
 for idx = 1:numel(ftypes)
 
-%     Xls = NaN(numel(Snames),2);
-%     for fidx = 1:numel(Snames)
-%         fn = fullfile(figdir,[Snames{fidx} '_' ftypes{idx} '.fig']);
-%         h = openfig(fn);
-%         Xls(fidx,:) = h.CurrentAxes.XLim;
-%         close all
-%     end
-%     xlims = [min(Xls(:,1)),max(Xls(:,2))];
-    xlims = [0,.8];
+    Xls = NaN(numel(Snames),2);
+    for fidx = 1:numel(Snames)
+        fn = fullfile(figdir,[Snames{fidx} '_' ftypes{idx} '.fig']);
+        h = openfig(fn);
+        Xls(fidx,:) = h.CurrentAxes.XLim;
+        close all
+    end
+    xlims = [min(Xls(:,1)),max(Xls(:,2))];
+    %xlims = [0,.8];
     for fidx = 1:numel(Snames)
         fn = fullfile(figdir,[Snames{fidx} '_' ftypes{idx} '.fig']);
         h = openfig(fn);
@@ -180,22 +181,38 @@ for idx = 1:num_files
     %get state durations
     state_durations = curr_file.sim_results;
     state_durations = state_durations{1};
-    %take only stimulus state durations
-    state_durations = state_durations{1}(:,1);
-    %     state_durations = cellfun(@(x) x(:,1),state_durations,'UniformOutput',false);
-    %     state_durations = vertcat(state_durations{:});
-    state_durations = cat(1,state_durations{:}); %ooo that's annoying
-    %convert to time
-    state_durations = state_durations * timestep;
+        
+    %     %--this is prior to change in durations data structure
+    %     %take only stimulus state durations
+    %     state_durations = state_durations{1}(:,1);
+    %     %     state_durations = cellfun(@(x) x(:,1),state_durations,'UniformOutput',false);
+    %     %     state_durations = vertcat(state_durations{:});
+    %     state_durations = cat(1,state_durations{:}); %ooo that's annoying
+    %
+    %     state_durations = find_stay_durations(state_durations,curr_file.options);
+    %
+    %     %convert to time
+    %     state_durations = state_durations * timestep;
+    %     switch pulse_stim
+    %         case 'yes' %just do this now while options is handy
+    %             state_durations = floor(state_durations ./ sum(curr_file.options.stim_pulse));
+    %         case 'rem' %look at when IN the sample switch happened
+    %             state_durations = mod(state_durations,sum(curr_file.options.stim_pulse));
+    %         case 'total_time' %need to subtract the off-period time (in betwn pulses)
+    %             Nsamps = floor(state_durations ./ sum(curr_file.options.stim_pulse));
+    %             state_durations = state_durations - (Nsamps.*curr_file.options.stim_pulse(2));
+    %     end
+
+    state_durations = find_stay_durations(state_durations,curr_file.options);
     switch pulse_stim
         case 'yes' %just do this now while options is handy
-            state_durations = floor(state_durations ./ sum(curr_file.options.stim_pulse));
+            state_durations = state_durations.samples;
         case 'rem' %look at when IN the sample switch happened
-            state_durations = mod(state_durations,sum(curr_file.options.stim_pulse));
-        case 'total_time' %need to subtract the off-period time (in betwn pulses)
-            Nsamps = floor(state_durations ./ sum(curr_file.options.stim_pulse));
-            state_durations = state_durations - (Nsamps.*curr_file.options.stim_pulse(2));
+            state_durations = state_durations.decision_time;
+        case 'total_time'
+            state_durations = state_durations.duration;
     end
+    
     file_data{idx,1} = state_durations;
 end
 
