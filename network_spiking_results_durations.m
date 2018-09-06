@@ -13,10 +13,13 @@ hold off;close all
 %     'network_spiking_P6_1', 'network_spiking_P8_1', 'network_spiking_P10_1',...
 %     'network_spiking_P150_1'};
 
-Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
-    'sim_v2_P6_1','sim_v2_P8_1'};
+% Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
+%     'sim_v2_P6_1','sim_v2_P8_1','sim_v2_P10_1','sim_v2_P150_1'};
 
-figdir = 'network_spiking_pulse_figures';
+
+Snames = {'sim_v2_P1_pt5','sim_v2_P4_pt5','sim_v2_P7_pt5','sim_v2_P10_pt5'};
+
+figdir = 'halfsec_ISI_figures'; %figdir = 'network_spiking_pulse_figures';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -60,7 +63,7 @@ delete(gcp('nocreate'))
 %equate X axes for all figs of the same type
 %Snames = Snames(1:end-1);
 figdir =  fullfile(basedir,'Results',figdir,'durations');
-savedir = fullfile(figdir,'Xsynced_dectiming');
+savedir = fullfile(figdir,'Xsynced');
 if ~isdir(savedir),mkdir(savedir);end
 ftypes = {'decision_timing_log','decision_timing','total_time','total_time_log','total_samples'};
 
@@ -87,8 +90,9 @@ for idx = 1:numel(ftypes)
         set(ch,'Normalization','probability')
 
         set(ch,'BinWidth',.01)
-        
-        print(fullfile(savedir,[Snames{fidx} '_' ftypes{idx}]),'-djpeg')
+        Fdir = fullfile(savedir,ftypes{idx});
+        if ~isdir(Fdir),mkdir(Fdir);end
+        print(fullfile(Fdir,[Snames{fidx} '_' ftypes{idx}]),'-djpeg')
         close all
     end
 

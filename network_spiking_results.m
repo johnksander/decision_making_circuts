@@ -3,34 +3,50 @@ clc
 format compact
 hold off;close all
 
-%note-- 8/29/2018: this is the code for analyzing simulation spikerates 
+%note-- 8/29/2018: this is the code for analyzing simulation spikerates
 
 
 %specify simulation
 %---sim setup-----------------
-Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
-    'sim_v2_P6_1','sim_v2_P8_1'};
+% Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
+%     'sim_v2_P6_1','sim_v2_P8_1','sim_v2_P10_1','sim_v2_P150_1'};
+
+Snames = {'sim_v2_P1_pt5','sim_v2_P4_pt5','sim_v2_P7_pt5','sim_v2_P10_pt5'};
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
-figdir = 'network_spiking_pulse_figures';
+figdir = 'halfsec_ISI_figures'; %figdir = 'network_spiking_pulse_figures';
 addpath(fullfile(basedir,'helper_functions'))
 
 for i = 1:numel(Snames)
-    %whole thing, raw
+    
+    %whole timecourse
     opt.Tcourse = 'all'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
     netspiking_figure(basedir,Snames{i},figdir,opt)
-    keyboard
+    
     %preswitch, raw
-    opt.Tcourse = 'presw250to5'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
+    opt.Tcourse = 'presw150to25'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
     netspiking_figure(basedir,Snames{i},figdir,opt)
     
     %preswitch, raw & zoomed
-    opt.Tcourse = 'presw250to5'; opt.treat_data = 'none'; opt.zoomed_fig = 'yes';
+    opt.Tcourse = 'presw150to25'; opt.treat_data = 'none'; opt.zoomed_fig = 'yes';
     netspiking_figure(basedir,Snames{i},figdir,opt)
     
     %preswitch, normalized & zoomed
-    opt.Tcourse = 'presw250to5'; opt.treat_data = 'base0'; opt.zoomed_fig = 'yes';
-    netspiking_figure(basedir,Snames{i},figdir,opt)    
+    opt.Tcourse = 'presw150to25'; opt.treat_data = 'base0'; opt.zoomed_fig = 'yes';
+    netspiking_figure(basedir,Snames{i},figdir,opt)
+    
+    
+%     %preswitch, raw
+%     opt.Tcourse = 'presw250to5'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
+%     netspiking_figure(basedir,Snames{i},figdir,opt)
+%     
+%     %preswitch, raw & zoomed
+%     opt.Tcourse = 'presw250to5'; opt.treat_data = 'none'; opt.zoomed_fig = 'yes';
+%     netspiking_figure(basedir,Snames{i},figdir,opt)
+%     
+%     %preswitch, normalized & zoomed
+%     opt.Tcourse = 'presw250to5'; opt.treat_data = 'base0'; opt.zoomed_fig = 'yes';
+%     netspiking_figure(basedir,Snames{i},figdir,opt)
 end
 
 
@@ -49,7 +65,7 @@ treat_data = opt.treat_data;%'base0'; % zscore | base0 | minmax
 print_anything = 'yes';make_legend = 'no'; %both 'yes'|'no'
 zoomed_fig = opt.zoomed_fig;%'yes'; %ignore I-stay spiking for Y limits
 
-%pulse duration... kinda hardcoded here 
+%pulse duration... kinda hardcoded here
 Pdur = strsplit(sim_name,'_');
 Pdur = Pdur{3};
 Pdur = strrep(Pdur,'P','');
@@ -72,7 +88,11 @@ switch Tcourse
     case 'presw250to5'
         fig_fn = 'presw250to5';
         preswitch_plottime = 250e-3; %preswitch duration to plot (T0-X)
-        postswitch_plottime = -5e-3; %postwitch duration to plot (T+
+        postswitch_plottime = -5e-3; %postwitch duration to plot (T+X)
+    case 'presw150to25'
+        fig_fn = 'presw150to25';
+        preswitch_plottime = 150e-3; %preswitch duration to plot (T0-X)
+        postswitch_plottime = 25e-3; %postwitch duration to plot (T+X)
 end
 
 fig_fn = sprintf('%s_%s',sim_name,fig_fn);
@@ -144,13 +164,13 @@ for idx = 1:num_files
     [~,valid_events] = find_stay_durations(all_events,curr_file.options,'verify');
     valid_events = cat(1,valid_events{:,1});
     fevents = curr_file.sim_results{3}(:,1); %time indicies for the recorded spiking events
-    fevents = cat(1,fevents{:}) .* curr_file.options.timestep; %convert to time for comparison 
+    fevents = cat(1,fevents{:}) .* curr_file.options.timestep; %convert to time for comparison
     valid_events = ismember(fevents,valid_events);
-    %now back to more regular stuff 
-
+    %now back to more regular stuff
+    
     %file data
     fdata = curr_file.sim_results{2};
-    fdata = fdata(:,:,valid_events); %ensure records are valid 
+    fdata = fdata(:,:,valid_events); %ensure records are valid
     switch_counts(p) = switch_counts(p) + size(fdata,3); %keep track of how many timecourses
     fdata = sum(fdata,3); %sum over the switches from this file
     %add to the rest of them
