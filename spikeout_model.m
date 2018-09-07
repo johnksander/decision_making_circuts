@@ -120,7 +120,10 @@ for trialidx = 1:num_trials
     D = NaN(size(V)); %synaptic depression
     D(:,1) = 1; %initalize at one
     %---spikes--------------------
-    spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
+    switch options.record_spiking
+        case 'on'
+            spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
+    end
     %---state tracker-------------
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
@@ -164,7 +167,10 @@ for trialidx = 1:num_trials
                 (Pr(spiking_cells).*D(spiking_cells,idx).*(1-Sg(spiking_cells,idx))); %synaptic gating
             D(spiking_cells,idx) = D(spiking_cells,idx).*(1-Pr(spiking_cells)); %synaptic depression
             V(spiking_cells,idx) = Vreset;
-            spikes(spiking_cells,timepoint_counter) = 1;
+            switch options.record_spiking
+                case 'on'
+                    spikes(spiking_cells,timepoint_counter) = 1;
+            end
         end
         
         %test for state transition & determine stim availability
@@ -249,47 +255,50 @@ for trialidx = 1:num_trials
     durations = durations(trim_Bcheck+1:end,:);
     sim_results{trialidx,1} = durations;
     
-    %this needs to be fixed, verified like in find_stay_durations()
-    %check if we need to record a switch index for spiking data
-    leave_states = find(startsWith(durations(:,end),'leave'));
-    for LSidx = 1:numel(leave_states)
-        leave_durr = durations{leave_states(LSidx),2}; %How long leave-state lasted
-        leave_start = durations{leave_states(LSidx),1} - leave_durr; %when that leave state started
-        curr_rec = durations(1:leave_states(LSidx),:); %duration record up to that point
-        prev_stay = find(startsWith(curr_rec(:,end),'stim'), 1, 'last');
-        %check for no prior stay-state (2 sequential leaves after 1st artificial stay)
-        if ~isempty(prev_stay)
-            prev_stay = curr_rec(prev_stay,:); %stay-state prior to leave-transition
-            last_duration = prev_stay{2}; %how long that stay-state lasted
-            last_ended = prev_stay{1}; %when it ended
-            %stay-state followed by a leave-state within Yms later, and lasted at least Y ms
-            recwin_check = leave_start-last_ended;
-            recwin_check = recwin_check <= num_postswitch_samples ...
-                &&  (recwin_check+leave_durr) >= num_postswitch_samples;
-            %if the state-state lasted at least Xms, and meets above criteria
-            if last_duration > num_preswitch_samples && recwin_check
-                %record this state in the state-record so we can pull its spiking data out later
-                switch_record = vertcat(switch_record,prev_stay);
+    switch options.record_spiking
+        case 'on'
+            %this needs to be fixed, verified like in find_stay_durations()
+            %check if we need to record a switch index for spiking data
+            leave_states = find(startsWith(durations(:,end),'leave'));
+            for LSidx = 1:numel(leave_states)
+                leave_durr = durations{leave_states(LSidx),2}; %How long leave-state lasted
+                leave_start = durations{leave_states(LSidx),1} - leave_durr; %when that leave state started
+                curr_rec = durations(1:leave_states(LSidx),:); %duration record up to that point
+                prev_stay = find(startsWith(curr_rec(:,end),'stim'), 1, 'last');
+                %check for no prior stay-state (2 sequential leaves after 1st artificial stay)
+                if ~isempty(prev_stay)
+                    prev_stay = curr_rec(prev_stay,:); %stay-state prior to leave-transition
+                    last_duration = prev_stay{2}; %how long that stay-state lasted
+                    last_ended = prev_stay{1}; %when it ended
+                    %stay-state followed by a leave-state within Yms later, and lasted at least Y ms
+                    recwin_check = leave_start-last_ended;
+                    recwin_check = recwin_check <= num_postswitch_samples ...
+                        &&  (recwin_check+leave_durr) >= num_postswitch_samples;
+                    %if the state-state lasted at least Xms, and meets above criteria
+                    if last_duration > num_preswitch_samples && recwin_check
+                        %record this state in the state-record so we can pull its spiking data out later
+                        switch_record = vertcat(switch_record,prev_stay);
+                    end
+                end
             end
-        end
+            
+            %check if no switches met recording criteria, terminate if needed
+            if isempty(switch_record) | numel(switch_record(:,1)) <= 1,return;end
+            
+            %now get these spike timecourses and save them
+            num_switches = numel(switch_record(:,1)); %cannot believe this var name is still free
+            spiking_output = NaN(pool_options.num_cells,num_switch_samples,num_switches);
+            for tc_idx = 1:num_switches
+                record_win = switch_record{tc_idx,1};
+                record_win = record_win-(num_preswitch_samples-1):record_win+num_postswitch_samples;
+                spiking_output(:,:,tc_idx) = spikes(:,record_win);
+            end
+            
+            sim_results{trialidx,2} = spiking_output;
+            sim_results{trialidx,3} = switch_record; %save this thing along with it
     end
-    
-    %check if no switches met recording criteria, terminate if needed
-    if isempty(switch_record) | numel(switch_record(:,1)) <= 1,return;end
-    
-    %now get these spike timecourses and save them
-    num_switches = numel(switch_record(:,1)); %cannot believe this var name is still free
-    spiking_output = NaN(pool_options.num_cells,num_switch_samples,num_switches);
-    for tc_idx = 1:num_switches
-        record_win = switch_record{tc_idx,1};
-        record_win = record_win-(num_preswitch_samples-1):record_win+num_postswitch_samples;
-        spiking_output(:,:,tc_idx) = spikes(:,record_win);
-    end
-    
-    
-    sim_results{trialidx,2} = spiking_output;
-    sim_results{trialidx,3} = switch_record; %save this thing along with it
 end
+
 update_logfile('---Simulation complete---',options.output_log)
 savename = fullfile(options.save_dir,options.sim_name);
 save(savename,'sim_results','options')

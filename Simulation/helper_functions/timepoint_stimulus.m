@@ -33,7 +33,7 @@ if apply_stimulus
     %add stimulus-specific spiketrain
     if strcmp(state.stim_labels{state.current_stimulus},'stim_A')
         stim_spikes(stim_info.targ_cells) =  poissrnd(stim_info.stimA_lambda,sum(stim_info.targ_cells),1);
-    else %strcmp(state.stim_labels{state.current_stimulus},'B')
+    elseif strcmp(state.stim_labels{state.current_stimulus},'stim_B')
         stim_spikes(stim_info.targ_cells) =  poissrnd(stim_info.stimB_lambda,sum(stim_info.targ_cells),1);
     end
 end

@@ -13,6 +13,7 @@ options.force_back2stay = false; %whether to force switch from stay state (defau
 options.cut_leave_state = 100e-3; %after Xms in a leave state, cut the noise 
 options.state_test_time = 20e-3; %must be X time above threshold to declare a switch 
 options.state_test_thresh = .03; %difference in mean Sg between E-cell pools 
+options.record_spiking = 'on'; %saves spiking data, 'off' gives low-memory sim without spiking data 
 %----pulse stimulus delivery (more realistic licking) 
 options.stim_pulse = [NaN, NaN]; %default will be none
 options.stim_schedule = 'flexible'; % 'fixed' or 'flexible' only matters for stim-pulse 

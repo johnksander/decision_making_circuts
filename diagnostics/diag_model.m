@@ -283,6 +283,8 @@ for trialidx = 1:num_trials
         end
     end
     
+    oflag = true; %take anything it's fine 
+    
     
     %-----unneeded for diagnositcs
     %

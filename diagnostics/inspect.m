@@ -9,11 +9,11 @@ addpath('../')
 
 %my model
 %---setup---------------------
+t = 200;
 options = set_options('modeltype','PS_stim',...
     'sim_name','diagnostics_Sgtest_transients',...
-    'jobID',1,'tmax',50,'stim_pulse',[6,1],'stim_schedule','flexible',...
-    'comp_location','woodstock');
-
+    'jobID',2,'tmax',t,'stim_pulse',[t,0],'stim_schedule','flexible',...
+    'comp_location','woodstock','cut_leave_state',5e-3);
 
 
 fig_dir = fullfile(options.save_dir,options.sim_name);
@@ -65,6 +65,24 @@ timecourse(:,end) = durations(:,end);
 timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
 timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
 writetable(timecourse,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
+
+%figure out the difference between end of stimulus & next stimulus onset
+[out,info] = find_stay_durations(durations,options,'verify');
+onset_diff = NaN(size(info,1),1);
+time_inds = cell2mat(cellfun(@(x) x*options.timestep,durations(:,1),'UniformOutput',false));
+for idx = 1:size(info,1)
+    Tend = info{idx,1};
+    curr_stim = find(time_inds == Tend);
+    curr_stim = timecourse(curr_stim:curr_stim+4,:);
+    if ~strcmpi(curr_stim{3,end},'leave') || ~startsWith(curr_stim{end,end},'stim')
+        fprintf('problem with item #%i\r',idx) %almost certainly a "stim-leave-leave" sequence, no biggie 
+    else
+        onset_diff(idx) = str2num(curr_stim.event_time{end-1}) - str2num(curr_stim.event_time{1});
+    end
+end
+onset_diff = onset_diff(~isnan(onset_diff));
+histogram(onset_diff,numel(onset_diff))
+keyboard
 
 %do the raster plot
 spikeplot = make_spikeplot(spikes);
