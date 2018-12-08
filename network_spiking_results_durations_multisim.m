@@ -9,22 +9,21 @@ hold off;close all
 
 %specify simulation
 %---sim setup-----------------
-figdir = 'halfsec_ISI_figures';
+figdir = 'figures_dep_pref';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 figdir = fullfile(basedir,'Results',figdir,'durations');
 
-% Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
-%     'sim_v2_P6_1','sim_v2_P8_1','sim_v2_P10_1','sim_v2_P150_1'};
 
-Snames = {'sim_v2_P1_pt5','sim_v2_P4_pt5','sim_v2_P7_pt5','sim_v2_P10_pt5'};
+Snames = {'dep_pref'};
 
-fig_types = {'decision_timing','total_samples','total_time'};
+fig_types = {'total_time'};
 
 
 for i = 1:numel(fig_types)
     
     opt.Ftype = fig_types{i};
+    opt.print_anything = 'no';
     
     %do a median
     opt.outcome_stat = 'med';
@@ -44,7 +43,7 @@ end
 function make_my_fig(Snames,figdir,opt)
 hold off;close all
 
-print_anything = 'yes';
+print_anything = opt.print_anything;
 outcome_stat = opt.outcome_stat; %mu or logmu, med or logmed, var
 Ftype = opt.Ftype; %{'decision_timing','total_samples','total_time'};
 
