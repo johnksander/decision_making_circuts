@@ -11,8 +11,8 @@ addpath('../')
 %---setup---------------------
 t = 200;
 options = set_options('modeltype','PS_stim',...
-    'sim_name','diagnostics_Sgtest_transients',...
-    'jobID',2,'tmax',t,'stim_pulse',[t,0],'stim_schedule','flexible',...
+    'sim_name','test_noInoise',...
+    'jobID',5,'tmax',t,'stim_pulse',[t,0],'stim_schedule','flexible',...
     'comp_location','woodstock','cut_leave_state',5e-3);
 
 
@@ -70,20 +70,33 @@ writetable(timecourse,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
 [out,info] = find_stay_durations(durations,options,'verify');
 onset_diff = NaN(size(info,1),1);
 time_inds = cell2mat(cellfun(@(x) x*options.timestep,durations(:,1),'UniformOutput',false));
+u2_times = NaN(size(onset_diff)); %time for second undecided stte 
 for idx = 1:size(info,1)
     Tend = info{idx,1};
     curr_stim = find(time_inds == Tend);
-    curr_stim = timecourse(curr_stim:curr_stim+4,:);
-    if ~strcmpi(curr_stim{3,end},'leave') || ~startsWith(curr_stim{end,end},'stim')
-        fprintf('problem with item #%i\r',idx) %almost certainly a "stim-leave-leave" sequence, no biggie 
-    else
-        onset_diff(idx) = str2num(curr_stim.event_time{end-1}) - str2num(curr_stim.event_time{1});
+    if curr_stim+4 <= size(timecourse,1)
+        curr_stim = timecourse(curr_stim:curr_stim+4,:);
+        if ~strcmpi(curr_stim{3,end},'leave') || ~startsWith(curr_stim{end,end},'stim')
+            fprintf('problem with item #%i\r',idx) %almost certainly a "stim-leave-leave" sequence, no biggie
+        else
+            onset_diff(idx) = str2num(curr_stim.event_time{end-1}) - str2num(curr_stim.event_time{1});
+            u2_times(idx) = str2num(curr_stim.duration{4});
+        end
     end
 end
-onset_diff = onset_diff(~isnan(onset_diff));
-histogram(onset_diff,numel(onset_diff))
-keyboard
+Tinvalid = isnan(onset_diff);
+fprintf('valid transitions = %i/%i\n',sum(~Tinvalid),numel(Tinvalid))
+if sum(onset_diff) > 0
+    onset_diff = onset_diff(~Tinvalid);
+    u2_times = u2_times(~Tinvalid);
+    figure()
+    histogram(onset_diff,numel(onset_diff));hold on
+    histogram(u2_times,numel(u2_times));hold off
+    title('stim onset differences')
+    legend('total transition','undecided #2','Location','best')
+end
 
+figure()
 %do the raster plot
 spikeplot = make_spikeplot(spikes);
 %reorganize the cell groups
@@ -160,11 +173,11 @@ print(fullfile(fig_dir,'spikerates'),'-djpeg')
 
 
 %spikerates by sliding window...
-figure;
 
 window_sz = 50e-3;
 S = sim_windowrate(spikes,timestep,celltype,window_sz);
 
+figure;
 %plot the aggregated timecourses
 hold on
 plot(S.Estay,'Linewidth',lnsz)
@@ -182,6 +195,28 @@ legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal
 set(gca,'FontSize',fontsz)
 hold off
 print(fullfile(fig_dir,'spikerates_slidingwin'),'-djpeg')
+savefig(gcf(),fullfile(fig_dir,'spikerates_slidingwin'),'compact')
+
+figure;
+%plot the aggregated timecourses
+hold on
+plot(S.Estay,'Linewidth',lnsz)
+plot(S.Eswitch,'Linewidth',lnsz)
+plot(S.Istay,'Linewidth',lnsz)
+plot(S.Iswitch,'Linewidth',lnsz)
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('Spiking')
+ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+hold off
+print(fullfile(fig_dir,'spikerates_slidingwin_allcells'),'-djpeg')
+savefig(gcf(),fullfile(fig_dir,'spikerates_slidingwin_allcells'),'compact')
+
+
 
 figure;
 plot(S.Estay-S.Eswitch,'Linewidth',lnsz)
@@ -196,14 +231,16 @@ set(gca,'FontSize',fontsz)
 print(fullfile(fig_dir,'spikerates_slidingwin_difference'),'-djpeg')
 
 
-figure;
 
 %Sg = sim_windowrate(Srec,timestep,celltype,window_sz);
 %Sg = structfun(@(x) x.* timestep ,Sg,'UniformOutput',false); %undo hz conversion
 Sg.Estay = mean(Srec(celltype.excit & celltype.pool_stay,:),1);
 Sg.Eswitch = mean(Srec(celltype.excit & celltype.pool_switch,:),1);
+Sg.Istay = mean(Srec(celltype.inhib & celltype.pool_stay,:),1);
+Sg.Iswitch = mean(Srec(celltype.inhib & celltype.pool_switch,:),1);
 
 %plot the aggregated timecourses
+figure;
 hold on
 plot(Sg.Estay,'Linewidth',lnsz)
 plot(Sg.Eswitch,'Linewidth',lnsz)
@@ -218,8 +255,51 @@ legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal
 set(gca,'FontSize',fontsz)
 hold off
 print(fullfile(fig_dir,'syn_gating'),'-djpeg')
+savefig(gcf(),fullfile(fig_dir,'syn_gating'),'compact')
 
+%plot the aggregated timecourses
 figure;
+hold on
+plot(Sg.Estay,'Linewidth',lnsz)
+plot(Sg.Eswitch,'Linewidth',lnsz)
+plot(Sg.Istay,'Linewidth',lnsz)
+plot(Sg.Iswitch,'Linewidth',lnsz)
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('Synaptic gating')
+ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+hold off
+print(fullfile(fig_dir,'syn_gating_allcells'),'-djpeg')
+savefig(gcf(),fullfile(fig_dir,'syn_gating_allcells'),'compact')
+
+
+
+%plot the aggregated timecourses
+figure;
+plot(Sg.Estay-Sg.Eswitch,'Linewidth',lnsz);hold on
+plot(Sg.Istay-Sg.Iswitch,'Linewidth',lnsz);hold off
+% plot(Sg.Estay,'Linewidth',lnsz);hold on
+% plot(Sg.Eswitch,'Linewidth',lnsz)
+% plot(Sg.Istay,'Linewidth',lnsz)
+% plot(Sg.Iswitch,'Linewidth',lnsz);hold off
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('Synaptic gating')
+ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+legend({'E-stay minus E-switch','I-stay minus I-switch'},'location','northoutside','Orientation','horizontal')
+%legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+
+
+
+
+figure
 plot(Sg.Estay-Sg.Eswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff

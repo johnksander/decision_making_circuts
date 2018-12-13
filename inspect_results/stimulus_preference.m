@@ -13,88 +13,32 @@ figdir = 'figures_dep_pref'; %figdir = 'network_spiking_pulse_figures';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
+rule_types = {'strict','relaxed'};
+stat_types = {'mu','med','logmu'};
+Tmax_vals = [NaN,.3,.275];
 
 opt = struct();
-opt.print_anything = 'yes'; %'yes' | 'no';
-opt.load_or_calc = 'calc'; %load/calc (auto save with calc
-opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
-opt.rules = 'strict'; %strict|relaxed
-opt.Tmax = NaN; %no transition limit
 opt.pulse_stim = 'no'; % 'no' |'yes' | 'total_time' | 'rem' whether to treat durations as samples (rem = time during sample)
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
+opt.print_anything = 'yes'; %'yes' | 'no';
+%opt.rules = 'relaxed'; %strict|relaxed
+%opt.Tmax = .275; %NaN no transition limit, or limit in seconds (.3 etc)
+%opt.outcome_stat = 'mu'; %'mu'|'med'|'logmu'
+opt.load_or_calc = 'load'; %load/calc (auto save with calc)
 
-opt.load_or_calc = 'load'; %load/calc (auto save with calc
-opt.outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-opt.load_or_calc = 'load'; %load/calc (auto save with calc
-opt.outcome_stat = 'med';  %'mu' | 'med' | 'logmu'
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-
-opt.load_or_calc = 'calc'; %load/calc (auto save with calc
-opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
-opt.Tmax = .3; %300 ms transition limit
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-opt.load_or_calc = 'load'; %load/calc (auto save with calc
-opt.outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
-opt.Tmax = .3; %300 ms transition limit
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-opt.load_or_calc = 'load'; %load/calc (auto save with calc
-opt.outcome_stat = 'med';  %'mu' | 'med' | 'logmu'
-opt.Tmax = .3; %300 ms transition limit
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-%broke here
-
-opt.load_or_calc = 'calc'; %load/calc (auto save with calc
-opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
-opt.rules = 'relaxed'; %strict|relaxed
-opt.Tmax = NaN; %no transition limit
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-opt.load_or_calc = 'load'; %load/calc (auto save with calc
-opt.outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
-opt.rules = 'relaxed'; %strict|relaxed
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-opt.load_or_calc = 'load'; %load/calc (auto save with calc
-opt.outcome_stat = 'med';  %'mu' | 'med' | 'logmu'
-opt.rules = 'relaxed'; %strict|relaxed
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-
-opt.load_or_calc = 'calc'; %load/calc (auto save with calc
-opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
-opt.rules = 'relaxed'; %strict|relaxed
-opt.Tmax = .3; %250 ms transition limit
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-opt.load_or_calc = 'load'; %load/calc (auto save with calc
-opt.outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
-opt.rules = 'relaxed'; %strict|relaxed
-opt.Tmax = .3; %250 ms transition limit
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-opt.load_or_calc = 'load'; %load/calc (auto save with calc
-opt.outcome_stat = 'med';  %'mu' | 'med' | 'logmu'
-opt.rules = 'relaxed'; %strict|relaxed
-opt.Tmax = .3; %250 ms transition limit
-%run preference analysis
-make_my_figs(basedir,Snames{1},figdir,opt)
-
-
-
+for i = 1:numel(rule_types)
+    opt.rules = rule_types{i}; %strict|relaxed
+    for j = 1:numel(stat_types)
+        opt.outcome_stat = stat_types{j};
+        for k = 1:numel(Tmax_vals)
+            opt.Tmax = Tmax_vals(k);
+            if i == 1 && k == 3 %I didn't calc this data
+            else
+                %run preference analysis
+                make_my_figs(basedir,Snames{1},figdir,opt)
+            end
+        end
+    end
+end
 
 
 %
@@ -288,7 +232,7 @@ switch opt.load_or_calc
         end
         delete(gcp('nocreate'))
         delete(special_progress_tracker)
-       
+        
         %search for jobs with identical parameters, collapse distributions
         %get the randomized network parameters
         job_params = cellfun(@(x)...
@@ -319,14 +263,14 @@ switch opt.load_or_calc
             result_data{idx,2} = file_data{find(curr_file,1),2};
             timing_info{idx} = cat(1,file_data{curr_file,3});
         end
-
+        
         %save filedata
         save(fullfile(svdir,svFN),'result_data','timing_info','net_type','-v7.3')
-        %clear out big clunky cell array 
-        clear file_data 
-
+        %clear out big clunky cell array
+        clear file_data
+        
     case 'load'
-        %just load precomputed vars 
+        %just load precomputed vars
         result_data = load(fullfile(svdir,svFN));
         timing_info = result_data.timing_info;
         net_type = result_data.net_type;
@@ -418,7 +362,7 @@ for idx = 1:num_net_types
             stim_data = array2table([stim_stats,alt_stim],'VariableNames',[stim_labels,'Hz']);
             base_stim = curr_net_info.stim_A{j};
             
-            Xvals = base_stim ./ stim_data.Hz;
+            Xvals = stim_data.Hz ./ base_stim;
             plot(Xvals,stim_data.A,'LineWidth',3)
             hold on
             plot(Xvals,stim_data.B,'LineWidth',3)
@@ -433,7 +377,7 @@ for idx = 1:num_net_types
         hold off
         
         if plt_idx == 9 || plt_idx == 10
-            xlabel('A Hz / B Hz','Fontsize',fz,'FontWeight','bold')
+            xlabel('B Hz / A Hz','Fontsize',fz,'FontWeight','bold')
         end
         if plt_idx == 1 || plt_idx == 2
             title(sprintf('%s networks',curr_net_info.stim_targs{j}),'Fontsize',fz,'FontWeight','bold')

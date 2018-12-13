@@ -143,7 +143,7 @@ for trialidx = 1:num_trials
         
         timepoint_counter = timepoint_counter+1;
         state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
-        
+
         %loop equations
         I = (unique(Erev(celltype.excit)) - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*unique(Gg(celltype.excit));
         I = I + (unique(Erev(celltype.inhib)) - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*unique(Gg(celltype.inhib));
@@ -218,7 +218,7 @@ for trialidx = 1:num_trials
             stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
             ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
         end
-        
+
         %update Gexternal. Don't have to index, they get an increase or zero
         Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes);
         

@@ -149,8 +149,8 @@ switch Fopt.rules
                 %now see if the two stimuli are different
                 seq_stims = seq.state(seq_stim_inds);
                 stimcheck = numel(unique(seq_stims)) == 2;
-                %ensure there's another subsequent leave state
-                leavecheck = sum(leave_states > seq_inds(end)) > 0;
+                %ensure there's another subsequent leave state, AND previous one
+                leavecheck = sum(leave_states > seq_inds(end)) > 0 && sum(leave_states < idx) > 0;
                 if stimcheck && leavecheck
                     %meets alternation & subsequent-leave criteria
                     seq_counter = seq_counter + 1; %increment counter
