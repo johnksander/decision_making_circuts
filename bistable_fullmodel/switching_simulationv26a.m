@@ -4,7 +4,7 @@ close all
 format compact
 rng('shuffle') %this is probably important...
 
-basedir = '~/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project';
 addpath(basedir)
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -19,7 +19,7 @@ addpath(fullfile(basedir,'helper_functions'))
 tmax = 20;
 
 
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
+options = set_options('modeltype','diagnostics','comp_location','bender',...
     'tmax',tmax,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
@@ -83,7 +83,7 @@ spike_thresh = 20e-3; %spike reset threshold (higher than Vth)
 %----noisy input--------------
 Tau_ext = NaN(pool_options.num_cells,1); %noisy conductance time constant, ms
 Tau_ext(celltype.excit) = 2e-3;
-Tau_ext(celltype.inhib) = 5e-3;
+Tau_ext(celltype.inhib) = 5e-3; %HEY I DONT THINK THATS GOOD 
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
 %Rext = 1400; %poisson spike train rate for noise, Hz
@@ -126,8 +126,10 @@ end
 V = NaN(pool_options.num_cells,2);
 V(:,1) = El; %inital value of membrane potential is leak potential
 %---noisy conductance---------
-Gext = NaN(size(V)); %noisy conductance
-Gext(:,1) = initGext; %initialize at leak conductance
+Gext = NaN([size(V),2]); %noisy conductance (do I & E input in 3rd D)
+ext_inds.excit = 1;
+ext_inds.inhib = 2;
+Gext(:,1,:) = initGext; %initialize at leak conductance
 %---adaptation conductance----
 Gsra = NaN(size(V));
 Gsra(:,1) = 0;
@@ -162,12 +164,15 @@ while timepoint_counter <= num_timepoints
     I = I + (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
     dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
         + (Gsra(:,idx-1).*(Ek-V(:,idx-1)))...
-        + (Gext(:,idx-1).*(Vrev-V(:,idx-1))) + I;
+        + (Gext(:,idx-1,ext_inds.excit).*(Erev-V(:,idx-1)))...
+        + (Gext(:,idx-1,ext_inds.inhib).*(Irev-V(:,idx-1))) + I;
+    %+ (Gext(:,idx-1).*(Vrev-V(:,idx-1))) + I;
     
     V(:,idx) = ((dVdt./Cm) .* timestep) + V(:,idx-1);
-    
+        
+    tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext 
+    Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
     Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-    Gext(:,idx) = Gext(:,idx-1) - ((Gext(:,idx-1)./Tau_ext) .* timestep); %noisy conductance
     D(:,idx) = D(:,idx-1) + (((1 - D(:,idx-1))./Td) .* timestep); %synaptic depression
     Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
     
@@ -194,7 +199,7 @@ while timepoint_counter <= num_timepoints
     if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
         [BScheck,Pspikes,state] = check_bistability(Sg(:,idx),state);
         %add pulse spikes (same as below)
-        Gext(:,idx) = Gext(:,idx) + (deltaGext.*Pspikes);
+        Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*Pspikes);
         switch BScheck.status
             case 'fail'
                 fprintf(':::Bistability check failure:::')
@@ -208,12 +213,12 @@ while timepoint_counter <= num_timepoints
     
     %input spikes: noise & stimulus
     %---noisy spiking input from elsewhere
-    ext_spikes = poissrnd(Lext,pool_options.num_cells,1);
+    ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
     if ~avail_stim
         %don't do this for current testing
         %         %we're in between stimulus delivery pulses
         %         %do half-noise to all E-cells-- gives barely spiking undecided state
-        %         ext_spikes(celltype.excit) = poissrnd(Lext*.5,sum(celltype.excit),1); %half noise E-cells
+        %         ext_spikes(celltype.excit,:) = poissrnd(Lext*.5,sum(celltype.excit),2); %half noise E-cells
     elseif avail_stim && strcmp(stim_info.delivery,'pulse') && experiment_set2go
         %stimulus is available, and we're doing pulse-sample delivery
         Tsample = sum(stim_info.pulse); %how long for a single on, off sequence
@@ -221,18 +226,19 @@ while timepoint_counter <= num_timepoints
         if Tsample <= options.sample_Estay_offset
             %if during first Xms of a sample, give E-stay full noise &
             %E-switch half-noise to kick on the stay-state
-            ext_spikes(celltype.excit & celltype.pool_switch) = ...
-                poissrnd(Lext*.5,sum(celltype.excit & celltype.pool_switch),1);
+            ext_spikes(celltype.excit & celltype.pool_switch,:) = ...
+                poissrnd(Lext*.5,sum(celltype.excit & celltype.pool_switch),2);
         end
     end
     %---spiking input from stimulus
     if experiment_set2go
         stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
-        ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
+        %always exitatory, add 'em both together for one calculation
+        ext_spikes(:,ext_inds.excit) = ext_spikes(:,ext_inds.excit) + stim_spikes;
     end
     
     %update Gexternal. Don't have to index, they get an increase or zero
-    Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes);
+    Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*ext_spikes);
     
     
     %for recording vars
