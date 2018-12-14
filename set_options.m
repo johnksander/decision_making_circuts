@@ -92,11 +92,9 @@ if strcmp(options.modeltype,'PS_stim')
     %pull ItoE, EtoI, Rstim, and stim cell targets for network ID 
     options = get_network_params(do_config,options); 
 end
-if numel(unique(options.trial_stimuli)) > 1
-    error('check that test4switch() has the behavior you want here...')
-end
 
-if ~strcmp(options.modeltype,'JK') %don't run this block for outdated jobs 
+
+if sum(strcmp(options.modeltype,{'JK','diagnostics'})) == 0 %don't run this block for outdated jobs 
     update_logfile('initializing job params...',options.output_log)
     update_logfile(sprintf('tmax = %i',options.tmax),options.output_log)
     update_logfile(sprintf('force back2stay = %s',string(options.force_back2stay)),options.output_log)
