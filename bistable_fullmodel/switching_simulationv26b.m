@@ -15,13 +15,18 @@ addpath(fullfile(basedir,'helper_functions'))
 
 %v22b gives previous best parameters
 
-force_back2stay = true;
-options.Rstim = 75 *.25; %rate for stimulus input spikes
+tmax = 20;
+
+options = set_options('modeltype','diagnostics','comp_location','woodstock',...
+    'tmax',tmax,...
+    'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
+
 options.EtoE = .0405;
-options.ItoE = 1.2904;
-options.EtoI = 0.1948;
-options.stim_targs = 'Eswitch'; %'Eswitch' | 'Estay'
-options.stim_pulse = [1, 10]; %format is [on, off] in seconds. 
+options.ItoE = 1.2904 *2;
+options.EtoI = 0.1948*1;
+options.stim_targs = 'baseline'; %'Eswitch' | 'Estay'
+Rext = 1400 *1; %poisson spike train rate for noise, Hz
+Rstim = 300; %rate for stimulus input spikes
 
 %set up the circut
 %--------------------------------------------------------------------------
@@ -52,12 +57,9 @@ W = reorder_weightmat(W,celltype);
 %set up simulation parameters
 %--------------------------------------------------------------------------
 %----cell connections---------
-Erev = NaN(pool_options.num_cells,1); %reversal potential vector
-Erev(celltype.excit) = 0; %reversal potential, excitatory
-Erev(celltype.inhib) = -70e-3; %reversal potential, inhibitory
-Gg = NaN(pool_options.num_cells,1); %max connductance
-Gg(celltype.excit) = 10e-9; %excitatory max connductance microSiemens
-Gg(celltype.inhib) = 10e-9; %inhibitory max connductance microSiemens
+Erev = 0; %reversal potential, excitatory
+Irev = -70e-3; %reversal potential, inhibitory
+Gg = 10e-9; %max connductance microSiemens
 Pr = NaN(pool_options.num_cells,1); %release probability
 Pr(celltype.excit) = .2; %excitatory release probability
 Pr(celltype.inhib) = .2; %inhibitory release probability
@@ -75,404 +77,421 @@ Cm = 100e-12; %cell capacity picofarads
 spike_thresh = 20e-3; %spike reset threshold (higher than Vth)
 %----noisy input--------------
 Tau_ext = NaN(pool_options.num_cells,1); %noisy conductance time constant, ms
-Tau_ext(celltype.excit) = 2e-3;
-Tau_ext(celltype.inhib) = 5e-3;
+Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
+Tau_ext(celltype.inhib) = 2e-3; % was 5e-3; HEY I DONT THINK THATS GOOD 
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
-Rext = 1400; %poisson spike train rate for noise, Hz
-Rstim = options.Rstim; %rate for stimulus input spikes
-switch options.stim_targs
-    case 'Eswitch'
-        stim_targs = celltype.excit & celltype.pool_switch; %Eswitch cells
-    case 'Estay'
-        stim_targs = celltype.pool_stay & celltype.excit; %Estay
-end
+%Rext = 1400; %poisson spike train rate for noise, Hz
 %---adaptation conductance----
 Vth = -50e-3; %ALEIF spike threshold mV
 delta_th = 2e-3; %max voltage threshold, mV  (deltaVth in equation)
-Tsra = NaN(pool_options.num_cells,1);%adaptation current time constant, ms
+Tsra = NaN(pool_options.num_cells,1);%adaptation conductance time constant, ms
 Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
 detlaGsra = 12.5e-9; %increase adaptation conductance, nano Siemens
 %----timecourse---------------
-tmax = 60; %simulation end (s)
-timestep = .25e-3; %.01 milisecond timestep
-timevec = 0:timestep:tmax;
-%-------------------------------------------------------------------------
-%preallocate variables
-
-V = NaN(pool_options.num_cells,numel(timevec)); %membrane potential
-V(:,1) = El; %inital value of membrane potential is leak potential
-
+timestep = options.timestep;
+timevec = 0:timestep:options.tmax;
+num_timepoints = numel(timevec);
 Lext = Rext * timestep; %poisson lambda for noisy conductance
 
-Gext = NaN(size(V)); %noisy conductance
-Gext(:,1) = initGext; %initialize at leak conductance
-
-Gsra = NaN(size(V)); %adaptation conductance
-Gsra(:,1) = 0; %initialize at zero
-
-Sg = NaN(size(V)); %synaptic gating
-Sg(:,1) = 0; %initalize at zero??
-D = NaN(size(V)); %synaptic depression
-D(:,1) = 1; %initalize at one
-
-spikes = zeros(size(V));
-
-%---state tracker-------------
-state = struct();
-state.stay = logical([1 0]);
-state.switch = logical([0 1]);
-durations = cell(1,2); %record duration times (stay, switch)
-state.now = state.stay; %pick one state to start with, add pulse to that pool to be sure (make sure this is consistent)
-state.stim_labels = {'A','B'};
-state.current_stimulus = logical([1 0]); %initialize in stim A
-state.count = 0;
-state.pools2compare = [celltype.pool_stay & celltype.excit,...
-    celltype.pool_switch & celltype.excit]; %pass in this format, avoid many computations
-state.ready_mintime = .4 / timestep; %minimum time for ready2go check
-if force_back2stay
-    state.back2stay_min = .5 / timestep; %wait in a stay state for this long before forcing switch back
-end
+%preallocate variables
+%-------------------------------------------------------------------------
 %---stimuli info--------------
 stim_info = struct();
-stim_info.targ_cells = stim_targs; %Estay
+switch options.stim_targs
+    case 'Eswitch'
+        stim_info.targ_cells = celltype.excit & celltype.pool_switch; %Eswitch cells
+    case 'Estay'
+        stim_info.targ_cells = celltype.pool_stay & celltype.excit; %Estay
+    case 'baseline'
+        stim_info.targ_cells = logical(zeros(pool_options.num_cells,1)); %no targets
+end
 stim_info.stimA_lambda = Rstim * timestep; %poisson lambda for stimulus conductance
 stim_info.stimB_lambda = Rstim * timestep;
 stim_info.num_cells = pool_options.num_cells; %just so I don't have to pass pool_options as well
 if all(~isnan(options.stim_pulse))
     stim_info.delivery = 'pulse';
     stim_info.pulse = options.stim_pulse ./ timestep;
+    stim_info.sample_schedule = options.stim_schedule;
 else
     stim_info.delivery = 'constant';
 end
-undecided_state = false; %in between stimulus delivery pulses in stay state
-    
+%---membrane potential--------
+V = NaN(pool_options.num_cells,2);
+V(:,1) = El; %inital value of membrane potential is leak potential
+%---noisy conductance---------
+Gext = NaN([size(V),2]); %noisy conductance (do I & E input in 3rd D)
+ext_inds.I = 1;
+ext_inds.E = 2;
+Gext(:,1,:) = initGext; %initialize at leak conductance
+%---adaptation conductance----
+Gsra = NaN(size(V));
+Gsra(:,1) = 0;
+%---gating & depression-------
+Sg = NaN(size(V)); %synaptic gating
+Sg(:,1) = 0; %initalize at zero??
+D = NaN(size(V)); %synaptic depression
+D(:,1) = 1; %initalize at one
+%---spikes--------------------
+spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
+%---state tracker-------------
+durations = {}; %record duration time, state/stimulus label
+state = init_statevar(celltype,options);
+options.sample_Estay_offset = options.sample_Estay_offset / timestep;
+state.now = state.undecided; %this will always be true when V init to El
+%---last init-----------------
+experiment_set2go = true; %skip bistability check 
+avail_stim = true; %in between stimulus delivery pulses in stay state
+timepoint_counter = 1;
+idx = 2; %keep indexing vars with idx fixed at 2
 
-timepoint_idx = 1;
+fprintf(':::Starting simulation:::\n')
 
-for idx = 2:numel(timevec)
+while timepoint_counter <= num_timepoints
     
-    timepoint_idx = timepoint_idx + 1;
+    timepoint_counter = timepoint_counter+1;
+    state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
     
-    I = (unique(Erev(celltype.excit)) - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*unique(Gg(celltype.excit));
-    I = I + (unique(Erev(celltype.inhib)) - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*unique(Gg(celltype.inhib));
+    %loop equations
+    
+    I = (Erev - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*Gg;
+    I = I + (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
+    I = I + (Gext(:,idx-1,ext_inds.E).*(Erev-V(:,idx-1)));
+    I = I + (Gext(:,idx-1,ext_inds.I).*(Irev-V(:,idx-1)));
     dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
-        + (Gsra(:,idx-1).*(Ek-V(:,idx-1)))...
-        + (Gext(:,idx-1).*(Erev-V(:,idx-1))) + I;
+        + (Gsra(:,idx-1).*(Ek-V(:,idx-1))) + I;
     
     V(:,idx) = ((dVdt./Cm) .* timestep) + V(:,idx-1);
-    
+        
+    tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext 
+    Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
     Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-    Gext(:,idx) = Gext(:,idx-1) - ((Gext(:,idx-1)./Tau_ext) .* timestep); %noisy conductance
     D(:,idx) = D(:,idx-1) + (((1 - D(:,idx-1))./Td) .* timestep); %synaptic depression
     Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
     
-    if  sum(V(:,idx) > spike_thresh) > 0
+    spiking_cells = V(:,idx) > spike_thresh;
+    if sum(spiking_cells) > 0
         spiking_cells = V(:,idx) > spike_thresh;
         Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
         Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
             (Pr(spiking_cells).*D(spiking_cells,idx).*(1-Sg(spiking_cells,idx))); %synaptic gating
         D(spiking_cells,idx) = D(spiking_cells,idx).*(1-Pr(spiking_cells)); %synaptic depression
         V(spiking_cells,idx) = Vreset;
-        spikes(spiking_cells,idx) = 1;
+        spikes(spiking_cells,timepoint_counter) = 1;
     end
     
-    %make sure we're not in an undecided state (pulse stimulus delivery)
-    undecided_state = check_undecided_state(stim_info,state);
-    
-    %test for state transition
-    if ~undecided_state
+    %test for state transition & determine stim availability
+    if experiment_set2go
         [state,durations] = test4switch(Sg(:,idx),state,durations);
+        [state,avail_stim] = check_stim_avail(stim_info,state);
     else
         state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside
     end
     
-    
+    %run the bistability check
+    if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
+        [BScheck,Pspikes,state] = check_bistability(Sg(:,idx),state);
+        %add pulse spikes (same as below)
+        Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*Pspikes);
+        switch BScheck.status
+            case 'fail'
+                fprintf(':::Bistability check failure:::')
+                fprintf('---at t=%.2f(s)',timepoint_counter*timestep)
+                return
+            case 'pass'
+                fprintf('---passed bistability check')
+                experiment_set2go = true; %we're ready to roll
+        end
+    end
+        
     %input spikes: noise & stimulus
     %---noisy spiking input from elsewhere
-    ext_spikes = poissrnd(Lext,pool_options.num_cells,1);
-    if undecided_state
-        %we're in between stimulus delivery pulses
-        %do half-noise to all E-cells-- gives barely spiking undecided state
-        ext_spikes(celltype.excit) = poissrnd(Lext*.5,sum(celltype.excit),1); %half noise E-cells
+    ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
+    if ~avail_stim
+        %don't do this for current testing
+        %         %we're in between stimulus delivery pulses
+        %         %do half-noise to all E-cells-- gives barely spiking undecided state
+        %         ext_spikes(celltype.excit,:) = poissrnd(Lext*.5,sum(celltype.excit),2); %half noise E-cells
+    elseif avail_stim && strcmp(stim_info.delivery,'pulse') && experiment_set2go
+        %stimulus is available, and we're doing pulse-sample delivery
+        Tsample = sum(stim_info.pulse); %how long for a single on, off sequence
+        Tsample = mod(state.sample_clock,Tsample); %find out how far into the sample
+        if Tsample <= options.sample_Estay_offset
+            %if during first Xms of a sample, give E-stay full noise &
+            %E-switch half-noise to kick on the stay-state
+            ext_spikes(celltype.excit & celltype.pool_switch,:) = ...
+                poissrnd(Lext*.5,sum(celltype.excit & celltype.pool_switch),2);
+        end
     end
     %---spiking input from stimulus
-    stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
-    ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
-    %if in switch state, force back to a stay state (after back2stay_min time)
-    if force_back2stay
-        ext_spikes = back2stay(ext_spikes,state,celltype);
+    if experiment_set2go
+        stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
+        %always exitatory, add 'em both together for one calculation
+        ext_spikes(:,ext_inds.E) = ext_spikes(:,ext_inds.E) + stim_spikes;
     end
     
-    Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes); %don't have to index, they get an increase or zero
+    %update Gexternal. Don't have to index, they get an increase or zero
+    Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*ext_spikes);
+    
+    
+    %for recording vars
+    Vrec(:,timepoint_counter) = V(:,idx);
+    Drec(:,timepoint_counter) = D(:,idx);
+    Srec(:,timepoint_counter) = Sg(:,idx);
+    
+    %lag equation vars for next timepoint
+    V = next_timepoint(V);
+    Gsra = next_timepoint(Gsra);
+    Gext = next_timepoint(Gext);
+    D = next_timepoint(D);
+    Sg = next_timepoint(Sg);
+    
+    
+    %check timeout for non-switching
+    if state.count >= state.noswitch_timeout
+        fprintf(':::Bistability check failure:::')
+        TOF = timepoint_counter*timestep;
+        fprintf('---no switch timeout at t=%.2f(s)',TOF)
+        return
+    end
+    
+    
+    %progress tracking...
+    if mod(timepoint_counter,floor(num_timepoints * .10)) == 0 %10 percent
+        progress = (timepoint_counter /  num_timepoints) * 100;
+        fprintf('Simulation %.1f percent complete\n',progress);
+    end
     
 end
 
-example_cells = [60 20];
 
-figure(1)
+
+lnsz = 3; %spikerate plots
+fontsz = 12;
+
+figure()
+%do the raster plot
 spikeplot = make_spikeplot(spikes);
-imagesc(spikeplot)
-
+%reorganize the cell groups
+raster = [spikeplot(celltype.pool_stay & celltype.excit,:);...
+    spikeplot(celltype.pool_switch & celltype.inhib,:);...
+    spikeplot(celltype.pool_switch & celltype.excit,:);...
+    spikeplot(celltype.pool_stay & celltype.inhib,:)];
+imagesc(raster)
 Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+
+Yticks = num2cell(get(gca,'YLim'));
+Yticks = Yticks{2};
+Yticks = [Yticks*.25,Yticks*.75];
+Ylabs = {'stay pool','leave pool'};
+ytickangle(90)
+set(gca,'Xdir','normal','Ytick',Yticks,'YTickLabel', Ylabs);
+xlabel('time (s)','FontWeight','b')
 title({'spikes','(spikes in matrix enlarged for visualization)'})
-ylabel('cell')
-xlabel('time (s)')
-% figure(2)
-% imagesc(Iapp)
-% title('current')
-% ylabel('cell')
-% xlabel('time (s)')
-% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 
-figure(3)
-subplot(2,1,1)
-plot(D(example_cells(1),:))
+
+window_sz = 50e-3;
+Dmu = sim_windowrate(Drec,timestep,celltype,window_sz);
+Dmu = structfun(@(x) x.* timestep ,Dmu,'UniformOutput',false); %undo hz conversion
+
+figure;
+%plot the aggregated timecourses
 hold on
-plot(D(example_cells(2),:))
-hold off
-title('synaptic depression (stay pool example cells)')
-xlabel('time (s)')
-legend('inhibitory','excitatory')
+plot(Dmu.Estay,'Linewidth',lnsz)
+plot(Dmu.Eswitch,'Linewidth',lnsz)
+plot(Dmu.Istay,'Linewidth',lnsz)
+plot(Dmu.Iswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%.1f',round(x*timestep,1)),Xticks,'UniformOutput', false); %this is for normal stuff
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-subplot(2,1,2)
-plot(D(example_cells(1) + sum(celltype.pool_stay),:))
+title('Depression')
+ylabel({sprintf('Pool average  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+axis tight;hold off
+
+
+%spikerates by sliding window...
+Srate = sim_windowrate(spikes,timestep,celltype,window_sz);
+
+figure;
+%plot the aggregated timecourses
 hold on
-plot(D(example_cells(2) + sum(celltype.pool_stay),:))
-hold off
-title('synaptic depression (switch pool example cells)')
-xlabel('time (s)')
-legend('inhibitory','excitatory')
+plot(Srate.Estay,'Linewidth',lnsz)
+plot(Srate.Eswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%.2f',round(x*timestep,1)),Xticks,'UniformOutput', false); %this is for normal stuff
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('Spiking')
+ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+axis tight;hold off
 
 
-% figure(4)
-% subplot(2,1,1)
-% plot(Sg(example_cells(1),:))
-% hold on
-% plot(Sg(example_cells(2),:))
-% title('synaptic gating (stay pool example cells)')
-% xlabel('time (s)')
-% legend('inhibitory','excitatory')
-% Xticks = num2cell(get(gca,'Xtick'));
-% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
-% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-% hold off
-% subplot(2,1,2)
-% plot(Sg(example_cells(1) + sum(celltype.pool_stay),:))
-% hold on
-% plot(Sg(example_cells(2) + sum(celltype.pool_stay),:))
-% title('synaptic gating (switch pool example cells)')
-% xlabel('time (s)')
-% legend('inhibitory','excitatory')
-% Xticks = num2cell(get(gca,'Xtick'));
-% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
-% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-% hold off
-
-figure(5)
-subplot(2,1,1)
-plot(V(example_cells(1),:))
+figure;
+%plot the aggregated timecourses
 hold on
-plot(V(example_cells(2),:))
-title('membrane voltage (stay pool example cells)')
-xlabel('time (s)')
-legend('inhibitory','excitatory')
+plot(Srate.Estay,'Linewidth',lnsz)
+plot(Srate.Eswitch,'Linewidth',lnsz)
+plot(Srate.Istay,'Linewidth',lnsz)
+plot(Srate.Iswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep,1)),Xticks,'UniformOutput', false); %this is for normal stuff
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-hold off
-subplot(2,1,2)
-plot(V(example_cells(1) + sum(celltype.pool_stay),:))
+title('Spiking')
+ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+axis tight;hold off
+
+
+figure;
+plot(Srate.Estay-Srate.Eswitch,'Linewidth',lnsz)
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('Spiking')
+ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+axis tight
+
+Sg_mu.Estay = mean(Srec(celltype.excit & celltype.pool_stay,:),1);
+Sg_mu.Eswitch = mean(Srec(celltype.excit & celltype.pool_switch,:),1);
+Sg_mu.Istay = mean(Srec(celltype.inhib & celltype.pool_stay,:),1);
+Sg_mu.Iswitch = mean(Srec(celltype.inhib & celltype.pool_switch,:),1);
+
+%plot the aggregated timecourses
+figure;
 hold on
-plot(V(example_cells(2) + sum(celltype.pool_stay),:))
-title('membrane voltage (switch pool example cells)')
-xlabel('time (s)')
-legend('inhibitory','excitatory')
+plot(Sg_mu.Estay,'Linewidth',lnsz)
+plot(Sg_mu.Eswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep,1)),Xticks,'UniformOutput', false); %this is for normal stuff
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-hold off
+title('Synaptic gating')
+ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+%legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+axis tight;hold off
 
 
-
-% figure(6)
-% subplot(2,1,1)
-% plot(Gsra(example_cells(1),:))
-% hold on
-% plot(Gsra(example_cells(2),:))
-% hold off
-% legend('inhibitory','excitatory')
-% title('Adaptation conductance (stay pool example cells)')
-% xlabel('time (s)')
-% Xticks = num2cell(get(gca,'Xtick'));
-% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
-% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-% subplot(2,1,2)
-% plot(Gsra(example_cells(1) + sum(celltype.pool_stay),:))
-% hold on
-% plot(Gsra(example_cells(2) + sum(celltype.pool_stay),:))
-% hold off
-% legend('inhibitory','excitatory')
-% title('Adaptation conductance (switch pool example cells)')
-% xlabel('time (s)')
-% Xticks = num2cell(get(gca,'Xtick'));
-% Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
-% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-
-figure(7)
-subplot(2,1,1)
-Irateplot = make_spikerate_plot(spikes,celltype.pool_stay & celltype.inhib,timestep);
-Irateplot(isnan(Irateplot)) = 0;
-plot(Irateplot,'linewidth',2)
+%plot the aggregated timecourses
+figure;
 hold on
-Erateplot = make_spikerate_plot(spikes,celltype.pool_stay & celltype.excit,timestep);
-Erateplot(isnan(Erateplot)) = 0;
-plot(Erateplot,'linewidth',2)
-title('stay pool cells')
-legend('inhibitory','excitatory')
-ylabel({'average cell rate (Hz)','(mean cell 1/ISI at each timepoint)'})
+plot(Sg_mu.Estay,'Linewidth',lnsz)
+plot(Sg_mu.Eswitch,'Linewidth',lnsz)
+plot(Sg_mu.Istay,'Linewidth',lnsz)
+plot(Sg_mu.Iswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('Synaptic gating')
+ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
-set(gca,'Xlim',[0 numel(Erateplot)])
-hold off
-subplot(2,1,2)
-Irateplot = make_spikerate_plot(spikes,celltype.pool_switch & celltype.inhib,timestep);
-Irateplot(isnan(Irateplot)) = 0;
-plot(Irateplot,'linewidth',2)
-hold on
-Erateplot = make_spikerate_plot(spikes,celltype.pool_switch & celltype.excit,timestep);
-Erateplot(isnan(Erateplot)) = 0;
-plot(Erateplot,'linewidth',2)
-title('switch pool cells')
-legend('inhibitory','excitatory')
-ylabel({'average cell rate (Hz)','(mean cell 1/ISI at each timepoint)'})
+legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+axis tight;hold off
+
+
+%plot the aggregated timecourses
+figure;
+plot(Sg_mu.Estay-Sg_mu.Eswitch,'Linewidth',lnsz);hold on
+plot(Sg_mu.Istay-Sg_mu.Iswitch,'Linewidth',lnsz);hold off
 Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('Synaptic gating')
+ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
-set(gca,'Xlim',[0 numel(Erateplot)])
-hold off
+legend({'E-stay minus E-switch','I-stay minus I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+axis tight
 
-% figure(8)
-% histogram(Iapp(1,:))
-% title('current distribution, cell #1')
-
-figure(9)
-subplot(2,1,1)
-plot(Gext(example_cells(1),:))
-hold on
-plot(Gext(example_cells(2),:))
-hold off
-legend('inhibitory','excitatory')
-title('Input conductance (stay pool example cells)')
-xlabel('time (s)')
+figure
+plot(Sg_mu.Estay-Sg_mu.Eswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-subplot(2,1,2)
-plot(Gext(example_cells(1) + sum(celltype.pool_stay),:))
-hold on
-plot(Gext(example_cells(2) + sum(celltype.pool_stay),:))
-hold off
-legend('inhibitory','excitatory')
-title('Input conductance (switch pool example cells)')
+title('Synaptic gating')
+ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
-Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
-set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz)
+axis tight
+
+if numel(durations) > 1
+    timecourse = size(durations);
+    timecourse(2) = timecourse(2) + 1;
+    timecourse = cell(timecourse);
+    timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
+    timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
+    %current sample's onset, rounding is needed for subsequent operations
+    timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
+    samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding
+    timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
+    timecourse(:,end) = durations(:,end);
+    %timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
+    timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
+    figure
+    state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
+    if numel(state_durs) > 0
+        if numel(state_durs) < 15
+            histogram(state_durs,numel(state_durs))
+        else
+            histogram(state_durs)
+        end
+        title(sprintf('stay-state durations\nmu = %.2f',mean(state_durs)))
+        ylabel('seconds');xlabel('frequecy');set(gca,'FontSize',fontsz)
+    end
+end
 
 
+function cell_data = sim_spikerate(cell_raster,timestep,celltype)
 
+num_binsamps = 75e-3/timestep; %num samples in 2ms
+raster_sz = size(cell_raster);
+if mod(raster_sz(2),num_binsamps) ~= 0 %you have to trim it down, equally divisible by bin size
+    cell_raster = cell_raster(:,1:end - mod(raster_sz(2),num_binsamps));
+    raster_sz = size(cell_raster); %should be good now
+end
+bin_magic = [raster_sz(1), num_binsamps,raster_sz(2)/num_binsamps]; %set up for a magic trick
+cell_raster = reshape(cell_raster,bin_magic);
+cell_raster = squeeze(sum(cell_raster,2)) ./ (num_binsamps * timestep); %convert to Hz
+cell_raster = repmat(cell_raster,[num_binsamps 1 1]);
+cell_raster = reshape(cell_raster,raster_sz); %put the rabit back in the hat
 
-% disp('---during pulse:')
-% pulse_time = timevec >= ptime(1) & timevec <= ptime(2);
-% Erate = sum(spikes(celltype.pool_stay & celltype.excit,pulse_time),2);
-% Erate = mean(Erate) / (sum(pulse_time) * timestep);
-% disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
-% Irate = sum(spikes(celltype.pool_stay & celltype.inhib,pulse_time),2);
-% Irate = mean(Irate) / (sum(pulse_time) * timestep);
-% disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
+%normal people indexing that makes sense, then take the mean
+cell_data.Estay = mean(cell_raster(celltype.excit & celltype.pool_stay,:),1);
+cell_data.Eswitch = mean(cell_raster(celltype.excit & celltype.pool_switch,:),1);
+cell_data.Istay = mean(cell_raster(celltype.inhib & celltype.pool_stay,:),1);
+cell_data.Iswitch = mean(cell_raster(celltype.inhib & celltype.pool_switch,:),1);
+end
 
-% cuttoff_time = 18;
-% disp(['---during t+ ' num2str(cuttoff_time) ' seconds (stay):'])
-% pulse_time = timevec >= cuttoff_time;
-% Erate = sum(spikes(celltype.pool_stay & celltype.excit,pulse_time),2);
-% Erate = mean(Erate) / (sum(pulse_time) * timestep);
-% disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
-% Irate = sum(spikes(celltype.pool_stay & celltype.inhib,pulse_time),2);
-% Irate = mean(Irate) / (sum(pulse_time) * timestep);
-% disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
-% disp(['---during t+ ' num2str(cuttoff_time) ' seconds (switch):'])
-% pulse_time = timevec >= cuttoff_time;
-% Erate = sum(spikes(celltype.pool_switch & celltype.excit,pulse_time),2);
-% Erate = mean(Erate) / (sum(pulse_time) * timestep);
-% disp(sprintf('mean excitatory spike rate %.1f Hz',Erate))
-% Irate = sum(spikes(celltype.pool_switch & celltype.inhib,pulse_time),2);
-% Irate = mean(Irate) / (sum(pulse_time) * timestep);
-% disp(sprintf('mean inhibitory spike rate %.1f Hz',Irate))
+function cell_data = sim_windowrate(cell_raster,timestep,celltype,window_sz)
 
+num_binsamps = window_sz/timestep; %num samples in Xms
+cell_raster = num2cell(cell_raster,2);
+k = ones(1, num_binsamps);
+k = k ./ (num_binsamps * timestep); %convert to Hz
+cell_raster = cellfun(@(x) conv(x, k, 'same'),cell_raster,'UniformOutput',false);
+cell_raster = cat(1,cell_raster{:});
 
-% figure(2)
-% histogram(durations{1} * timestep)
-% hold on
-% histogram(durations{2} * timestep)
-% legend('stay','switch')
-% title('state durations')
-% ylabel('frequency')
-% xlabel('time (s)')
-% hold off
+%normal people indexing that makes sense, then take the mean
+cell_data.Estay = mean(cell_raster(celltype.excit & celltype.pool_stay,:),1);
+cell_data.Eswitch = mean(cell_raster(celltype.excit & celltype.pool_switch,:),1);
+cell_data.Istay = mean(cell_raster(celltype.inhib & celltype.pool_stay,:),1);
+cell_data.Iswitch = mean(cell_raster(celltype.inhib & celltype.pool_switch,:),1);
+end
 
-%mean plots:
-
-%
-% figure(4)
-% subplot(2,1,1)
-% plot(mean(Sg(celltype.pool_stay & celltype.inhib,:)))
-% hold on
-% plot(mean(Sg(celltype.pool_stay & celltype.excit,:)))
-% title('synaptic gating (stay pool example cells)')
-% xlabel('time (s)')
-% legend('inhibitory','excitatory')
-% set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-% hold off
-% subplot(2,1,2)
-% plot(mean(Sg(celltype.pool_switch & celltype.inhib,:)))
-% hold on
-% plot(mean(Sg(celltype.pool_switch & celltype.excit,:)))
-% title('synaptic gating (switch pool example cells)')
-% xlabel('time (s)')
-% legend('inhibitory','excitatory')
-% set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-% hold off
-%
-%
-% figure(5)
-% subplot(2,1,1)
-% plot(mean(V(celltype.pool_stay & celltype.inhib,:)))
-% hold on
-% plot(mean(V(celltype.pool_stay & celltype.excit,:)))
-% title('membrane voltage (stay pool example cells)')
-% xlabel('time (s)')
-% legend('inhibitory','excitatory')
-% set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-% hold off
-% subplot(2,1,2)
-% plot(mean(V(celltype.pool_switch & celltype.inhib,:)))
-% hold on
-% plot(mean(V(celltype.pool_switch & celltype.excit,:)))
-% title('membrane voltage (switch pool example cells)')
-% xlabel('time (s)')
-% legend('inhibitory','excitatory')
-% set(gca,'Xdir','normal','XTick', Xtick_pos,'XTickLabel', arrayfun(@num2str, Xtick_seconds(:), 'UniformOutput', false))
-% hold off
 

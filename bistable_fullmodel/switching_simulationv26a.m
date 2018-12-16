@@ -4,7 +4,7 @@ close all
 format compact
 rng('shuffle') %this is probably important...
 
-basedir = '~/Desktop/work/ACClab/rotation/project';
+basedir = '~/Desktop/ksander/rotation/project';
 addpath(basedir)
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -13,22 +13,23 @@ addpath(fullfile(basedir,'helper_functions'))
 %   a) fast switching when all things are equal (~1-2 sec)
 %   b) stimulus prolongs switching
 %   c) spikerates in the I = ~30hz and E = ~15hz sweet zone
-
 %v21d (also see c) gives previous parameters
 
-tmax = 20;
+%this gives good spikerates, ~1sec flip no stimulus
+%with E-stay 400hz no flip in 50s, 300hz mu = 17s (200s sim)
 
+tmax = 200;
 
-options = set_options('modeltype','diagnostics','comp_location','bender',...
+options = set_options('modeltype','diagnostics','comp_location','woodstock',...
     'tmax',tmax,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
 options.EtoE = .0405;
-options.ItoE = 1.2904;
+options.ItoE = 1.2904 *1.125;
 options.EtoI = 0.1948;
-options.stim_targs = 'Eswitch'; %'Eswitch' | 'Estay'
-Rext = 1400; %poisson spike train rate for noise, Hz
-Rstim = 75 *.25; %rate for stimulus input spikes
+options.stim_targs = 'Estay'; %'Eswitch' | 'Estay'
+Rext = 1400 *1; %poisson spike train rate for noise, Hz
+Rstim = 300; %rate for stimulus input spikes
 
 %set up the circut
 %--------------------------------------------------------------------------
@@ -59,9 +60,6 @@ W = reorder_weightmat(W,celltype);
 %set up simulation parameters
 %--------------------------------------------------------------------------
 %----cell connections---------
-Vrev = NaN(pool_options.num_cells,1); %reversal potential vector
-Vrev(celltype.excit) = 0; %reversal potential, excitatory
-Vrev(celltype.inhib) = -70e-3; %reversal potential, inhibitory
 Erev = 0; %reversal potential, excitatory
 Irev = -70e-3; %reversal potential, inhibitory
 Gg = 10e-9; %max connductance microSiemens
@@ -82,8 +80,8 @@ Cm = 100e-12; %cell capacity picofarads
 spike_thresh = 20e-3; %spike reset threshold (higher than Vth)
 %----noisy input--------------
 Tau_ext = NaN(pool_options.num_cells,1); %noisy conductance time constant, ms
-Tau_ext(celltype.excit) = 2e-3;
-Tau_ext(celltype.inhib) = 5e-3; %HEY I DONT THINK THATS GOOD 
+Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
+Tau_ext(celltype.inhib) = 2e-3; % was 5e-3; HEY I DONT THINK THATS GOOD 
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
 %Rext = 1400; %poisson spike train rate for noise, Hz
@@ -127,8 +125,8 @@ V = NaN(pool_options.num_cells,2);
 V(:,1) = El; %inital value of membrane potential is leak potential
 %---noisy conductance---------
 Gext = NaN([size(V),2]); %noisy conductance (do I & E input in 3rd D)
-ext_inds.excit = 1;
-ext_inds.inhib = 2;
+ext_inds.I = 1;
+ext_inds.E = 2;
 Gext(:,1,:) = initGext; %initialize at leak conductance
 %---adaptation conductance----
 Gsra = NaN(size(V));
@@ -162,11 +160,10 @@ while timepoint_counter <= num_timepoints
     
     I = (Erev - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*Gg;
     I = I + (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
+    I = I + (Gext(:,idx-1,ext_inds.E).*(Erev-V(:,idx-1)));
+    I = I + (Gext(:,idx-1,ext_inds.I).*(Irev-V(:,idx-1)));
     dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
-        + (Gsra(:,idx-1).*(Ek-V(:,idx-1)))...
-        + (Gext(:,idx-1,ext_inds.excit).*(Erev-V(:,idx-1)))...
-        + (Gext(:,idx-1,ext_inds.inhib).*(Irev-V(:,idx-1))) + I;
-    %+ (Gext(:,idx-1).*(Vrev-V(:,idx-1))) + I;
+        + (Gsra(:,idx-1).*(Ek-V(:,idx-1))) + I;
     
     V(:,idx) = ((dVdt./Cm) .* timestep) + V(:,idx-1);
         
@@ -210,7 +207,7 @@ while timepoint_counter <= num_timepoints
                 experiment_set2go = true; %we're ready to roll
         end
     end
-    
+        
     %input spikes: noise & stimulus
     %---noisy spiking input from elsewhere
     ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
@@ -234,7 +231,7 @@ while timepoint_counter <= num_timepoints
     if experiment_set2go
         stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
         %always exitatory, add 'em both together for one calculation
-        ext_spikes(:,ext_inds.excit) = ext_spikes(:,ext_inds.excit) + stim_spikes;
+        ext_spikes(:,ext_inds.E) = ext_spikes(:,ext_inds.E) + stim_spikes;
     end
     
     %update Gexternal. Don't have to index, they get an increase or zero
@@ -436,6 +433,31 @@ legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizo
 set(gca,'FontSize',fontsz)
 axis tight
 
+if numel(durations) > 1
+    timecourse = size(durations);
+    timecourse(2) = timecourse(2) + 1;
+    timecourse = cell(timecourse);
+    timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
+    timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
+    %current sample's onset, rounding is needed for subsequent operations
+    timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
+    samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding
+    timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
+    timecourse(:,end) = durations(:,end);
+    %timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
+    timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
+    figure
+    state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
+    if numel(state_durs) > 0
+        if numel(state_durs) < 15
+            histogram(state_durs,numel(state_durs))
+        else
+            histogram(state_durs)
+        end
+        title(sprintf('stay-state durations\nmu = %.2f',mean(state_durs)))
+        ylabel('seconds');xlabel('frequecy');set(gca,'FontSize',fontsz)
+    end
+end
 
 
 function cell_data = sim_spikerate(cell_raster,timestep,celltype)
