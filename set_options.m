@@ -24,6 +24,9 @@ options.sample_Estay_offset = 40e-3; %init noise offset Estay-Eswitch at the
 %----checking bistability @ sim outset 
 options.init_check_Rext = 400; %pulse strength (Hz to E-stay)
 options.init_check_tmax = .9; %pulse must keep steady state for (s)
+%----depression
+options.Dslow = 'off'; %off/on enable slower depression timescale. 
+options.percent_Ds = 0; %fraction of slow vesicles (.2 gives 20% slow, 80% fast)
 
 
 %parse inputs 

@@ -4,7 +4,7 @@ close all
 format compact
 rng('shuffle') %this is probably important...
 
-basedir = '~/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project/';
 addpath(basedir)
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -20,8 +20,8 @@ addpath(fullfile(basedir,'helper_functions'))
 
 tmax = 10;
 
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'tmax',tmax,...
+options = set_options('modeltype','diagnostics','comp_location','bender',...
+    'tmax',tmax,'Dslow','on','percent_Ds',.5,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
 options.EtoE = .0405;
@@ -66,7 +66,8 @@ Gg = 10e-9; %max connductance microSiemens
 Pr = NaN(pool_options.num_cells,1); %release probability
 Pr(celltype.excit) = .2; %excitatory release probability
 Pr(celltype.inhib) = .2; %inhibitory release probability
-Td = .3;%synaptic depression time constant, seconds
+Td_fast = .3;%synaptic depression time constant, seconds (fast)
+Td_slow = 7;%slow time constant
 Tsyn = NaN(pool_options.num_cells,1); %gating time constant vector
 Tsyn(celltype.excit) = 50e-3; %excitatory gating time constant, ms
 Tsyn(celltype.inhib) = 10e-3; %inhibitory gating time constant, ms
@@ -134,8 +135,10 @@ Gsra(:,1) = 0;
 %---gating & depression-------
 Sg = NaN(size(V)); %synaptic gating
 Sg(:,1) = 0; %initalize at zero??
-D = NaN(size(V)); %synaptic depression
-D(:,1) = 1; %initalize at one
+Dfast = NaN(size(V)); %synaptic depression: fast 
+Dslow = NaN(size(V)); %synaptic depression: slow 
+Dfast(:,1) = 1 - options.percent_Ds; %initalize at ratio of slow/fast vessicles
+Dslow(:,1) = options.percent_Ds;
 %---spikes--------------------
 spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
 %---state tracker-------------
@@ -170,6 +173,7 @@ while timepoint_counter <= num_timepoints
     tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext 
     Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
     Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
+    %D updates...
     D(:,idx) = D(:,idx-1) + (((1 - D(:,idx-1))./Td) .* timestep); %synaptic depression
     Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
     
@@ -177,9 +181,13 @@ while timepoint_counter <= num_timepoints
     if sum(spiking_cells) > 0
         spiking_cells = V(:,idx) > spike_thresh;
         Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
+        
+        %Sg * D updates
         Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
             (Pr(spiking_cells).*D(spiking_cells,idx).*(1-Sg(spiking_cells,idx))); %synaptic gating
         D(spiking_cells,idx) = D(spiking_cells,idx).*(1-Pr(spiking_cells)); %synaptic depression
+        
+        
         V(spiking_cells,idx) = Vreset;
         spikes(spiking_cells,timepoint_counter) = 1;
     end
