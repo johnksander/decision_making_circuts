@@ -32,12 +32,9 @@ W = reorder_weightmat(W,celltype);
 %set up simulation parameters
 %--------------------------------------------------------------------------
 %----cell connections---------
-Erev = NaN(pool_options.num_cells,1); %reversal potential vector
-Erev(celltype.excit) = 0; %reversal potential, excitatory
-Erev(celltype.inhib) = -70e-3; %reversal potential, inhibitory
-Gg = NaN(pool_options.num_cells,1); %max connductance
-Gg(celltype.excit) = 10e-9; %excitatory max connductance microSiemens
-Gg(celltype.inhib) = 10e-9; %inhibitory max connductance microSiemens
+Erev = 0; %reversal potential, excitatory
+Irev = -70e-3; %reversal potential, inhibitory
+Gg = 10e-9; %max connductance microSiemens
 Pr = NaN(pool_options.num_cells,1); %release probability
 Pr(celltype.excit) = .2; %excitatory release probability
 Pr(celltype.inhib) = .2; %inhibitory release probability
@@ -55,8 +52,8 @@ Cm = 100e-12; %cell capacity picofarads
 spike_thresh = 20e-3; %spike reset threshold (higher than Vth)
 %----noisy input--------------
 Tau_ext = NaN(pool_options.num_cells,1); %noisy conductance time constant, ms
-Tau_ext(celltype.excit) = 2e-3;
-Tau_ext(celltype.inhib) = 5e-3;
+Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
+Tau_ext(celltype.inhib) = 2e-3; % was 5e-3; 
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
 Rext = 1400; %poisson spike train rate for noise, Hz
@@ -109,8 +106,10 @@ for trialidx = 1:num_trials
         stim_info.delivery = 'constant';
     end
     %---noisy conductance---------
-    Gext = NaN(size(V)); %noisy conductance
-    Gext(:,1) = initGext; %initialize at leak conductance
+    Gext = NaN([size(V),2]); %noisy conductance (do I & E input in 3rd D)
+    ext_inds.I = 1;
+    ext_inds.E = 2;
+    Gext(:,1,:) = initGext; %initialize at leak conductance
     %---adaptation conductance----
     Gsra = NaN(size(V));
     Gsra(:,1) = 0;
@@ -146,16 +145,18 @@ for trialidx = 1:num_trials
         state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
         
         %loop equations
-        I = (unique(Erev(celltype.excit)) - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*unique(Gg(celltype.excit));
-        I = I + (unique(Erev(celltype.inhib)) - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*unique(Gg(celltype.inhib));
+        I = (Erev - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*Gg;
+        I = I + (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
+        I = I + (Gext(:,idx-1,ext_inds.E).*(Erev-V(:,idx-1)));
+        I = I + (Gext(:,idx-1,ext_inds.I).*(Irev-V(:,idx-1)));
         dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
-            + (Gsra(:,idx-1).*(Ek-V(:,idx-1)))...
-            + (Gext(:,idx-1).*(Erev-V(:,idx-1))) + I;
+            + (Gsra(:,idx-1).*(Ek-V(:,idx-1))) + I;
         
         V(:,idx) = ((dVdt./Cm) .* timestep) + V(:,idx-1);
         
+        tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext
+        Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
         Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-        Gext(:,idx) = Gext(:,idx-1) - ((Gext(:,idx-1)./Tau_ext) .* timestep); %noisy conductance
         D(:,idx) = D(:,idx-1) + (((1 - D(:,idx-1))./Td) .* timestep); %synaptic depression
         Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
         
@@ -185,7 +186,7 @@ for trialidx = 1:num_trials
         if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
             [BScheck,Pspikes,state] = check_bistability(Sg(:,idx),state);
             %add pulse spikes (same as below)
-            Gext(:,idx) = Gext(:,idx) + (deltaGext.*Pspikes);
+            Gext(:,idx,ext_inds.E) = Gext(:,idx,ext_inds.E) + (deltaGext.*Pspikes);
             switch BScheck.status
                 case 'fail'
                     update_logfile(':::Bistability check failure:::',options.output_log)
@@ -200,11 +201,11 @@ for trialidx = 1:num_trials
         
         %input spikes: noise & stimulus
         %---noisy spiking input from elsewhere
-        ext_spikes = poissrnd(Lext,pool_options.num_cells,1);
+        ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
         if ~avail_stim
             %we're in between stimulus delivery pulses
             %do half-noise to all E-cells-- gives barely spiking undecided state
-            ext_spikes(celltype.excit) = poissrnd(Lext*.5,sum(celltype.excit),1); %half noise E-cells
+            ext_spikes(celltype.excit,:) = poissrnd(Lext*.5,sum(celltype.excit),2); %half noise E-cells
         elseif avail_stim && strcmp(stim_info.delivery,'pulse') && experiment_set2go
             %stimulus is available, and we're doing pulse-sample delivery
             Tsample = sum(stim_info.pulse); %how long for a single on, off sequence
@@ -212,18 +213,19 @@ for trialidx = 1:num_trials
             if Tsample <= options.sample_Estay_offset
                 %if during first Xms of a sample, give E-stay full noise &
                 %E-switch half-noise to kick on the stay-state
-                ext_spikes(celltype.excit & celltype.pool_switch) = ...
-                    poissrnd(Lext*.5,sum(celltype.excit & celltype.pool_switch),1);
+                ext_spikes(celltype.excit & celltype.pool_switch,:) = ...
+                    poissrnd(Lext*.5,sum(celltype.excit & celltype.pool_switch),2);
             end
         end
         %---spiking input from stimulus
         if experiment_set2go
             stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes
-            ext_spikes = ext_spikes + stim_spikes; %add 'em both together for one calculation
+            %always exitatory, add 'em both together for one calculation
+            ext_spikes(:,ext_inds.E) = ext_spikes(:,ext_inds.E) + stim_spikes;
         end
         
         %update Gexternal. Don't have to index, they get an increase or zero
-        Gext(:,idx) = Gext(:,idx) + (deltaGext.*ext_spikes);
+        Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*ext_spikes);
         
         %lag equation vars for next timepoint
         V = next_timepoint(V);

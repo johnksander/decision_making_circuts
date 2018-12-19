@@ -8,8 +8,8 @@ basedir = '~/Desktop/ksander/rotation/project';
 addpath(basedir)
 addpath(fullfile(basedir,'helper_functions'))
 
-%----12/13/18: fixed noisy background input (w/ inhibition), and updated
-%with current spikeout_model() functionality. Must recalibrate network for:
+%----12/19/18: this updates v26 model with slow depression option. 
+%Must recalibrate network for:
 %   a) fast switching when all things are equal (~1-2 sec)
 %   b) stimulus prolongs switching
 %   c) spikerates in the I = ~30hz and E = ~15hz sweet zone

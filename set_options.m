@@ -13,7 +13,7 @@ options.force_back2stay = false; %whether to force switch from stay state (defau
 options.cut_leave_state = 100e-3; %after Xms in a leave state, cut the noise 
 options.state_test_time = 20e-3; %must be X time above threshold to declare a switch 
 options.state_test_thresh = .03; %difference in mean Sg between E-cell pools 
-options.record_spiking = 'on'; %saves spiking data, 'off' gives low-memory sim without spiking data 
+options.record_spiking = 'off'; % 'on' saves spiking data, 'off' gives low-memory sim without spiking data 
 %----pulse stimulus delivery (more realistic licking) 
 options.stim_pulse = [NaN, NaN]; %default will be none
 options.stim_schedule = 'flexible'; % 'fixed' or 'flexible' only matters for stim-pulse 
@@ -22,7 +22,7 @@ options.stim_schedule = 'flexible'; % 'fixed' or 'flexible' only matters for sti
 options.sample_Estay_offset = 40e-3; %init noise offset Estay-Eswitch at the
 %sample availablity onset. This is to kick the network into stay & start sampling 
 %----checking bistability @ sim outset 
-options.init_check_Rext = 200; %pulse strength (Hz to E-stay)
+options.init_check_Rext = 400; %pulse strength (Hz to E-stay)
 options.init_check_tmax = .9; %pulse must keep steady state for (s)
 
 
@@ -53,8 +53,12 @@ switch options.comp_location
     case 'bender'
         basedir = '/Users/ksander/Desktop/work/ACClab/rotation/project';
         options.rand_info = 'shuffle';
-    case 'hpc'
+    case 'hpc64'
         basedir = '/data/netapp/jksander/rotation/Simulation';
+        addpath(fullfile(basedir,'helper_functions')) %annoying...
+        options.rand_info = get_rng_seed();
+    case 'hpc'
+        basedir = '/work/jksander/rotation/Simulation';
         addpath(fullfile(basedir,'helper_functions')) %annoying...
         options.rand_info = get_rng_seed();
 end
@@ -76,10 +80,12 @@ if strcmp(options.modeltype,'PS')
     dealers_choice = @(a,b) (a + (b-a).*rand(1));
     
     options.EtoE = .0405; %fixed
+    options.ItoE = dealers_choice(0.15, 3);  
+    options.EtoI = dealers_choice(0.15, 3);  
     
-    options.ItoE = dealers_choice(0.15, 0.65 *2);  %double "fastswitch"
-    
-    options.EtoI = dealers_choice(0.15, 0.35 *2);  %double "slowswitch"
+    %from first paramter sweep w/ bad noise
+    %options.ItoE = dealers_choice(0.15, 0.65 *2);  %double "fastswitch"
+    %options.EtoI = dealers_choice(0.15, 0.35 *2);  %double "slowswitch"
 end
 
 
@@ -110,8 +116,9 @@ if sum(strcmp(options.modeltype,{'JK','diagnostics'})) == 0 %don't run this bloc
     update_logfile(sprintf('---EtoE = %.3f',options.EtoE),options.output_log)
     update_logfile(sprintf('---ItoE = %.3f',options.ItoE),options.output_log)
     update_logfile(sprintf('---EtoI = %.3f',options.EtoI),options.output_log)
-    update_logfile(sprintf('---trial stimuli = %.1f Hz, %.1f Hz',options.trial_stimuli),options.output_log)
-
+    if isfield(options,'trial_stimuli')
+        update_logfile(sprintf('---trial stimuli = %.1f Hz, %.1f Hz',options.trial_stimuli),options.output_log)
+    end
     update_logfile('--------------------------',options.output_log)
     
 end
