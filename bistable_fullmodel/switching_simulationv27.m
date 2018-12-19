@@ -18,7 +18,7 @@ addpath(fullfile(basedir,'helper_functions'))
 %this gives good spikerates, ~1sec flip no stimulus
 %with E-stay 400hz no flip in 50s, 300hz mu = 17s (200s sim)
 
-tmax = 200;
+tmax = 10;
 
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
     'tmax',tmax,...
