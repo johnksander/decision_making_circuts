@@ -9,10 +9,10 @@ addpath('../')
 
 %my model
 %---setup---------------------
-t = 200;
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','test_model','sample_Estay_offset',0,...
-    'tmax',t,'stim_pulse',[t,0],'cut_leave_state',t);
+tmax = 30; %diagnostics_fullnoise
+options = set_options('modeltype','diagnostics','comp_location','bender',...
+    'sim_name','test_model','tmax',tmax,...
+    'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
 
 % options = set_options('modeltype','PS_stim',...
@@ -45,7 +45,8 @@ term_idx = find(term_idx,1,'first');
 if ~isempty(term_idx)
     %now truncate
     spikes = spikes(:,1:term_idx);
-    Drec = Drec(:,1:term_idx);
+    Drec_fast = Drec_fast(:,1:term_idx);
+    Drec_slow = Drec_slow(:,1:term_idx);
     Vrec = Vrec(:,1:term_idx);
     Srec = Srec(:,1:term_idx);
 end
@@ -131,28 +132,40 @@ set(gca,'FontSize',fontsz)
 print(fullfile(fig_dir,'raster'),'-djpeg')
 
 
-%plot the aggregated timecourses
+window_sz = 50e-3;
+Dmu_fast = sim_windowrate(Drec_fast,timestep,celltype,window_sz);
+Dmu_fast = structfun(@(x) x.* timestep ,Dmu_fast,'UniformOutput',false); %undo hz conversion
+
+Dmu_slow = sim_windowrate(Drec_slow,timestep,celltype,window_sz);
+Dmu_slow = structfun(@(x) x.* timestep ,Dmu_slow,'UniformOutput',false); %undo hz conversion
+
 figure;
-
-D = sim_spikerate(Drec,timestep,celltype);
-D = structfun(@(x) x.* timestep ,D,'UniformOutput',false); %undo hz conversion
-
 %plot the aggregated timecourses
-hold on
-plot(D.Estay,'Linewidth',lnsz)
-plot(D.Eswitch,'Linewidth',lnsz)
-plot(D.Istay,'Linewidth',lnsz)
-plot(D.Iswitch,'Linewidth',lnsz)
+subplot(2,1,1);hold on
+plot(Dmu_fast.Estay,'Linewidth',lnsz)
+plot(Dmu_fast.Eswitch,'Linewidth',lnsz)
+plot(Dmu_fast.Istay,'Linewidth',lnsz)
+plot(Dmu_fast.Iswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-title('Depression')
-ylabel({'Pool average  (75ms bins)'})
+title('Fast depression')
+ylabel({sprintf('Pool average  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
-hold off
-print(fullfile(fig_dir,'depression'),'-djpeg')
+set(gca,'FontSize',fontsz);axis tight;hold off
+subplot(2,1,2);hold on
+plot(Dmu_slow.Estay,'Linewidth',lnsz)
+plot(Dmu_slow.Eswitch,'Linewidth',lnsz)
+plot(Dmu_slow.Istay,'Linewidth',lnsz)
+plot(Dmu_slow.Iswitch,'Linewidth',lnsz)
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('slow depression')
+ylabel({sprintf('Pool average  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+set(gca,'FontSize',fontsz);axis tight;hold off
 
 %spikerates
 figure;
@@ -172,8 +185,7 @@ title('Spiking')
 ylabel({'Mean pool Hz  (75ms bins)'})
 xlabel('time (s)')
 legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
-hold off
+set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'spikerates'),'-djpeg')
 
 
@@ -197,8 +209,7 @@ ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 %legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
 legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
-hold off
+set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'spikerates_slidingwin'),'-djpeg')
 savefig(gcf(),fullfile(fig_dir,'spikerates_slidingwin'),'compact')
 
@@ -216,8 +227,7 @@ title('Spiking')
 ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
-hold off
+set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'spikerates_slidingwin_allcells'),'-djpeg')
 savefig(gcf(),fullfile(fig_dir,'spikerates_slidingwin_allcells'),'compact')
 
@@ -232,7 +242,7 @@ title('Spiking')
 ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
+set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'spikerates_slidingwin_difference'),'-djpeg')
 
 
@@ -257,8 +267,7 @@ ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 %legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
 legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
-hold off
+set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'syn_gating'),'-djpeg')
 savefig(gcf(),fullfile(fig_dir,'syn_gating'),'compact')
 
@@ -276,8 +285,7 @@ title('Synaptic gating')
 ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
-hold off
+set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'syn_gating_allcells'),'-djpeg')
 savefig(gcf(),fullfile(fig_dir,'syn_gating_allcells'),'compact')
 
@@ -299,7 +307,7 @@ ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 legend({'E-stay minus E-switch','I-stay minus I-switch'},'location','northoutside','Orientation','horizontal')
 %legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
+set(gca,'FontSize',fontsz);axis tight;hold off
 
 
 
@@ -313,7 +321,7 @@ title('Synaptic gating')
 ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
+set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'syn_gating_difference'),'-djpeg')
 
 

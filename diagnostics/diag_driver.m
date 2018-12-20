@@ -8,27 +8,15 @@ addpath('../')
 %jobID = str2num(getenv('SGE_TASK_ID'));
 
 %---setup---------------------
-t = 50; %diagnostics_fullnoise
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','test_model','sample_Estay_offset',0,...
-    'tmax',t,'stim_pulse',[t,0],'cut_leave_state',t);
+tmax = 30; %diagnostics_fullnoise
+options = set_options('modeltype','diagnostics','comp_location','bender',...
+    'sim_name','test_model','tmax',tmax,'percent_Dslow',.5,...
+    'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
-% options = set_options('modeltype','PS_stim',...
-%     'sim_name','diagnostics','sample_Estay_offset',80e-3,...
-%     'jobID',5,'tmax',t,'stim_pulse',[t,0],'stim_schedule','flexible',...
-%     'comp_location','woodstock','cut_leave_state',5e-3);
-%stim_mod = .85:.03:1.15; 
-%just randomly pick one from the spread, do enough it'll even out 
-%stim_mod = randsample(stim_mod,1);
-%stim_mod = 1; %make them equal
-%adjust stim B
-%options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; 
-%options.trial_stimuli = zeros(size(options.trial_stimuli));
-
-options.EtoE = .0405;
-options.ItoE = 1.2904 *1.125;
-options.EtoI = 0.1948;
-options.stim_targs = 'baseline'; %'Eswitch' | 'Estay'
+options.EtoE = .0405 *1;   %1
+options.ItoE = 1.2904 * 3; %3
+options.EtoI = 0.1948 * 2; %2 are best 
+options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
 Rext = 1400 *1; %poisson spike train rate for noise, Hz
 Rstim = 300; %rate for stimulus input spikes
 options.trial_stimuli = [Rstim,Rstim];

@@ -4,7 +4,7 @@ close all
 format compact
 rng('shuffle') %this is probably important...
 
-basedir = '~/Desktop/ksander/rotation/project/';
+basedir = '~/Desktop/work/ACClab/rotation/project/';
 addpath(basedir)
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -15,15 +15,15 @@ addpath(fullfile(basedir,'helper_functions'))
 %   c) spikerates in the I = ~30hz and E = ~15hz sweet zone
 
 
-tmax = 10;
+tmax = 35;
 
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'tmax',tmax,'percent_Dslow',.5,'state_test_thresh',.03,...
+options = set_options('modeltype','diagnostics','comp_location','bender',...
+    'tmax',tmax,'percent_Dslow',.5,'state_test_thresh',.02,'state_test_time',50e-3,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
-options.EtoE = .0405 *1.5;
-options.ItoE = 1.2904 * 3;
-options.EtoI = 0.1948 * 2;
+options.EtoE = .0405 *1;   %1
+options.ItoE = 1.2904 * 3; %3
+options.EtoI = 0.1948 * 2; %2 are best 
 options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
 Rext = 1400 *1; %poisson spike train rate for noise, Hz
 Rstim = 300; %rate for stimulus input spikes
@@ -146,7 +146,7 @@ state = init_statevar(celltype,options);
 options.sample_Estay_offset = options.sample_Estay_offset / timestep;
 state.now = state.undecided; %this will always be true when V init to El
 %---last init-----------------
-experiment_set2go = true; %skip bistability check 
+experiment_set2go = false; %skip bistability check 
 avail_stim = true; %in between stimulus delivery pulses in stay state
 timepoint_counter = 1;
 idx = 2; %keep indexing vars with idx fixed at 2
@@ -206,7 +206,7 @@ while timepoint_counter <= num_timepoints
     if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
         [BScheck,Pspikes,state] = check_bistability(Sg(:,idx),state);
         %add pulse spikes (same as below)
-        Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*Pspikes);
+        Gext(:,idx,ext_inds.E) = Gext(:,idx,ext_inds.E) + (deltaGext.*Pspikes);
         switch BScheck.status
             case 'fail'
                 fprintf(':::Bistability check failure:::')

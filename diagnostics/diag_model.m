@@ -40,7 +40,8 @@ Gg = 10e-9; %max connductance microSiemens
 Pr = NaN(pool_options.num_cells,1); %release probability
 Pr(celltype.excit) = .2; %excitatory release probability
 Pr(celltype.inhib) = .2; %inhibitory release probability
-Td = .3;%synaptic depression time constant, seconds
+Td.fast = .3;%synaptic depression time constant, seconds (fast)
+Td.slow = 7;%slow time constant
 Tsyn = NaN(pool_options.num_cells,1); %gating time constant vector
 Tsyn(celltype.excit) = 50e-3; %excitatory gating time constant, ms
 Tsyn(celltype.inhib) = 10e-3; %inhibitory gating time constant, ms
@@ -117,15 +118,20 @@ for trialidx = 1:num_trials
     Gsra(:,1) = 0;
     %---gating & depression-------
     Sg = NaN(size(V)); %synaptic gating
-    Sg(:,1) = 0; %initalize at zero??
-    D = NaN(size(V)); %synaptic depression
-    D(:,1) = 1; %initalize at one
+    Sg(:,1) = 0; %initalize at zero
+    Dmax.fast = 1 - options.percent_Dslow;
+    Dmax.slow = options.percent_Dslow;
+    Dfast = NaN(size(V)); %synaptic depression: fast
+    Dslow = NaN(size(V)); %synaptic depression: slow
+    Dfast(:,1) = Dmax.fast; %initalize at ratio of slow/fast vessicles
+    Dslow(:,1) = Dmax.slow;
     %---spikes--------------------
     spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
     %---state tracker-------------
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
     options.sample_Estay_offset = options.sample_Estay_offset / timestep;
+    state.now = state.undecided; %this will always be true when V init to El
     %---switch data recording-----
     %250ms before switch, 150ms after
     num_preswitch_samples = 250e-3/timestep;
@@ -156,16 +162,24 @@ for trialidx = 1:num_trials
         tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext
         Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
         Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-        D(:,idx) = D(:,idx-1) + (((1 - D(:,idx-1))./Td) .* timestep); %synaptic depression
+        Dfast(:,idx) = Dfast(:,idx-1) + (((Dmax.fast - Dfast(:,idx-1))./Td.fast) .* timestep); %fast syn. depression
+        Dslow(:,idx) = Dslow(:,idx-1) + (((Dmax.slow - Dslow(:,idx-1))./Td.slow) .* timestep); %slow syn. depression
         Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
         
         spiking_cells = V(:,idx) > spike_thresh;
         if sum(spiking_cells) > 0
             spiking_cells = V(:,idx) > spike_thresh;
             Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
+            Pr_spike = Pr(spiking_cells); 
+            %vessicle release for slow/fast vessicles
+            fast_release = Pr_spike .* Dfast(spiking_cells,idx); 
+            slow_release = Pr_spike .* Dslow(spiking_cells,idx); 
+            %synaptic gating, depends on combined vessicle release 
             Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
-                (Pr(spiking_cells).*D(spiking_cells,idx).*(1-Sg(spiking_cells,idx))); %synaptic gating
-            D(spiking_cells,idx) = D(spiking_cells,idx).*(1-Pr(spiking_cells)); %synaptic depression
+                ((fast_release + slow_release).*(1-Sg(spiking_cells,idx))); 
+            %depression update
+            Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - fast_release; 
+            Dslow(spiking_cells,idx) = Dslow(spiking_cells,idx) - slow_release; 
             V(spiking_cells,idx) = Vreset;
             spikes(spiking_cells,timepoint_counter) = 1;
         end
@@ -200,9 +214,10 @@ for trialidx = 1:num_trials
         %---noisy spiking input from elsewhere
         ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
         if ~avail_stim
-            %we're in between stimulus delivery pulses
-            %do half-noise to all E-cells-- gives barely spiking undecided state
-            ext_spikes(celltype.excit,:) = poissrnd(Lext*.5,sum(celltype.excit),2); %half noise E-cells
+            %don't do this for current testing
+            %         %we're in between stimulus delivery pulses
+            %         %do half-noise to all E-cells-- gives barely spiking undecided state
+            %         ext_spikes(celltype.excit,:) = poissrnd(Lext*.5,sum(celltype.excit),2); %half noise E-cells
         elseif avail_stim && strcmp(stim_info.delivery,'pulse') && experiment_set2go
             %stimulus is available, and we're doing pulse-sample delivery
             Tsample = sum(stim_info.pulse); %how long for a single on, off sequence
@@ -227,14 +242,16 @@ for trialidx = 1:num_trials
         
         %for recording vars
         Vrec(:,timepoint_counter) = V(:,idx);
-        Drec(:,timepoint_counter) = D(:,idx);
+        Drec_fast(:,timepoint_counter) = Dfast(:,idx);
+        Drec_slow(:,timepoint_counter) = Dslow(:,idx);
         Srec(:,timepoint_counter) = Sg(:,idx);
         
         %lag equation vars for next timepoint
         V = next_timepoint(V);
         Gsra = next_timepoint(Gsra);
         Gext = next_timepoint(Gext);
-        D = next_timepoint(D);
+        Dfast = next_timepoint(Dfast);
+        Dslow = next_timepoint(Dslow);
         Sg = next_timepoint(Sg);
         
         
@@ -339,7 +356,7 @@ end
 update_logfile('---Simulation complete---',options.output_log)
 savename = fullfile(options.save_dir,options.sim_name);
 save(savename,'sim_results','options')
-save(sprintf('%s_D',savename),'Drec','options')
+save(sprintf('%s_D',savename),'Drec_fast','Drec_slow','options')
 save(sprintf('%s_V',savename),'Vrec','options')
 save(sprintf('%s_S',savename),'Srec','options')
 save(sprintf('%s_spikes',savename),'spikes','options')
