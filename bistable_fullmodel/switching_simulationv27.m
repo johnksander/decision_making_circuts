@@ -4,7 +4,7 @@ close all
 format compact
 rng('shuffle') %this is probably important...
 
-basedir = '~/Desktop/work/ACClab/rotation/project/';
+basedir = '~/Desktop/ksander/rotation/project/';
 addpath(basedir)
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -13,21 +13,18 @@ addpath(fullfile(basedir,'helper_functions'))
 %   a) fast switching when all things are equal (~1-2 sec)
 %   b) stimulus prolongs switching
 %   c) spikerates in the I = ~30hz and E = ~15hz sweet zone
-%v21d (also see c) gives previous parameters
 
-%this gives good spikerates, ~1sec flip no stimulus
-%with E-stay 400hz no flip in 50s, 300hz mu = 17s (200s sim)
 
 tmax = 10;
 
-options = set_options('modeltype','diagnostics','comp_location','bender',...
-    'tmax',tmax,'Dslow','on','percent_Ds',.5,...
+options = set_options('modeltype','diagnostics','comp_location','woodstock',...
+    'tmax',tmax,'percent_Dslow',.5,'state_test_thresh',.03,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
-options.EtoE = .0405;
-options.ItoE = 1.2904 *1.125;
-options.EtoI = 0.1948;
-options.stim_targs = 'Estay'; %'Eswitch' | 'Estay'
+options.EtoE = .0405 *1.5;
+options.ItoE = 1.2904 * 3;
+options.EtoI = 0.1948 * 2;
+options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
 Rext = 1400 *1; %poisson spike train rate for noise, Hz
 Rstim = 300; %rate for stimulus input spikes
 
@@ -66,8 +63,8 @@ Gg = 10e-9; %max connductance microSiemens
 Pr = NaN(pool_options.num_cells,1); %release probability
 Pr(celltype.excit) = .2; %excitatory release probability
 Pr(celltype.inhib) = .2; %inhibitory release probability
-Td_fast = .3;%synaptic depression time constant, seconds (fast)
-Td_slow = 7;%slow time constant
+Td.fast = .3;%synaptic depression time constant, seconds (fast)
+Td.slow = 7;%slow time constant
 Tsyn = NaN(pool_options.num_cells,1); %gating time constant vector
 Tsyn(celltype.excit) = 50e-3; %excitatory gating time constant, ms
 Tsyn(celltype.inhib) = 10e-3; %inhibitory gating time constant, ms
@@ -135,10 +132,12 @@ Gsra(:,1) = 0;
 %---gating & depression-------
 Sg = NaN(size(V)); %synaptic gating
 Sg(:,1) = 0; %initalize at zero??
+Dmax.fast = 1 - options.percent_Dslow;
+Dmax.slow = options.percent_Dslow;
 Dfast = NaN(size(V)); %synaptic depression: fast 
 Dslow = NaN(size(V)); %synaptic depression: slow 
-Dfast(:,1) = 1 - options.percent_Ds; %initalize at ratio of slow/fast vessicles
-Dslow(:,1) = options.percent_Ds;
+Dfast(:,1) = Dmax.fast; %initalize at ratio of slow/fast vessicles
+Dslow(:,1) = Dmax.slow;
 %---spikes--------------------
 spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
 %---state tracker-------------
@@ -173,21 +172,24 @@ while timepoint_counter <= num_timepoints
     tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext 
     Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
     Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-    %D updates...
-    D(:,idx) = D(:,idx-1) + (((1 - D(:,idx-1))./Td) .* timestep); %synaptic depression
+    Dfast(:,idx) = Dfast(:,idx-1) + (((Dmax.fast - Dfast(:,idx-1))./Td.fast) .* timestep); %fast syn. depression
+    Dslow(:,idx) = Dslow(:,idx-1) + (((Dmax.slow - Dslow(:,idx-1))./Td.slow) .* timestep); %slow syn. depression
     Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
     
     spiking_cells = V(:,idx) > spike_thresh;
     if sum(spiking_cells) > 0
         spiking_cells = V(:,idx) > spike_thresh;
         Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
-        
-        %Sg * D updates
+        Pr_spike = Pr(spiking_cells); 
+        %vessicle release for slow/fast vessicles
+        fast_release = Pr_spike .* Dfast(spiking_cells,idx); 
+        slow_release = Pr_spike .* Dslow(spiking_cells,idx); 
+        %synaptic gating, depends on combined vessicle release 
         Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
-            (Pr(spiking_cells).*D(spiking_cells,idx).*(1-Sg(spiking_cells,idx))); %synaptic gating
-        D(spiking_cells,idx) = D(spiking_cells,idx).*(1-Pr(spiking_cells)); %synaptic depression
-        
-        
+            ((fast_release + slow_release).*(1-Sg(spiking_cells,idx))); 
+        %depression update
+        Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - fast_release; 
+        Dslow(spiking_cells,idx) = Dslow(spiking_cells,idx) - slow_release; 
         V(spiking_cells,idx) = Vreset;
         spikes(spiking_cells,timepoint_counter) = 1;
     end
@@ -248,14 +250,16 @@ while timepoint_counter <= num_timepoints
     
     %for recording vars
     Vrec(:,timepoint_counter) = V(:,idx);
-    Drec(:,timepoint_counter) = D(:,idx);
+    Drec_fast(:,timepoint_counter) = Dfast(:,idx);
+    Drec_slow(:,timepoint_counter) = Dslow(:,idx);
     Srec(:,timepoint_counter) = Sg(:,idx);
     
     %lag equation vars for next timepoint
     V = next_timepoint(V);
     Gsra = next_timepoint(Gsra);
     Gext = next_timepoint(Gext);
-    D = next_timepoint(D);
+    Dfast = next_timepoint(Dfast);
+    Dslow = next_timepoint(Dslow);
     Sg = next_timepoint(Sg);
     
     
@@ -305,26 +309,39 @@ title({'spikes','(spikes in matrix enlarged for visualization)'})
 
 
 window_sz = 50e-3;
-Dmu = sim_windowrate(Drec,timestep,celltype,window_sz);
-Dmu = structfun(@(x) x.* timestep ,Dmu,'UniformOutput',false); %undo hz conversion
+Dmu_fast = sim_windowrate(Drec_fast,timestep,celltype,window_sz);
+Dmu_fast = structfun(@(x) x.* timestep ,Dmu_fast,'UniformOutput',false); %undo hz conversion
+
+Dmu_slow = sim_windowrate(Drec_slow,timestep,celltype,window_sz);
+Dmu_slow = structfun(@(x) x.* timestep ,Dmu_slow,'UniformOutput',false); %undo hz conversion
 
 figure;
 %plot the aggregated timecourses
-hold on
-plot(Dmu.Estay,'Linewidth',lnsz)
-plot(Dmu.Eswitch,'Linewidth',lnsz)
-plot(Dmu.Istay,'Linewidth',lnsz)
-plot(Dmu.Iswitch,'Linewidth',lnsz)
+subplot(2,1,1);hold on
+plot(Dmu_fast.Estay,'Linewidth',lnsz)
+plot(Dmu_fast.Eswitch,'Linewidth',lnsz)
+plot(Dmu_fast.Istay,'Linewidth',lnsz)
+plot(Dmu_fast.Iswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-title('Depression')
+title('Fast depression')
 ylabel({sprintf('Pool average  (%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz)
-axis tight;hold off
-
+set(gca,'FontSize',fontsz);axis tight;hold off
+subplot(2,1,2);hold on
+plot(Dmu_slow.Estay,'Linewidth',lnsz)
+plot(Dmu_slow.Eswitch,'Linewidth',lnsz)
+plot(Dmu_slow.Istay,'Linewidth',lnsz)
+plot(Dmu_slow.Iswitch,'Linewidth',lnsz)
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('slow depression')
+ylabel({sprintf('Pool average  (%ims bins)',window_sz*1e3)})
+xlabel('time (s)')
+set(gca,'FontSize',fontsz);axis tight;hold off
 
 %spikerates by sliding window...
 Srate = sim_windowrate(spikes,timestep,celltype,window_sz);
