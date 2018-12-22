@@ -11,8 +11,8 @@ options.noswitch_timeout = 750; %timeout without a switch (s)
 options.tmax = 5000; %trial simulation time (s)
 options.force_back2stay = false; %whether to force switch from stay state (default false)
 options.cut_leave_state = 100e-3; %after Xms in a leave state, cut the noise 
-options.state_test_time = 20e-3; %must be X time above threshold to declare a switch 
-options.state_test_thresh = .03; %difference in mean Sg between E-cell pools 
+options.state_test_time = 50e-3; %must be X time above threshold to declare a switch 
+options.state_test_thresh = .02; %difference in mean Sg between E-cell pools 
 options.record_spiking = 'off'; % 'on' saves spiking data, 'off' gives low-memory sim without spiking data 
 %----pulse stimulus delivery (more realistic licking) 
 options.stim_pulse = [NaN, NaN]; %default will be none
@@ -24,7 +24,9 @@ options.sample_Estay_offset = 40e-3; %init noise offset Estay-Eswitch at the
 %----checking bistability @ sim outset 
 options.init_check_Rext = 400; %pulse strength (Hz to E-stay)
 options.init_check_tmax = .9; %pulse must keep steady state for (s)
-
+%----depression
+options.percent_Dslow = 0; %fraction of slow vesicles (.2 gives 20% slow, 80% fast)
+%setting value > 0 enables slower depression timescale. 
 
 %parse inputs 
 if mod(numel(varargin),2) ~= 0
@@ -80,8 +82,13 @@ if strcmp(options.modeltype,'PS')
     dealers_choice = @(a,b) (a + (b-a).*rand(1));
     
     options.EtoE = .0405; %fixed
-    options.ItoE = dealers_choice(0.15, 3);  
-    options.EtoI = dealers_choice(0.15, 3);  
+    options.ItoE = dealers_choice(0.15, 8);  
+    options.EtoI = dealers_choice(0.15, 8); 
+    
+    %this mode should always be for baseline/no stimulus
+    options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
+    Rstim = 0; %rate for stimulus input spikes
+    options.trial_stimuli = [Rstim,Rstim];
     
     %from first paramter sweep w/ bad noise
     %options.ItoE = dealers_choice(0.15, 0.65 *2);  %double "fastswitch"

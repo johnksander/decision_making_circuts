@@ -10,7 +10,7 @@ addpath('../')
 %my model
 %---setup---------------------
 tmax = 30; %diagnostics_fullnoise
-options = set_options('modeltype','diagnostics','comp_location','bender',...
+options = set_options('modeltype','PS','comp_location','bender',...
     'sim_name','test_model','tmax',tmax,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
@@ -55,52 +55,6 @@ timestep = .25e-3; %.25 milisecond timestep
 lnsz = 3; %spikerate plots
 fontsz = 12;
 
-%this is what happened, and when
-%{timeidx,statecount,sample_clock,stim_label}
-durations = sim_results{1};
-timecourse = size(durations);
-timecourse(2) = timecourse(2) + 1; 
-timecourse = cell(timecourse);
-timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
-timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
-%current sample's onset, rounding is needed for subsequent operations 
-timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
-samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding 
-timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
-timecourse(:,end) = durations(:,end);
-timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
-timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
-writetable(timecourse,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
-
-%figure out the difference between end of stimulus & next stimulus onset
-[out,info] = find_stay_durations(durations,options,'verify');
-onset_diff = NaN(size(info,1),1);
-time_inds = cell2mat(cellfun(@(x) x*options.timestep,durations(:,1),'UniformOutput',false));
-u2_times = NaN(size(onset_diff)); %time for second undecided stte 
-for idx = 1:size(info,1)
-    Tend = info{idx,1};
-    curr_stim = find(time_inds == Tend);
-    if curr_stim+4 <= size(timecourse,1)
-        curr_stim = timecourse(curr_stim:curr_stim+4,:);
-        if ~strcmpi(curr_stim{3,end},'leave') || ~startsWith(curr_stim{end,end},'stim')
-            fprintf('problem with item #%i\r',idx) %almost certainly a "stim-leave-leave" sequence, no biggie
-        else
-            onset_diff(idx) = str2num(curr_stim.event_time{end-1}) - str2num(curr_stim.event_time{1});
-            u2_times(idx) = str2num(curr_stim.duration{4});
-        end
-    end
-end
-Tinvalid = isnan(onset_diff);
-fprintf('valid transitions = %i/%i\n',sum(~Tinvalid),numel(Tinvalid))
-if sum(onset_diff) > 0
-    onset_diff = onset_diff(~Tinvalid);
-    u2_times = u2_times(~Tinvalid);
-    figure()
-    histogram(onset_diff,numel(onset_diff));hold on
-    histogram(u2_times,numel(u2_times));hold off
-    title('stim onset differences')
-    legend('total transition','undecided #2','Location','best')
-end
 
 figure()
 %do the raster plot
@@ -324,6 +278,85 @@ legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizo
 set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'syn_gating_difference'),'-djpeg')
 
+
+if numel(durations) > 1
+    timecourse = size(durations);
+    timecourse(2) = timecourse(2) + 1;
+    timecourse = cell(timecourse);
+    timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
+    timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
+    %current sample's onset, rounding is needed for subsequent operations
+    timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
+    samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding
+    timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
+    timecourse(:,end) = durations(:,end);
+    %timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
+    timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
+    figure
+    state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
+    if numel(state_durs) > 0
+        if numel(state_durs) < 15
+            histogram(state_durs,numel(state_durs))
+        else
+            histogram(state_durs)
+        end
+        title(sprintf('stay-state durations\nmu = %.2f',mean(state_durs)))
+        ylabel('seconds');xlabel('frequecy');set(gca,'FontSize',fontsz)
+    end
+end
+
+%for printing 
+TCfile = cellfun(@(x) sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false); %for printing
+TCfile = [TCfile,timecourse.state];
+TCfile = cell2table(TCfile,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
+writetable(TCfile,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
+
+% %this is what happened, and when
+% %{timeidx,statecount,sample_clock,stim_label}
+% durations = sim_results{1};
+% timecourse = size(durations);
+% timecourse(2) = timecourse(2) + 1; 
+% timecourse = cell(timecourse);
+% timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
+% timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
+% %current sample's onset, rounding is needed for subsequent operations 
+% timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
+% samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding 
+% timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
+% timecourse(:,end) = durations(:,end);
+% timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
+% timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
+% writetable(timecourse,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
+% 
+% %figure out the difference between end of stimulus & next stimulus onset
+% [out,info] = find_stay_durations(durations,options,'verify');
+% onset_diff = NaN(size(info,1),1);
+% time_inds = cell2mat(cellfun(@(x) x*options.timestep,durations(:,1),'UniformOutput',false));
+% u2_times = NaN(size(onset_diff)); %time for second undecided stte 
+% for idx = 1:size(info,1)
+%     Tend = info{idx,1};
+%     curr_stim = find(time_inds == Tend);
+%     if curr_stim+4 <= size(timecourse,1)
+%         curr_stim = timecourse(curr_stim:curr_stim+4,:);
+%         if ~strcmpi(curr_stim{3,end},'leave') || ~startsWith(curr_stim{end,end},'stim')
+%             fprintf('problem with item #%i\r',idx) %almost certainly a "stim-leave-leave" sequence, no biggie
+%         else
+%             onset_diff(idx) = str2num(curr_stim.event_time{end-1}) - str2num(curr_stim.event_time{1});
+%             u2_times(idx) = str2num(curr_stim.duration{4});
+%         end
+%     end
+% end
+% Tinvalid = isnan(onset_diff);
+% fprintf('valid transitions = %i/%i\n',sum(~Tinvalid),numel(Tinvalid))
+% if nansum(onset_diff) > 0
+%     onset_diff = onset_diff(~Tinvalid);
+%     u2_times = u2_times(~Tinvalid);
+%     figure()
+%     histogram(onset_diff,numel(onset_diff));hold on
+%     histogram(u2_times,numel(u2_times));hold off
+%     title('stim onset differences')
+%     legend('total transition','undecided #2','Location','best')
+% end
 
 
 

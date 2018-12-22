@@ -9,16 +9,20 @@ addpath('../')
 
 %---setup---------------------
 tmax = 30; %diagnostics_fullnoise
-options = set_options('modeltype','diagnostics','comp_location','bender',...
-    'sim_name','test_model','tmax',tmax,'percent_Dslow',.5,...
+% options = set_options('modeltype','diagnostics','comp_location','bender',...
+%     'sim_name','test_model','tmax',tmax,'percent_Dslow',.5,...
+%     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
+options = set_options('modeltype','PS','comp_location','bender',...
+    'sim_name','test_model','tmax',tmax,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
+
 options.EtoE = .0405 *1;   %1
-options.ItoE = 1.2904 * 3; %3
-options.EtoI = 0.1948 * 2; %2 are best 
+options.ItoE = 0.885; %1.2904 * 3; %3
+options.EtoI = 1.492; %0.1948 * 2; %2 are best 
 options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
 Rext = 1400 *1; %poisson spike train rate for noise, Hz
-Rstim = 300; %rate for stimulus input spikes
+Rstim = 0; %rate for stimulus input spikes
 options.trial_stimuli = [Rstim,Rstim];
 
 %---run-----------------------

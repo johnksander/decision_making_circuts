@@ -82,8 +82,13 @@ if strcmp(options.modeltype,'PS')
     dealers_choice = @(a,b) (a + (b-a).*rand(1));
     
     options.EtoE = .0405; %fixed
-    options.ItoE = dealers_choice(0.15, 3);  
-    options.EtoI = dealers_choice(0.15, 3);  
+    options.ItoE = dealers_choice(0.15, 8);  
+    options.EtoI = dealers_choice(0.15, 8); 
+    
+    %this mode should always be for baseline/no stimulus
+    options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
+    Rstim = 0; %rate for stimulus input spikes
+    options.trial_stimuli = [Rstim,Rstim];
     
     %from first paramter sweep w/ bad noise
     %options.ItoE = dealers_choice(0.15, 0.65 *2);  %double "fastswitch"
