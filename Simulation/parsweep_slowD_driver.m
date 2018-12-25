@@ -7,7 +7,7 @@ format compact
 
 %my model 
 %---setup---------------------
-jID = str2num(getenv('SLURM_ARRAY_TASK_ID'));
+jID = str2num([getenv('SLURM_JOBID'), getenv('SLURM_ARRAY_TASK_ID')]);
 t = 5000; %trial simulation time (s) 
 options = set_options('modeltype','PS','comp_location','hpc',...
     'sim_name','parsweep_slowD_baseline','jobID',jID,'tmax',t,...
