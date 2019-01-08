@@ -3,7 +3,6 @@ clc
 format compact
 hold off;close all
 
-num_workers = 24; %for parfor loading results 
 rescale_plane = 'on';
 outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
 
@@ -15,51 +14,30 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_fastD_baseline';
-basedir = '/home/acclab/Desktop/ksander/rotation/project';
-figdir = fullfile(basedir,'Results',['figures_' sim_name]);
+sim_name = 'parsweep_baseline';
+basedir = '/Users/ksander/Desktop/work/ACClab/rotation/project';
+figdir = fullfile(basedir,'Results',[sim_name '_figures']);
 resdir = fullfile(basedir,'Results',sim_name);
-addpath(fullfile(basedir,'helper_functions'))
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
-%get results
 num_files = numel(output_fns);
+%get results
 file_data = cell(num_files,2);
-%parfor stuff
-output_log = fullfile(resdir,'output_log.txt');
-special_progress_tracker = fullfile(resdir,'SPT.txt');
-if exist(special_progress_tracker) > 0
-    delete(special_progress_tracker) %fresh start
-end
-c = parcluster('local');
-c.NumWorkers = num_workers;
-parpool(c,c.NumWorkers,'IdleTimeout',Inf)
-parfor idx = 1:num_files
-    %if mod(idx,1000) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
+for idx = 1:num_files
     curr_file = load(output_fns{idx});
     %store parameters
-    %file_data{idx,2} = curr_file.options;
+    file_data{idx,2} = curr_file.options;
     %get state durations
     state_durations = curr_file.sim_results;
-    state_durations = state_durations{1};
-    %just get all of them, baseline test. Everything that's not undecided
-    valid_states = ~strcmpi(state_durations(:,end),'undecided');
-    %state.count recorded in second col 
-    state_durations = state_durations(valid_states,2);
-    state_durations = cat(1,state_durations{:});
+    state_durations = state_durations{:};
+    %just get all of them, baseline test
+    state_durations = cellfun(@(x) x(:,1),state_durations,'UniformOutput',false);
+    state_durations = vertcat(state_durations{:});
+    state_durations = vertcat(state_durations{:}); %ooo that's annoying
     %convert to time
     state_durations = state_durations * timestep;
-    %store durations and parameters 
-    file_data(idx,:) = {state_durations,curr_file.options};
-    
-    progress = worker_progress_tracker(special_progress_tracker);
-    if mod(progress,floor(num_files * .1)) == 0 %at 10 percent
-        progress = (progress / num_files) * 100;
-        message = sprintf('----%.1f percent complete',progress);
-        update_logfile(message,output_log)
-    end
+    file_data{idx,1} = state_durations;
 end
-delete(gcp('nocreate'))
 
 %search for jobs with identical parameters, collapse distributions
 %get the randomized network parameters
@@ -83,24 +61,28 @@ end
 
 
 
+%just grab some simple stats here
 num_states = cellfun(@(x) numel(x),result_data(:,1));
+mu_duration = cellfun(@(x) mean(x),result_data(:,1));
+med_duration = cellfun(@(x) median(x),result_data(:,1));
+logmu_dur = cellfun(@(x) mean(log(x)),result_data(:,1));
 %get the network parameters
 EtoE = cellfun(@(x)  x.EtoE,result_data(:,2));
 ItoE = cellfun(@(x)  x.ItoE,result_data(:,2));
 EtoI = cellfun(@(x)  x.EtoI,result_data(:,2));
 
-%stats
+
 switch outcome_stat
     case 'mu'
-        outcome = cellfun(@(x) mean(x),result_data(:,1));
+        outcome = mu_duration;
         Zlabel = 'mean duration (s)';
         figdir = fullfile(figdir,'mean_duration');
     case 'med'
-        outcome = cellfun(@(x) median(x),result_data(:,1));
+        outcome = med_duration;
         Zlabel = 'median duration (s)';
         figdir = fullfile(figdir,'med_duration');
     case 'logmu'
-        outcome = cellfun(@(x) mean(log(x)),result_data(:,1));
+        outcome = logmu_dur;
         Zlabel = {'mean stay duration';'log(s)'};
         figdir = fullfile(figdir,'logmean_duration');
 end
@@ -108,32 +90,75 @@ end
 if ~isdir(figdir),mkdir(figdir);end
 
 
+%inhibition scatter
+net_inhibition = ItoE.*EtoI;
+%EtoI & ItoE parameter ranges are different (EtoI goes lower, ItoE goes much higher)
+%plotting so that the ranges are equal
+NI_range = EtoI >= min(ItoE) & ItoE <= max(EtoI);
+h1 = subplot(2,2,1);
+larger_param = ItoE > EtoI & NI_range;
+scatter(net_inhibition(larger_param),outcome(larger_param));
+title('I-to-E > E-to-I')
+ylabel(Zlabel)
+xlabel('net inhibition')
+set(gca,'FontSize',12)
+h2 = subplot(2,2,3);
+larger_param = ItoE < EtoI & NI_range;
+scatter(net_inhibition(larger_param),outcome(larger_param));
+title('I-to-E < E-to-I')
+ylabel(Zlabel)
+xlabel('net inhibition')
+set(gca,'FontSize',12)
+linkaxes([h1,h2],'xy')
+axis tight
 
-keyboard
+h1 = subplot(2,2,2);
+larger_param = ItoE > EtoI & NI_range;
+histogram(ItoE(larger_param));
+hold on
+histogram(EtoI(larger_param));
+hold off
+legend('I-to-E','E-to-I')
+title('parameter range')
+ylabel('frequency')
+xlabel('strength')
+set(gca,'FontSize',12)
+h2 = subplot(2,2,4);
+larger_param = ItoE < EtoI & NI_range;
+histogram(ItoE(larger_param));
+hold on
+histogram(EtoI(larger_param));
+hold off
+legend('I-to-E','E-to-I')
+title('parameter range')
+ylabel('frequency')
+xlabel('strength')
+set(gca,'FontSize',12)
+linkaxes([h1,h2],'xy')
+axis tight
+%print(fullfile(figdir,'net_inhib_scatter'),'-djpeg')
 
-%inpaint_nans
+
+
 %surface plot
-figure
+hold off;close all
 fontsz = 20;
-pointsz = 10; %was 30
 plt_alph = .75;
-num_gridlines = 400; 
+num_gridlines = 400;
 xlin = linspace(min(ItoE),max(ItoE),num_gridlines);
 ylin = linspace(min(EtoI),max(EtoI),num_gridlines);
 [X,Y] = meshgrid(xlin,ylin);
 f = scatteredInterpolant(ItoE,EtoI,outcome);
 f.Method = 'natural';
 Z = f(X,Y);
-%mask = tril(ones(size(Z)),30);
-%mask = logical(flipud(mask));
-%Z(~mask) = NaN;
-filtSD = 2.5;
-Z = imgaussfilt(Z,filtSD);
+mask = tril(ones(size(Z)),30);
+mask = logical(flipud(mask));
+Z(~mask) = NaN;
 mesh(X,Y,Z,'FaceAlpha',plt_alph,'EdgeAlpha',plt_alph) %interpolated
 axis tight; hold on
 %these feel like they need to be slightly bigger 
 %scatter3(ItoE,EtoI,outcome,25,'black','filled','MarkerEdgeAlpha',1,'MarkerEdgeAlpha',1) %give them outlines
-scatter3(ItoE,EtoI,outcome,pointsz,'red','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1) 
+scatter3(ItoE,EtoI,outcome,30,'red','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1) 
 xlabel({'within-pool inhibition';'(I-to-E strength)'},'FontWeight','b')
 ylabel({'cross-pool inhibition';'(E-to-I strength)'},'FontWeight','b')
 zlabel(Zlabel,'FontWeight','b')
