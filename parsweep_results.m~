@@ -15,7 +15,7 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_slowD_baseline';
+sim_name = 'parsweep_sD_baseline';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
@@ -119,7 +119,7 @@ EtoI = cellfun(@(x)  x.EtoI,result_data(~Tinvalid,2));
 num_jobs = numel(outcome);
 
 
-
+keyboard
 %surface plot
 figure
 fontsz = 20;
@@ -182,10 +182,10 @@ yh_pos = get(yh, 'Position');
 set(yh, 'Position',yh_pos+ [.1,.15,0],'Rotation',13)
 %set(yh, 'Position',yh_pos+ [-.075,.15,0],'Rotation',-19)
 set(gcf,'Renderer','painters')
-print(fullfile(figdir,'surface_plot'),'-djpeg','-r400')%print high-res
+%print(fullfile(figdir,'surface_plot'),'-djpeg','-r400')%print high-res
 
 %https://www.mathworks.com/matlabcentral/answers/41800-remove-sidewalls-from-surface-plots
-savefig(fullfile(figdir,'surface_plot'))
+%savefig(fullfile(figdir,'surface_plot'))
 %view(-24,24)
 
 figure
@@ -244,7 +244,7 @@ print(fullfile(figdir,'heatmap'),'-djpeg')
 % ylabel('E-to-I strength')
 
 
-hold off; close all
+hold off
 
 % 
 % %try countour plot

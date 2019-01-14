@@ -6,12 +6,13 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
+jobID = 1;
 
 %my model
 %---setup---------------------
 tmax = 30; %diagnostics_fullnoise
-options = set_options('modeltype','PS','comp_location','bender',...
-    'sim_name','test_model','tmax',tmax,...
+options = set_options('modeltype','diagnostics','comp_location','woodstock',...
+    'sim_name','slowDfigs','tmax',tmax,'jobID',jobID,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
 
@@ -95,7 +96,7 @@ Dmu_slow = structfun(@(x) x.* timestep ,Dmu_slow,'UniformOutput',false); %undo h
 
 figure;
 %plot the aggregated timecourses
-subplot(2,1,1);hold on
+ax(1) = subplot(2,1,1);hold on
 plot(Dmu_fast.Estay,'Linewidth',lnsz)
 plot(Dmu_fast.Eswitch,'Linewidth',lnsz)
 plot(Dmu_fast.Istay,'Linewidth',lnsz)
@@ -103,12 +104,16 @@ plot(Dmu_fast.Iswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-title('Fast depression')
-ylabel({sprintf('Pool average  (%ims bins)',window_sz*1e3)})
-xlabel('time (s)')
-legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+ylabel({'Fast','depression'},'FontWeight','b')
+%ylabel({sprintf('Pool average\n(%ims bins)',window_sz*1e3)})
+%xlabel('time (s)')
 set(gca,'FontSize',fontsz);axis tight;hold off
-subplot(2,1,2);hold on
+axP = get(gca,'Position');
+[lp, ~] = legend({'E-stay','E-switch','I-stay','I-switch'},'FontWeight','b',...
+    'Location','northoutside','Box','off','Orientation','horizontal');
+set(gca, 'Position', axP)
+lp.Position = [(1-lp.Position(3))/2,1-lp.Position(4),lp.Position(3:4)];
+ax(2) = subplot(2,1,2);hold on
 plot(Dmu_slow.Estay,'Linewidth',lnsz)
 plot(Dmu_slow.Eswitch,'Linewidth',lnsz)
 plot(Dmu_slow.Istay,'Linewidth',lnsz)
@@ -116,10 +121,12 @@ plot(Dmu_slow.Iswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-title('slow depression')
-ylabel({sprintf('Pool average  (%ims bins)',window_sz*1e3)})
+ylabel({'Slow','depression'},'FontWeight','b')
+%ylabel({sprintf('Pool average\n(%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 set(gca,'FontSize',fontsz);axis tight;hold off
+linkaxes(ax,'xy')
+print(fullfile(fig_dir,'depression'),'-djpeg')
 
 %spikerates
 figure;
@@ -278,7 +285,7 @@ legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizo
 set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'syn_gating_difference'),'-djpeg')
 
-
+durations = sim_results{1};
 if numel(durations) > 1
     timecourse = size(durations);
     timecourse(2) = timecourse(2) + 1;

@@ -107,6 +107,11 @@ if strcmp(options.modeltype,'PS_stim')
 end
 
 
+if strcmp(options.modeltype,'diagnostics')
+    options.sim_name = sprintf('%s_%i',options.sim_name,options.jobID);
+end
+
+
 if sum(strcmp(options.modeltype,{'JK','diagnostics'})) == 0 %don't run this block for outdated jobs 
     update_logfile('initializing job params...',options.output_log)
     update_logfile(sprintf('tmax = %i',options.tmax),options.output_log)
