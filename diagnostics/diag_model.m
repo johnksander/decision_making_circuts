@@ -274,34 +274,35 @@ for trialidx = 1:num_trials
         
     end
     
-    
-    %remove the first artificially induced stay state & subsequent switch state
-    trim_Bcheck = find(startsWith(durations(:,end),'leave'), 1, 'first');
-    durations = durations(trim_Bcheck+1:end,:);
-    sim_results{trialidx,1} = durations;
+    if ~isempty(durations)
         
-    %taken from find_stay_durations()
-    timecourse = size(durations);
-    timecourse(2) = timecourse(2) + 1;
-    timecourse = cell(timecourse);
-    timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
-    timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
-    %current sample's onset, rounding is needed for subsequent operations
-    timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
-    samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding
-    timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
-    timecourse(:,end) = durations(:,end);
-    
-    samp_inds = cell2mat(timecourse(:,4));
-    for Sidx = 1:numel(samp_onsets) %unique samples
-        curr_rec = samp_inds == Sidx;
-        curr_rec = timecourse(curr_rec,:);
-        stay_states = startsWith(curr_rec(:,end),'stim');
-        if sum(stay_states) > 1 %got heem
-            oflag = true;
+        %remove the first artificially induced stay state & subsequent switch state
+        trim_Bcheck = find(startsWith(durations(:,end),'leave'), 1, 'first');
+        durations = durations(trim_Bcheck+1:end,:);
+        sim_results{trialidx,1} = durations;
+        
+        %taken from find_stay_durations()
+        timecourse = size(durations);
+        timecourse(2) = timecourse(2) + 1;
+        timecourse = cell(timecourse);
+        timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
+        timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
+        %current sample's onset, rounding is needed for subsequent operations
+        timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
+        samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding
+        timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
+        timecourse(:,end) = durations(:,end);
+        
+        samp_inds = cell2mat(timecourse(:,4));
+        for Sidx = 1:numel(samp_onsets) %unique samples
+            curr_rec = samp_inds == Sidx;
+            curr_rec = timecourse(curr_rec,:);
+            stay_states = startsWith(curr_rec(:,end),'stim');
+            if sum(stay_states) > 1 %got heem
+                oflag = true;
+            end
         end
     end
-    
     oflag = true; %take anything it's fine 
     
     

@@ -4,7 +4,7 @@ close all
 format compact
 rng('shuffle') %this is probably important...
 
-basedir = '~/Desktop/work/ACClab/rotation/project/';
+basedir = '~/Desktop/ksander/rotation/project/';
 addpath(basedir)
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -20,7 +20,7 @@ addpath(fullfile(basedir,'helper_functions'))
 
 tmax = 20;
 
-options = set_options('modeltype','diagnostics','comp_location','bender',...
+options = set_options('modeltype','diagnostics','comp_location','woodstock',...
     'tmax',tmax,'state_test_thresh',.02,'state_test_time',50e-3,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 

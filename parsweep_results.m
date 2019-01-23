@@ -15,7 +15,7 @@ timestep = .25e-3; %this should really make it's way into set_options(), used fo
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_slowD_baseline';
+sim_name = 'parsweep_fastD_baseline';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
@@ -182,10 +182,10 @@ yh_pos = get(yh, 'Position');
 set(yh, 'Position',yh_pos+ [.1,.15,0],'Rotation',13)
 %set(yh, 'Position',yh_pos+ [-.075,.15,0],'Rotation',-19)
 set(gcf,'Renderer','painters')
-print(fullfile(figdir,'surface_plot'),'-djpeg','-r400')%print high-res
+%print(fullfile(figdir,'surface_plot'),'-djpeg','-r400')%print high-res
 
 %https://www.mathworks.com/matlabcentral/answers/41800-remove-sidewalls-from-surface-plots
-savefig(fullfile(figdir,'surface_plot'))
+savefig(gcf,fullfile(figdir,'surface_plot'),'compact')
 %view(-24,24)
 
 figure
@@ -223,7 +223,7 @@ colb = colorbar;
 colb.Label.String = Zlabel(end);
 colb.FontSize = 16;
 set(gca,'FontSize',fontsz-4)
-print(fullfile(figdir,'heatmap'),'-djpeg')
+%print(fullfile(figdir,'heatmap'),'-djpeg')
 
 
 % %this is okay.....

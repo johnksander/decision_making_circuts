@@ -6,20 +6,15 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 1;
-
+%jobID = 3;
+jobID = str2num(getenv('JID'));
+sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
 %---setup---------------------
 tmax = 30; %diagnostics_fullnoise
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','slowDfigs','tmax',tmax,'jobID',jobID,...
+    'sim_name',sname,'tmax',tmax,'jobID',jobID,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
-
-
-% options = set_options('modeltype','PS_stim',...
-%     'sim_name','timer',...
-%     'jobID',1,'tmax',t,'stim_pulse',[t,0],'stim_schedule','flexible',...
-%     'comp_location','woodstock','cut_leave_state',5e-3);
 
 
 fig_dir = fullfile(options.save_dir,options.sim_name);
@@ -300,17 +295,27 @@ if numel(durations) > 1
     %timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
     timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
     figure
-    state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
+    %state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
+    state_durs = timecourse.duration(~strcmpi(timecourse.state,'undecided')); %leave states included 
     if numel(state_durs) > 0
         if numel(state_durs) < 15
             histogram(state_durs,numel(state_durs))
         else
             histogram(state_durs)
         end
-        title(sprintf('stay-state durations\nmu = %.2f',mean(state_durs)))
-        ylabel('seconds');xlabel('frequecy');set(gca,'FontSize',fontsz)
+        %title(sprintf('stay-state durations\nmu = %.2f',mean(state_durs)))
+        %ylabel('seconds');xlabel('frequecy');set(gca,'FontSize',fontsz)
+        title(sprintf('Network:    E-I = %.2f,    I-E = %.2f\nmu duration = %.2fs',options.EtoI,options.ItoE,mean(state_durs)))
+        ylabel('state duration (s)');xlabel('frequecy');set(gca,'FontSize',fontsz)
+        print(fullfile(fig_dir,'state_durations'),'-djpeg')
     end
+    %add paramters, print
 end
+
+figure
+title(sprintf('Network:    E-I = %.2f,    I-E = %.2f',options.EtoI,options.ItoE))
+set(gca,'FontSize',fontsz)
+print(fullfile(fig_dir,'parameter_title'),'-djpeg')
 
 %for printing 
 TCfile = cellfun(@(x) sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false); %for printing
