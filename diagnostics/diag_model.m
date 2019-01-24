@@ -56,7 +56,7 @@ spike_thresh = 20e-3; %spike reset threshold (higher than Vth)
 %----noisy input--------------
 Tau_ext = NaN(pool_options.num_cells,1); %noisy conductance time constant, ms
 Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
-Tau_ext(celltype.inhib) = 2e-3; % was 5e-3; 
+Tau_ext(celltype.inhib) = 2e-3; % was 5e-3;
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
 Rext = 1400; %poisson spike train rate for noise, Hz
@@ -130,15 +130,13 @@ for trialidx = 1:num_trials
     switch options.record_spiking
         case 'on'
             spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
-        otherwise
-            %see if a smaller matrix needs to be allocated for ratelim check
+        otherwise %see if a smaller matrix needs to be allocated for ratelim check
             switch options.ratelim.check
                 case 'on'
-                 spikes = zeros(pool_options.num_cells,options.ratelim.stop / timestep); 
-                 options.record_spiking = 'ratelim_only'; %this will be reset to off after check 
+                    spikes = zeros(pool_options.num_cells,options.ratelim.stop / timestep);
+                    options.record_spiking = 'ratelim_only'; %this will be reset to off after check
             end
     end
-    
     %---state tracker-------------
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
@@ -182,16 +180,16 @@ for trialidx = 1:num_trials
         if sum(spiking_cells) > 0
             spiking_cells = V(:,idx) > spike_thresh;
             Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
-            Pr_spike = Pr(spiking_cells); 
+            Pr_spike = Pr(spiking_cells);
             %vessicle release for slow/fast vessicles
-            fast_release = Pr_spike .* Dfast(spiking_cells,idx); 
-            slow_release = Pr_spike .* Dslow(spiking_cells,idx); 
-            %synaptic gating, depends on combined vessicle release 
+            fast_release = Pr_spike .* Dfast(spiking_cells,idx);
+            slow_release = Pr_spike .* Dslow(spiking_cells,idx);
+            %synaptic gating, depends on combined vessicle release
             Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
-                ((fast_release + slow_release).*(1-Sg(spiking_cells,idx))); 
+                ((fast_release + slow_release).*(1-Sg(spiking_cells,idx)));
             %depression update
-            Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - fast_release; 
-            Dslow(spiking_cells,idx) = Dslow(spiking_cells,idx) - slow_release; 
+            Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - fast_release;
+            Dslow(spiking_cells,idx) = Dslow(spiking_cells,idx) - slow_release;
             V(spiking_cells,idx) = Vreset;
             switch options.record_spiking
                 case {'on','ratelim_only'}
@@ -250,7 +248,7 @@ for trialidx = 1:num_trials
             %always exitatory, add 'em both together for one calculation
             ext_spikes(:,ext_inds.E) = ext_spikes(:,ext_inds.E) + stim_spikes;
         end
-
+        
         %update Gexternal. Don't have to index, they get an increase or zero
         Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*ext_spikes);
         
@@ -275,19 +273,28 @@ for trialidx = 1:num_trials
             update_logfile(':::Bistability check failure:::',options.output_log)
             TOF = timepoint_counter*timestep;
             update_logfile(sprintf('---no switch timeout at t=%.2f(s)',TOF),options.output_log)
-            oflag = false;
-            return
+            oflag = false;return
         end
         
-        %rate limit check 
+        %rate limit check
         switch options.ratelim.check
             case 'on'
                 if timepoint_counter == options.ratelim.stop / timestep
                     keyboard
-                   [options,status] = check_rate_limit(spikes,durations,celltype,options);
-
-                    keyboard
+                    [options,Rcheck] = check_rate_limit(spikes,celltype,options);
+                    switch Rcheck.status
+                        case 'fail'
+                            oflag = false;return
+                        case 'pass'
+                            update_logfile('---passed rate limit check',options.output_log)
+                    end
+                    switch options.record_spiking
+                        case 'off' %clear spike matrix from memory
+                            clear spikes
+                    end
                 end
+                
+               %STILL NEED TO SAVE Rcheck.rates in results!!!!
         end
         
         
@@ -329,7 +336,7 @@ for trialidx = 1:num_trials
             end
         end
     end
-    oflag = true; %take anything it's fine 
+    oflag = true; %take anything it's fine
     
     
     %-----unneeded for diagnositcs
@@ -374,7 +381,7 @@ for trialidx = 1:num_trials
 end
 
 
-if ~oflag %diagnostic conditions unmet 
+if ~oflag %diagnostic conditions unmet
     return
 end
 

@@ -1,15 +1,12 @@
-function [options,outcome] = check_rate_limit(spikes,durations,celltype,options)
-keyboard
-%to-do:
-%save approximate rates
-%remember to reset options.record_spiking, if needed
+function [options,outcome] = check_rate_limit(spikes,celltype,options)
 
 outcome.status = 'pass';
-total_tmax = options.ratelim.stop - options.ratelim.start;
-total_tmax = total_tmax * options.ratelim.total_tmax;
+%total_tmax = options.ratelim.stop - options.ratelim.start; 
+%total_tmax = total_tmax * options.ratelim.total_tmax; %not doing this
 check_start = options.ratelim.start / options.timestep;
 check_stop = options.ratelim.stop / options.timestep;
 spikes = spikes(:,check_start:check_stop);
+
 
 %get rates
 window_sz = 75e-3;
@@ -44,21 +41,26 @@ Iover = overlimit_times(Iover,options.timestep);
 
 if sum(Eover > options.ratelim.tmax) > 0
     update_logfile(':::Sustained E-spiking over limit:::',options.output_log)
+    message = sprintf('---limit: %iHz for %.2fs',options.ratelim.E,options.ratelim.tmax);
+    update_logfile(message,options.output_log)
+    outcome.status = 'fail';
+end
+if sum(Iover > options.ratelim.tmax) > 0
+    update_logfile(':::Sustained I-spiking over limit:::',options.output_log)
+    message = sprintf('---limit: %iHz for %.2fs',options.ratelim.I,options.ratelim.tmax);
+    update_logfile(message,options.output_log)
     outcome.status = 'fail';
 end
 
-if sum(Eover) > options.record_spiking
-    update_logfile(':::Sustained E-spiking over limit:::',options.output_log)
-    outcome.status = 'fail';
+%record approximate rates 
+outcome.Erate = mean(Emax);
+outcome.Irate = mean(Imax);
+
+%reset options.record_spiking to off, if ratelim_only
+
+if strcmp(options.record_spiking,'ratelim_only')
+    options.record_spiking = 'off';
 end
-
-oflag = false;
-return
-
-
-
-keyboard
-
 
     function v = overlimit_times(x,t)
         %takes---
@@ -69,7 +71,10 @@ keyboard
         v = find(q == -1) - find(q == 1);
         v = v * t;
     end
+end
 
+
+%for plotting & checking this functionality out 
 
 % figure;
 % lnsz = 3;fontsz = 12;
@@ -92,4 +97,3 @@ keyboard
 % ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)});xlabel('time (s)')
 % legend({'E-max','I-max'},'location','northoutside','Orientation','horizontal')
 % set(gca,'FontSize',fontsz);axis tight;hold off
-end

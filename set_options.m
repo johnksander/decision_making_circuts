@@ -29,7 +29,7 @@ options.ratelim_check = 'off'; %'off' | 'on'
 options.ratelim_E = 50; %hz maximum
 options.ratelim_I = 100;
 options.ratelim_tmax = 1.5; %time limit (s) for sustained firing over threshold
-options.ratelim_total_tmax = .5; %limit for total time firing > thresh, as fraction of check time length 
+%options.ratelim_total_tmax = .5; %limit for total time firing > thresh, as fraction of check time length 
 options.ratelim_start = 10; %begin check (s) into sim, check this against init_check_tmax
 options.ratelim_stop = 20; %stop check (s) into sim
 
