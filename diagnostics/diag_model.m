@@ -126,7 +126,19 @@ for trialidx = 1:num_trials
     Dfast(:,1) = Dmax.fast; %initalize at ratio of slow/fast vessicles
     Dslow(:,1) = Dmax.slow;
     %---spikes--------------------
-    spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
+    options.record_spiking = 'off'; %just for this dev
+    switch options.record_spiking
+        case 'on'
+            spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
+        otherwise
+            %see if a smaller matrix needs to be allocated for ratelim check
+            switch options.ratelim.check
+                case 'on'
+                 spikes = zeros(pool_options.num_cells,options.ratelim.stop / timestep); 
+                 options.record_spiking = 'ratelim_only'; %this will be reset to off after check 
+            end
+    end
+    
     %---state tracker-------------
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
@@ -181,7 +193,10 @@ for trialidx = 1:num_trials
             Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - fast_release; 
             Dslow(spiking_cells,idx) = Dslow(spiking_cells,idx) - slow_release; 
             V(spiking_cells,idx) = Vreset;
-            spikes(spiking_cells,timepoint_counter) = 1;
+            switch options.record_spiking
+                case {'on','ratelim_only'}
+                    spikes(spiking_cells,timepoint_counter) = 1;
+            end
         end
         
         %test for state transition & determine stim availability
@@ -262,6 +277,17 @@ for trialidx = 1:num_trials
             update_logfile(sprintf('---no switch timeout at t=%.2f(s)',TOF),options.output_log)
             oflag = false;
             return
+        end
+        
+        %rate limit check 
+        switch options.ratelim.check
+            case 'on'
+                if timepoint_counter == options.ratelim.stop / timestep
+                    keyboard
+                   [options,status] = check_rate_limit(spikes,durations,celltype,options);
+
+                    keyboard
+                end
         end
         
         

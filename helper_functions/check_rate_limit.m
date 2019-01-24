@@ -1,0 +1,95 @@
+function [options,outcome] = check_rate_limit(spikes,durations,celltype,options)
+keyboard
+%to-do:
+%save approximate rates
+%remember to reset options.record_spiking, if needed
+
+outcome.status = 'pass';
+total_tmax = options.ratelim.stop - options.ratelim.start;
+total_tmax = total_tmax * options.ratelim.total_tmax;
+check_start = options.ratelim.start / options.timestep;
+check_stop = options.ratelim.stop / options.timestep;
+spikes = spikes(:,check_start:check_stop);
+
+%get rates
+window_sz = 75e-3;
+num_binsamps = window_sz/options.timestep; %num samples in 2ms
+raster_sz = size(spikes);
+if mod(raster_sz(2),num_binsamps) ~= 0 %you have to trim it down, equally divisible by bin size
+    Ntrim = mod(raster_sz(2),num_binsamps);
+    spikes = spikes(:,1+Ntrim:end);
+    raster_sz = size(spikes); %should be good now
+end
+bin_magic = [raster_sz(1), num_binsamps,raster_sz(2)/num_binsamps]; %set up for a magic trick
+spikes = reshape(spikes,bin_magic);
+spikes = squeeze(sum(spikes,2)) ./ (num_binsamps * options.timestep); %convert to Hz
+spikes = repmat(spikes,[num_binsamps 1 1]);
+spikes = reshape(spikes,raster_sz); %put the rabit back in the hat
+
+%normal people indexing that makes sense, then take the mean
+rate.Estay = mean(spikes(celltype.excit & celltype.pool_stay,:),1);
+rate.Eswitch = mean(spikes(celltype.excit & celltype.pool_switch,:),1);
+rate.Istay = mean(spikes(celltype.inhib & celltype.pool_stay,:),1);
+rate.Iswitch = mean(spikes(celltype.inhib & celltype.pool_switch,:),1);
+
+Imax = max([rate.Istay;rate.Iswitch]);
+Emax = max([rate.Estay;rate.Eswitch]);
+
+Eover = Emax > options.ratelim.E;
+Eover = overlimit_times(Eover,options.timestep);
+
+Iover = Imax > options.ratelim.I;
+Iover = overlimit_times(Iover,options.timestep);
+
+
+if sum(Eover > options.ratelim.tmax) > 0
+    update_logfile(':::Sustained E-spiking over limit:::',options.output_log)
+    outcome.status = 'fail';
+end
+
+if sum(Eover) > options.record_spiking
+    update_logfile(':::Sustained E-spiking over limit:::',options.output_log)
+    outcome.status = 'fail';
+end
+
+oflag = false;
+return
+
+
+
+keyboard
+
+
+    function v = overlimit_times(x,t)
+        %takes---
+        %logical vector x : rates over limit
+        %t: timestep
+        %returns vector of consequtive timepoints over limit
+        q = diff([0 x 0]);
+        v = find(q == -1) - find(q == 1);
+        v = v * t;
+    end
+
+
+% figure;
+% lnsz = 3;fontsz = 12;
+% plot(rate.Estay,'Linewidth',lnsz);hold on
+% plot(rate.Eswitch,'Linewidth',lnsz)
+% plot(rate.Istay,'Linewidth',lnsz)
+% plot(rate.Iswitch,'Linewidth',lnsz)
+% Xticks = num2cell(get(gca,'Xtick'));title('Spiking')
+% Xlabs = cellfun(@(x) sprintf('%.1f',x*options.timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+% ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)});xlabel('time (s)')
+% legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+% set(gca,'FontSize',fontsz);axis tight;hold off
+% figure;
+% plot(Emax,'Linewidth',lnsz);hold on
+% plot(Imax,'Linewidth',lnsz)
+% Xticks = num2cell(get(gca,'Xtick'));title('Spiking')
+% Xlabs = cellfun(@(x) sprintf('%.1f',x*options.timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+% ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)});xlabel('time (s)')
+% legend({'E-max','I-max'},'location','northoutside','Orientation','horizontal')
+% set(gca,'FontSize',fontsz);axis tight;hold off
+end

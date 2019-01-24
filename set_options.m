@@ -24,6 +24,15 @@ options.sample_Estay_offset = 40e-3; %init noise offset Estay-Eswitch at the
 %----checking bistability @ sim outset 
 options.init_check_Rext = 400; %pulse strength (Hz to E-stay)
 options.init_check_tmax = .9; %pulse must keep steady state for (s)
+%----checking spikerates against limits & outset
+options.ratelim_check = 'off'; %'off' | 'on'
+options.ratelim_E = 50; %hz maximum
+options.ratelim_I = 100;
+options.ratelim_tmax = 1.5; %time limit (s) for sustained firing over threshold
+options.ratelim_total_tmax = .5; %limit for total time firing > thresh, as fraction of check time length 
+options.ratelim_start = 10; %begin check (s) into sim, check this against init_check_tmax
+options.ratelim_stop = 20; %stop check (s) into sim
+
 %----depression
 options.percent_Dslow = 0; %fraction of slow vesicles (.2 gives 20% slow, 80% fast)
 %setting value > 0 enables slower depression timescale. 
@@ -42,6 +51,21 @@ for idx = 1:num_args
         error(sprintf('unknown argument: %s',fnames{idx}))
     end
     options.(fnames{idx}) = fvals{idx};
+end
+
+nest_fields = {'ratelim'}; %nest_fields = {'LDA','ballistic','TD_l','SVL','Xmemory'};
+%now parse the fields you want nested
+for idx = 1:numel(nest_fields)
+   Fall = fieldnames(options); 
+   Fparent = nest_fields{idx};
+   F = Fall(startsWith(Fall,Fparent));
+   Fnest = cellfun(@(x) strsplit(x,[Fparent '_']),F,'UniformOutput',false);
+   Fnest = cellfun(@(x) x{2},Fnest,'UniformOutput',false);
+   for j = 1:numel(Fnest)
+      options.(Fparent).(Fnest{j}) = options.(F{j});       
+   end
+   %now remove the holder fields you just nested 
+   options = rmfield(options,F);
 end
 
 
@@ -108,6 +132,7 @@ end
 
 
 if strcmp(options.modeltype,'diagnostics')
+    options.record_spiking = 'on'; %have this be the default
     options.sim_name = sprintf('%s_%i',options.sim_name,options.jobID);
 end
 
@@ -134,3 +159,9 @@ if sum(strcmp(options.modeltype,{'JK','diagnostics'})) == 0 %don't run this bloc
     update_logfile('--------------------------',options.output_log)
     
 end
+
+if options.ratelim.start < options.init_check_tmax + 8
+    error('Rate limit check is too close to bistability check stimulus. Check slow D tau & relevant parameters.')
+    %begin check (s) into sim, check this against init_check_tmax
+end
+
