@@ -6,7 +6,8 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-%jobID = 3;
+%jobID = 2;
+%sname = 'daig_rates';
 jobID = str2num(getenv('JID'));
 sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
@@ -35,6 +36,7 @@ load(sprintf('%s_D',savename))
 load(sprintf('%s_V',savename))
 load(sprintf('%s_spikes',savename))
 load(sprintf('%s_S',savename))
+lol = sim_results{4}
 
 term_idx = isnan(Vrec(1,:)); %when simulation terminated (beginning of 3rd stay state)
 term_idx = find(term_idx,1,'first');

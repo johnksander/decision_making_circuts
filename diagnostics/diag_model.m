@@ -77,7 +77,7 @@ Lext = Rext * timestep; %poisson lambda for noisy conductance
 %-------------------------------------------------------------------------
 update_logfile(':::Starting simulation:::',options.output_log)
 num_trials = numel(options.trial_stimuli(:,1));
-sim_results = cell(num_trials,3);
+sim_results = cell(num_trials,4);
 
 for trialidx = 1:num_trials
     
@@ -126,7 +126,6 @@ for trialidx = 1:num_trials
     Dfast(:,1) = Dmax.fast; %initalize at ratio of slow/fast vessicles
     Dslow(:,1) = Dmax.slow;
     %---spikes--------------------
-    options.record_spiking = 'off'; %just for this dev
     switch options.record_spiking
         case 'on'
             spikes = zeros(pool_options.num_cells,num_timepoints); %preallocating the whole thing in this one...
@@ -280,7 +279,6 @@ for trialidx = 1:num_trials
         switch options.ratelim.check
             case 'on'
                 if timepoint_counter == options.ratelim.stop / timestep
-                    keyboard
                     [options,Rcheck] = check_rate_limit(spikes,celltype,options);
                     switch Rcheck.status
                         case 'fail'
@@ -293,8 +291,6 @@ for trialidx = 1:num_trials
                             clear spikes
                     end
                 end
-                
-               %STILL NEED TO SAVE Rcheck.rates in results!!!!
         end
         
         
@@ -313,6 +309,11 @@ for trialidx = 1:num_trials
         trim_Bcheck = find(startsWith(durations(:,end),'leave'), 1, 'first');
         durations = durations(trim_Bcheck+1:end,:);
         sim_results{trialidx,1} = durations;
+        switch options.ratelim.check
+            case 'on'
+            sim_results{trialidx,4} = Rcheck;
+        end
+        
         
         %taken from find_stay_durations()
         timecourse = size(durations);
@@ -338,7 +339,7 @@ for trialidx = 1:num_trials
     end
     oflag = true; %take anything it's fine
     
-    
+
     %-----unneeded for diagnositcs
     %
     %     %this needs to be fixed, verified like in find_stay_durations()

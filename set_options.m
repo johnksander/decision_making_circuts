@@ -29,13 +29,13 @@ options.ratelim_check = 'off'; %'off' | 'on'
 options.ratelim_E = 50; %hz maximum
 options.ratelim_I = 100;
 options.ratelim_tmax = 1.5; %time limit (s) for sustained firing over threshold
-%options.ratelim_total_tmax = .5; %limit for total time firing > thresh, as fraction of check time length 
+options.ratelim_mulim = 1.25; % mulim * rate limit gives the average firing rate limit (e.g. 1.25*ratelim.E)
 options.ratelim_start = 10; %begin check (s) into sim, check this against init_check_tmax
 options.ratelim_stop = 20; %stop check (s) into sim
-
 %----depression
 options.percent_Dslow = 0; %fraction of slow vesicles (.2 gives 20% slow, 80% fast)
 %setting value > 0 enables slower depression timescale. 
+
 
 %parse inputs 
 if mod(numel(varargin),2) ~= 0
@@ -106,8 +106,15 @@ if strcmp(options.modeltype,'PS')
     dealers_choice = @(a,b) (a + (b-a).*rand(1));
     
     options.EtoE = .0405; %fixed
-    options.ItoE = dealers_choice(0.15, 8);  
-    options.EtoI = dealers_choice(0.15, 8); 
+    if options.percent_Dslow > 0
+        %range for slow depression sweeep
+        options.ItoE = dealers_choice(0.1, 8);
+        options.EtoI = dealers_choice(0.1, 8);
+    else
+        %range for fast depression sweep
+        options.ItoE = dealers_choice(0.1, 4.5);
+        options.EtoI = dealers_choice(0.1, 1.5);
+    end
     
     %this mode should always be for baseline/no stimulus
     options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
@@ -132,8 +139,11 @@ end
 
 
 if strcmp(options.modeltype,'diagnostics')
-    options.record_spiking = 'on'; %have this be the default
     options.sim_name = sprintf('%s_%i',options.sim_name,options.jobID);
+    %diagnostic specific defaults
+    if ~ismember('record_spiking',fnames)
+        options.record_spiking = 'on'; %default if no argument specified 
+    end
 end
 
 
