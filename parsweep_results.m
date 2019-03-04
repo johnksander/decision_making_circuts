@@ -5,7 +5,7 @@ hold off;close all
 
 num_workers = 24; %for parfor loading results 
 rescale_plane = 'on';
-outcome_stat = 'I-rate';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
+outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
 
 %result summaries
 fontsz = 16;
@@ -235,6 +235,9 @@ xlabel('I-to-E strength')
 ylabel('E-to-I strength')
 title('State durations')
 set(gca,'Fontsize',fontsz-4)
+colb = colorbar;
+colb.Label.String = Zlabel(end);
+colb.FontSize = 16;
 origXticks = get(gca,'Xtick');
 Xticks = linspace(min(ItoE),max(ItoE),max(origXticks));
 Xticks = Xticks(origXticks);
@@ -246,11 +249,8 @@ Yticks = linspace(max(EtoI),min(EtoI),max(origYticks));
 origYticks = [1,origYticks(1:end-1)];
 set(gca,'Ytick',origYticks);
 Yticks = Yticks(origYticks);
-Ylabs = cellfun(@(x) sprintf('%.1f',x),num2cell(Yticks),'UniformOutput', false);
+Ylabs = cellfun(@(x) sprintf('%.2f',x),num2cell(Yticks),'UniformOutput', false);
 set(gca, 'YTickLabel', Ylabs')
-colb = colorbar;
-colb.Label.String = Zlabel(end);
-colb.FontSize = 16;
 set(gca,'FontSize',fontsz-4)
 print(fullfile(figdir,'heatmap'),'-djpeg')
 

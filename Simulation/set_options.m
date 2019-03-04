@@ -112,8 +112,8 @@ if strcmp(options.modeltype,'PS')
         options.EtoI = dealers_choice(0.1, 8);
     else
         %range for fast depression sweep
-        options.ItoE = dealers_choice(0.1, 4.5);
-        options.EtoI = dealers_choice(0.1, 1.5);
+        options.ItoE = dealers_choice(0.01, 4.5);
+        options.EtoI = dealers_choice(0.01, 1);
     end
     
     %this mode should always be for baseline/no stimulus

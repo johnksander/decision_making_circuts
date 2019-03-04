@@ -6,8 +6,8 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-%jobID = 2;
-%sname = 'daig_rates';
+%jobID = 3;
+%sname = 'diag_inhib';
 jobID = str2num(getenv('JID'));
 sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
@@ -36,7 +36,7 @@ load(sprintf('%s_D',savename))
 load(sprintf('%s_V',savename))
 load(sprintf('%s_spikes',savename))
 load(sprintf('%s_S',savename))
-lol = sim_results{4}
+%lol = sim_results{4}
 
 term_idx = isnan(Vrec(1,:)); %when simulation terminated (beginning of 3rd stay state)
 term_idx = find(term_idx,1,'first');
@@ -84,12 +84,9 @@ set(gca,'FontSize',fontsz)
 print(fullfile(fig_dir,'raster'),'-djpeg')
 
 
-window_sz = 50e-3;
-Dmu_fast = sim_windowrate(Drec_fast,timestep,celltype,window_sz);
-Dmu_fast = structfun(@(x) x.* timestep ,Dmu_fast,'UniformOutput',false); %undo hz conversion
-
-Dmu_slow = sim_windowrate(Drec_slow,timestep,celltype,window_sz);
-Dmu_slow = structfun(@(x) x.* timestep ,Dmu_slow,'UniformOutput',false); %undo hz conversion
+Dmu_fast = simple_pool_avg(Drec_fast,celltype);
+Dmu_slow = simple_pool_avg(Drec_slow,celltype);
+valid_Drange = @(x) all(structfun(@max,x) < 1+eps) && all(structfun(@max,x) > 0-eps);
 
 figure;
 %plot the aggregated timecourses
@@ -102,9 +99,9 @@ Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 ylabel({'Fast','depression'},'FontWeight','b')
-%ylabel({sprintf('Pool average\n(%ims bins)',window_sz*1e3)})
 %xlabel('time (s)')
 set(gca,'FontSize',fontsz);axis tight;hold off
+if valid_Drange(Dmu_fast),ylim([0,1]);end
 axP = get(gca,'Position');
 [lp, ~] = legend({'E-stay','E-switch','I-stay','I-switch'},'FontWeight','b',...
     'Location','northoutside','Box','off','Orientation','horizontal');
@@ -119,11 +116,30 @@ Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 ylabel({'Slow','depression'},'FontWeight','b')
-%ylabel({sprintf('Pool average\n(%ims bins)',window_sz*1e3)})
 xlabel('time (s)')
 set(gca,'FontSize',fontsz);axis tight;hold off
+if valid_Drange(Dmu_slow),ylim([0,1]);end
 linkaxes(ax,'xy')
 print(fullfile(fig_dir,'depression'),'-djpeg')
+
+
+figure;
+%plot fast only depression
+plot(Dmu_fast.Estay,'Linewidth',lnsz);hold on
+plot(Dmu_fast.Eswitch,'Linewidth',lnsz)
+plot(Dmu_fast.Istay,'Linewidth',lnsz)
+plot(Dmu_fast.Iswitch,'Linewidth',lnsz)
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+ylabel({'Fast','depression'},'FontWeight','b')
+xlabel('time (s)')
+title('Depression')
+legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz);axis tight;hold off
+if valid_Drange(Dmu_fast),ylim([0,1]);end
+print(fullfile(fig_dir,'depression_fastonly'),'-djpeg')
+
 
 %spikerates
 figure;
@@ -147,33 +163,10 @@ set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'spikerates'),'-djpeg')
 
 
-%spikerates by sliding window...
-
-window_sz = 50e-3;
-S = sim_windowrate(spikes,timestep,celltype,window_sz);
-
 figure;
-%plot the aggregated timecourses
-hold on
-plot(S.Estay,'Linewidth',lnsz)
-plot(S.Eswitch,'Linewidth',lnsz)
-%plot(S.Istay,'Linewidth',lnsz)
-%plot(S.Iswitch,'Linewidth',lnsz)
-Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
-set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-title('Spiking')
-ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
-xlabel('time (s)')
-%legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
-legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz);axis tight;hold off
-print(fullfile(fig_dir,'spikerates_slidingwin'),'-djpeg')
-savefig(gcf(),fullfile(fig_dir,'spikerates_slidingwin'),'compact')
-
-figure;
-%plot the aggregated timecourses
-hold on
+%plot on/off pools seperately 
+[on_range,off_range] = get_state_limits(S);
+subplot(2,1,1);hold on
 plot(S.Estay,'Linewidth',lnsz)
 plot(S.Eswitch,'Linewidth',lnsz)
 plot(S.Istay,'Linewidth',lnsz)
@@ -181,14 +174,26 @@ plot(S.Iswitch,'Linewidth',lnsz)
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-title('Spiking')
-ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
-xlabel('time (s)')
-legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+ylabel({'Inactive pool Hz','(75ms bins)'},'FontWeight','b');
 set(gca,'FontSize',fontsz);axis tight;hold off
-print(fullfile(fig_dir,'spikerates_slidingwin_allcells'),'-djpeg')
-savefig(gcf(),fullfile(fig_dir,'spikerates_slidingwin_allcells'),'compact')
-
+ylim(on_range)
+axP = get(gca,'Position');
+[lp, ~] = legend({'E-stay','E-switch','I-stay','I-switch'},'FontWeight','b',...
+    'Location','northoutside','Box','off','Orientation','horizontal');
+set(gca, 'Position', axP)
+lp.Position = [(1-lp.Position(3))/2,1-lp.Position(4),lp.Position(3:4)];
+subplot(2,1,2);hold on
+plot(S.Estay,'Linewidth',lnsz)
+plot(S.Eswitch,'Linewidth',lnsz)
+plot(S.Istay,'Linewidth',lnsz)
+plot(S.Iswitch,'Linewidth',lnsz)
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+ylabel({'Inactive pool Hz','(75ms bins)'},'FontWeight','b');xlabel('time (s)')
+set(gca,'FontSize',fontsz);axis tight;hold off
+ylim(off_range)
+print(fullfile(fig_dir,'spikerates_split'),'-djpeg')
 
 
 figure;
@@ -197,20 +202,14 @@ Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 title('Spiking')
-ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
+ylabel({'Mean pool Hz  (75ms bins)'})
 xlabel('time (s)')
 legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizontal')
 set(gca,'FontSize',fontsz);axis tight;hold off
-print(fullfile(fig_dir,'spikerates_slidingwin_difference'),'-djpeg')
+print(fullfile(fig_dir,'spikerates_Edifference'),'-djpeg')
 
 
-
-%Sg = sim_windowrate(Srec,timestep,celltype,window_sz);
-%Sg = structfun(@(x) x.* timestep ,Sg,'UniformOutput',false); %undo hz conversion
-Sg.Estay = mean(Srec(celltype.excit & celltype.pool_stay,:),1);
-Sg.Eswitch = mean(Srec(celltype.excit & celltype.pool_switch,:),1);
-Sg.Istay = mean(Srec(celltype.inhib & celltype.pool_stay,:),1);
-Sg.Iswitch = mean(Srec(celltype.inhib & celltype.pool_switch,:),1);
+Sg = simple_pool_avg(Srec,celltype);
 
 %plot the aggregated timecourses
 figure;
@@ -221,7 +220,7 @@ Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 title('Synaptic gating')
-ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
+ylabel('Mean pool S-gating')
 xlabel('time (s)')
 %legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
 legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal')
@@ -240,35 +239,28 @@ Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 title('Synaptic gating')
-ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
+ylabel('Mean pool S-gating')
 xlabel('time (s)')
 legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
-set(gca,'FontSize',fontsz);axis tight;hold off
+set(gca,'FontSize',fontsz);axis tight;hold off %;ylim([0,.17])
 print(fullfile(fig_dir,'syn_gating_allcells'),'-djpeg')
 savefig(gcf(),fullfile(fig_dir,'syn_gating_allcells'),'compact')
-
 
 
 %plot the aggregated timecourses
 figure;
 plot(Sg.Estay-Sg.Eswitch,'Linewidth',lnsz);hold on
 plot(Sg.Istay-Sg.Iswitch,'Linewidth',lnsz);hold off
-% plot(Sg.Estay,'Linewidth',lnsz);hold on
-% plot(Sg.Eswitch,'Linewidth',lnsz)
-% plot(Sg.Istay,'Linewidth',lnsz)
-% plot(Sg.Iswitch,'Linewidth',lnsz);hold off
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 title('Synaptic gating')
-ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
+ylabel('Mean pool S-gating')
 xlabel('time (s)')
 legend({'E-stay minus E-switch','I-stay minus I-switch'},'location','northoutside','Orientation','horizontal')
 %legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
 set(gca,'FontSize',fontsz);axis tight;hold off
-
-
-
+print(fullfile(fig_dir,'syn_gating_allcells_difference'),'-djpeg')
 
 figure
 plot(Sg.Estay-Sg.Eswitch,'Linewidth',lnsz)
@@ -276,11 +268,33 @@ Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 title('Synaptic gating')
-ylabel({sprintf('Mean pool S-gating  (%ims bins)',window_sz*1e3)})
+ylabel('Mean pool S-gating')
 xlabel('time (s)')
 legend({'E-stay minus E-switch'},'location','northoutside','Orientation','horizontal')
 set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'syn_gating_difference'),'-djpeg')
+
+
+window_sz = 100e-3;
+Sg_smooth = sim_windowrate(Srec,timestep,celltype,window_sz);
+Sg_smooth = structfun(@(x) x.* timestep ,Sg_smooth,'UniformOutput',false); %undo hz conversion
+
+figure;
+hold on
+plot(Sg_smooth.Estay,'Linewidth',lnsz)
+plot(Sg_smooth.Eswitch,'Linewidth',lnsz)
+plot(Sg_smooth.Istay,'Linewidth',lnsz)
+plot(Sg_smooth.Iswitch,'Linewidth',lnsz)
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+title('Smoothed synaptic gating')
+ylabel('smoothed S-gating')
+xlabel('time (s)')
+legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+set(gca,'FontSize',fontsz);axis tight;hold off ;ylim([0,.17])
+print(fullfile(fig_dir,'syn_gating_allcells_smoothed'),'-djpeg')
+
 
 durations = sim_results{1};
 if numel(durations) > 1
@@ -411,6 +425,71 @@ cell_data.Istay = mean(cell_raster(celltype.inhib & celltype.pool_stay,:),1);
 cell_data.Iswitch = mean(cell_raster(celltype.inhib & celltype.pool_switch,:),1);
 end
 
+function cell_data = simple_pool_avg(x,celltype)
+%takes data matrix and returns simple pool averages
+%use for naturally smoothed variables, depression, syn gating, etc
+cell_data.Estay = mean(x(celltype.excit & celltype.pool_stay,:),1);
+cell_data.Eswitch = mean(x(celltype.excit & celltype.pool_switch,:),1);
+cell_data.Istay = mean(x(celltype.inhib & celltype.pool_stay,:),1);
+cell_data.Iswitch = mean(x(celltype.inhib & celltype.pool_switch,:),1);
+end
 
 
+function [on_bounds,off_bounds] = get_state_limits(S)
+%takes the spikerate structre S
+%returns the Y limits for plotting the active & inactive pool activity
+I = [S.Istay;S.Iswitch]; E = [S.Estay;S.Eswitch];
 
+[Emin,Emax] = bounds(E); [Imin,Imax] = bounds(I); 
+
+maxlim = @(x,y) max(mean(x),mean(y)) + 3*max(std(x),std(y));
+minlim = @(x,y) min(mean(x),mean(y)) - 3*min(std(x),std(y));
+
+off_bounds(1) = 0; %lets default to this... 
+off_bounds(2) = 9; %off_bounds(2) = maxlim(Emin,Imin);
+
+on_bounds(1) = minlim(Emax,Imax);
+on_bounds(2) = maxlim(Emax,Imax);
+end
+
+%spikerates by sliding window...
+
+% window_sz = 50e-3;
+% S = sim_windowrate(spikes,timestep,celltype,window_sz);
+% 
+% figure;
+% %plot the aggregated timecourses
+% hold on
+% plot(S.Estay,'Linewidth',lnsz)
+% plot(S.Eswitch,'Linewidth',lnsz)
+% %plot(S.Istay,'Linewidth',lnsz)
+% %plot(S.Iswitch,'Linewidth',lnsz)
+% Xticks = num2cell(get(gca,'Xtick'));
+% Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+% title('Spiking')
+% ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
+% xlabel('time (s)')
+% %legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+% legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal')
+% set(gca,'FontSize',fontsz);axis tight;hold off
+% print(fullfile(fig_dir,'spikerates_slidingwin'),'-djpeg')
+% savefig(gcf(),fullfile(fig_dir,'spikerates_slidingwin'),'compact')
+% 
+% figure;
+% %plot the aggregated timecourses
+% hold on
+% plot(S.Estay,'Linewidth',lnsz)
+% plot(S.Eswitch,'Linewidth',lnsz)
+% plot(S.Istay,'Linewidth',lnsz)
+% plot(S.Iswitch,'Linewidth',lnsz)
+% Xticks = num2cell(get(gca,'Xtick'));
+% Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+% set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+% title('Spiking')
+% ylabel({sprintf('Mean pool Hz  (%ims bins)',window_sz*1e3)})
+% xlabel('time (s)')
+% legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orientation','horizontal')
+% set(gca,'FontSize',fontsz);axis tight;hold off
+% print(fullfile(fig_dir,'spikerates_slidingwin_allcells'),'-djpeg')
+% savefig(gcf(),fullfile(fig_dir,'spikerates_slidingwin_allcells'),'compact')
