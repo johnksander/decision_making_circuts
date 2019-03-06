@@ -5,17 +5,22 @@ hold off;close all
 
 num_workers = 24; %for parfor loading results 
 rescale_plane = 'on';
-outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
+outcome_stat = 'I-rate';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
 
 %result summaries
 fontsz = 16;
 trial_hists = 'on';
 stim_labels = {'stim A','stim B'};
 timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
+limit_prange = 'no'; %'yes' | 'no' if yes, set maximums for connection parameters
+
+EI_max = .75; IE_max = 8; %these set connection maximums
+%for the fastD
+%EI_max = .35; IE_max = 3.75; %these set connection maximums
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_fastD_Rlim_baseline';
+sim_name = 'parsweep_slowD_Rlim_baseline';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
@@ -106,7 +111,26 @@ fprintf('---%i / %i jobs under cutuff\n',sum(undermin),num_jobs)
 fprintf('\n---%i / %i jobs without data\n',sum(Tinvalid),num_jobs)
 
 Tinvalid = Tinvalid | overmax | undermin;
+
+%---narrowing parameter range down
+switch limit_prange
+    case 'yes'
+        %find parameters < value. x is otpions field ('EtoI') and y is cutoff value
+        param_OOB = @(x,y) cellfun(@(z)  z.(x),result_data(:,2)) <= y;
+        
+        EI_valid = param_OOB('EtoI',EI_max);
+        IE_valid = param_OOB('ItoE',IE_max);
+        fprintf('\n---E-to-I cutoff = %.2f\n',EI_max)
+        fprintf('---%i / %i jobs under cutuff\n',sum(EI_valid),num_jobs)
+        fprintf('\n---I-to-E cutoff = %.2f\n',IE_max)
+        fprintf('---%i / %i jobs under cutuff\n',sum(IE_valid),num_jobs)
+        
+        Tinvalid = Tinvalid | ~EI_valid | ~IE_valid;
+end
+
 fprintf('\nnum valid jobs = %i\n',sum(~Tinvalid))
+
+
 
 %stats
 switch outcome_stat
@@ -119,8 +143,8 @@ switch outcome_stat
         Zlabel = 'median duration (s)';
         figdir = fullfile(figdir,'med_duration');
     case 'logmu'
-        outcome = cellfun(@(x) mean(log(x+eps)),result_data(:,1));
-        Zlabel = {'mean stay duration';'log(s)'};
+        outcome = cellfun(@(x) mean(log10(x+eps)),result_data(:,1));
+        Zlabel = {'mean stay duration';'log_{10}(s)'};
         figdir = fullfile(figdir,'logmean_duration');
         rad2keep = .15;
     case 'E-rate'
@@ -133,6 +157,11 @@ switch outcome_stat
         Zlabel = {'I spikerates';'Hz'};
         figdir = fullfile(figdir,'rates_inhib');
         rad2keep = .5;
+end
+
+switch limit_prange
+    case 'yes'
+        figdir = fullfile(figdir,'trimmed_range');
 end
 
 if ~isdir(figdir),mkdir(figdir);end
@@ -253,6 +282,8 @@ Ylabs = cellfun(@(x) sprintf('%.2f',x),num2cell(Yticks),'UniformOutput', false);
 set(gca, 'YTickLabel', Ylabs')
 set(gca,'FontSize',fontsz-4)
 print(fullfile(figdir,'heatmap'),'-djpeg')
+
+
 
 
 % %this is okay.....
