@@ -1,0 +1,5 @@
+"NFS" refers to the "Noise Forced Switch" simulations, where
+noise was biased for particular cell pools. The idea was, 
+give the E-stay more excit background noise and the switches
+should be driven by those cells. The analysis concerned looking
+for different switching dynamics in these simulations.
