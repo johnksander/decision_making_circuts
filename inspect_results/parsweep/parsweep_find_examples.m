@@ -1,23 +1,95 @@
 clear
 clc
 format compact
+close all
 
-load('sweep_params.mat')
+%this is broken somehow...
 
-sv_dir = 'helper_functions'; %save to a data structure..
+%specify simulation
+%---sim setup-----------------
+sim_name = 'parsweep_fastD_Rlim_baseline';
+basedir = '/home/acclab/Desktop/ksander/rotation/project';
+figdir = fullfile(basedir,'Results',['figures_' sim_name]);
+resdir = fullfile(basedir,'Results',sim_name);
+addpath(fullfile(basedir,'helper_functions'))
 
-data = [ItoE,EtoI,mu_duration];
+%get results file
+result_data = load(fullfile(resdir,'summary_file'));
+result_data = result_data.result_data;
 
-fast_cuttoff = 1; %exclude networks switching under mean = 1 second
-fast_cuttoff = mu_duration < fast_cuttoff;
-fprintf('networks faster than min switch time = %i\n',sum(fast_cuttoff))
-data = data(~fast_cuttoff,:);
+%get data-of-interest
+ItoE = cellfun(@(x)  x.ItoE,result_data(:,2));
+EtoI = cellfun(@(x)  x.EtoI,result_data(:,2));
+state_dur = cellfun(@(x) mean(x),result_data(:,1)); %"durations" reserved for output file 
+%state_dur = cellfun(@(x) mean(x+eps),result_data(:,1));
 
-data = sortrows(data,1); %sorted on ItoE
+%slow_range = [9.5, 10.5]; %seconds
+slow_range = [20, 30]; %seconds
+fast_range = [1, 1.5];
+%many more slow, than fast. So start with the slow networks
+in_range = @(x,y) x >= y(1) & x <= y(2);     %find durations X within target range Y (two element vec)
 
 
-showme = data(:,2) < .72 & data(:,2) > .67;
-sortrows(data(showme,:),3)
+slow_nets = in_range(state_dur,slow_range);
+fast_nets = in_range(state_dur,fast_range);
+
+
+fprintf('\n::::::::slow networks::::::::\n')
+fprintf('---range = %.2f - %.2f\n',slow_range)
+fprintf('---total networks = %i\n',sum(slow_nets))
+
+fprintf('\n::::::::fast networks::::::::\n')
+fprintf('---range = %.2f - %.2f\n',fast_range)
+fprintf('---total networks = %i\n',sum(fast_nets))
+
+
+
+HM = openfig(fullfile(figdir,'logmean_duration','heatmap.fig'));
+hold on
+HMdata = gca;
+
+HMdims = get(HMdata,'Children');
+HMdims = size(HMdims.CData);
+Nx = HMdims(1); Ny = HMdims(2);
+Yax = linspace(max(EtoI),min(EtoI),Ny);
+Xax = linspace(min(ItoE),max(ItoE),Nx);
+
+nearest_ind = @(x,y) find(abs(x-y) == min(abs(x-y)),1); %return index of closest value 
+netX = num2cell(ItoE);
+netX = cellfun(@(x) nearest_ind(x,Xax),netX);
+
+netY = num2cell(EtoI);
+netY = cellfun(@(x) nearest_ind(x,Yax),netY);
+
+cand_nets = slow_nets | fast_nets;
+
+scatter(netX(cand_nets),netY(cand_nets),'red')
+
+
+
+
+SP = openfig(fullfile(figdir,'logmean_duration','surface_plot.fig'));
+hold on
+
+scatter3(ItoE(cand_nets),EtoI(cand_nets),log10(state_dur(cand_nets)),40,'black','filled',...
+    'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em 
+keyboard
+SPdata = gca(SP)
+SPdata.Children
+SPdata.Children(1)
+SP_Z = SPdata.Children(1).ZData;
+
+
+% scatter3(ItoE(cand_nets),EtoI(cand_nets),log10(state_dur(cand_nets)),20,'black','filled',...
+%     'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1);pause(1) %mark 'em 
+
+
+%plot3(ItoE,EtoI,outcome,'.','MarkerSize',15,'color','blue') %give them outlines
+%plot3(ItoE,EtoI,outcome,'.','MarkerSize',10,'color','green') 
+
+% 
+% scatter3(Nplots(:,1),Nplots(:,2),Nplots(:,3),1000,'red','p','filled',...
+%     'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em w/ stars
 
 
 

@@ -5,7 +5,7 @@ hold off;close all
 
 num_workers = 24; %for parfor loading results 
 rescale_plane = 'on';
-outcome_stat = 'I-rate';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
+outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
 
 %result summaries
 fontsz = 16;
@@ -20,7 +20,7 @@ EI_max = .75; IE_max = 8; %these set connection maximums
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_slowD_Rlim_baseline';
+sim_name = 'parsweep_fastD_Rlim_baseline';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
@@ -174,7 +174,16 @@ ItoE = cellfun(@(x)  x.ItoE,result_data(~Tinvalid,2));
 EtoI = cellfun(@(x)  x.EtoI,result_data(~Tinvalid,2));
 num_jobs = numel(outcome);
 
-
+%save a big results file 
+data_sz = whos('result_data');
+data_sz = data_sz.bytes / 1e6; %in MB
+if data_sz > 300
+    fprintf('\nWARNING: summary file size = %.0f MB\n... summary file will not be saved\n',data_sz)
+else
+    fprintf('\nsaving summary file...')
+    save(fullfile(resdir,'summary_file'),'result_data')
+    fprintf('complete\n')
+end
 
 %surface plot
 figure
@@ -282,7 +291,7 @@ Ylabs = cellfun(@(x) sprintf('%.2f',x),num2cell(Yticks),'UniformOutput', false);
 set(gca, 'YTickLabel', Ylabs')
 set(gca,'FontSize',fontsz-4)
 print(fullfile(figdir,'heatmap'),'-djpeg')
-
+savefig(gcf,fullfile(figdir,'heatmap'),'compact')
 
 
 
