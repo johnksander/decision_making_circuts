@@ -20,19 +20,19 @@ result_data = result_data.result_data;
 %get data-of-interest
 ItoE = cellfun(@(x)  x.ItoE,result_data(:,2));
 EtoI = cellfun(@(x)  x.EtoI,result_data(:,2));
-state_dur = cellfun(@(x) mean(x),result_data(:,1)); %"durations" reserved for output file 
-%state_dur = cellfun(@(x) mean(x+eps),result_data(:,1));
+%state_dur = cellfun(@(x) mean(x),result_data(:,1)); %"durations" reserved for output file 
+state_dur = cellfun(@(x) mean(log10(x+eps)),result_data(:,1));
+Sdurs = 10.^state_dur; %in seconds 
 
 %slow_range = [9.5, 10.5]; %seconds
-slow_range = [20, 30]; %seconds
-fast_range = [1, 1.5];
+slow_range = log10([20, 30]); %seconds
+fast_range = log10([1, 1.5]);
 %many more slow, than fast. So start with the slow networks
 in_range = @(x,y) x >= y(1) & x <= y(2);     %find durations X within target range Y (two element vec)
 
 
 slow_nets = in_range(state_dur,slow_range);
 fast_nets = in_range(state_dur,fast_range);
-
 
 fprintf('\n::::::::slow networks::::::::\n')
 fprintf('---range = %.2f - %.2f\n',slow_range)
@@ -55,6 +55,8 @@ Yax = linspace(max(EtoI),min(EtoI),Ny);
 Xax = linspace(min(ItoE),max(ItoE),Nx);
 
 nearest_ind = @(x,y) find(abs(x-y) == min(abs(x-y)),1); %return index of closest value 
+nearest_val = @(x,y) y(nearest_ind(x,y)); %return closest value 
+
 netX = num2cell(ItoE);
 netX = cellfun(@(x) nearest_ind(x,Xax),netX);
 
@@ -64,20 +66,52 @@ netY = cellfun(@(x) nearest_ind(x,Yax),netY);
 cand_nets = slow_nets | fast_nets;
 
 scatter(netX(cand_nets),netY(cand_nets),'red')
+hold off
 
 
-
-
-SP = openfig(fullfile(figdir,'logmean_duration','surface_plot.fig'));
+pause(1)
+SP = openfig(fullfile(figdir,'logmean_duration','surface_plot.fig'));pause(1);gcf
 hold on
 
-scatter3(ItoE(cand_nets),EtoI(cand_nets),log10(state_dur(cand_nets)),40,'black','filled',...
+scatter3(ItoE(cand_nets),EtoI(cand_nets),state_dur(cand_nets),40,'black','filled',...
     'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em 
+
+figure()
+subplot(2,2,[1:2])
+histogram(Sdurs(slow_nets))
+title('slow network candidates');xlabel('durations (s)')
+subplot(2,2,3)
+scatter(EtoI(slow_nets),Sdurs(slow_nets));ylabel('durations (s)');xlabel('EtoI')
+subplot(2,2,4)
+scatter(ItoE(slow_nets),Sdurs(slow_nets));ylabel('durations (s)');xlabel('ItoE')
 keyboard
-SPdata = gca(SP)
-SPdata.Children
-SPdata.Children(1)
-SP_Z = SPdata.Children(1).ZData;
+
+%test inds 
+param_perc = @(x,y) (range(y)*x )+ min(y); %return the Xth percentile value from parameter range Y  
+param_perc(.5,ItoE)
+
+
+
+net_pair = array2table(NaN(2,3),'VariableNames',{'ItoE','EtoI','duration'},'RowNames',{'slow','fast'});
+
+curr_net = param_perc(1,ItoE(slow_nets));
+curr_net = nearest_ind(curr_net,ItoE);
+
+net_pair{'slow','ItoE'} = ItoE(curr_net);
+net_pair{'slow','EtoI'} = EtoI(curr_net);
+net_pair{'slow','duration'} = Sdurs(curr_net);
+
+%find the matching fast one 
+curr_net = nearest_val(net_pair{'slow','ItoE'},ItoE(fast_nets));
+curr_net = find(ItoE == curr_net & fast_nets);
+
+net_pair{'fast','ItoE'} = ItoE(curr_net);
+net_pair{'fast','EtoI'} = EtoI(curr_net);
+net_pair{'fast','duration'} = Sdurs(curr_net);
+
+
+
+
 
 
 % scatter3(ItoE(cand_nets),EtoI(cand_nets),log10(state_dur(cand_nets)),20,'black','filled',...
