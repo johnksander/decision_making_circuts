@@ -4,7 +4,8 @@ close all
 format compact
 rng('shuffle') %this is probably important...
 
-basedir = '~/Desktop/ksander/rotation/project/';
+%basedir = '~/Desktop/ksander/rotation/project/';
+basedir = '~/Desktop/work/ACClab/rotation/project/';
 addpath(basedir)
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -15,15 +16,18 @@ addpath(fullfile(basedir,'helper_functions'))
 %   c) spikerates in the I = ~30hz and E = ~15hz sweet zone
 
 
-tmax = 1;
+tmax = 1.5;
+Ispk_time = 1.25; 
+Espk_time = .25;
+Icell_2_spike = 101;
 
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
+options = set_options('modeltype','diagnostics','comp_location','bender',...
     'tmax',tmax,'percent_Dslow',.5,...
     'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
 
 options.EtoE = .0405 *1;   %1
-options.ItoE = 5.5; %3
-options.EtoI = .75; %2 are best 
+options.ItoE = 8; %3
+options.EtoI = .35; %2 are best 
 options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
 Rext = 1400 *1; %poisson spike train rate for noise, Hz
 Rstim = 300; %rate for stimulus input spikes
@@ -153,15 +157,20 @@ idx = 2; %keep indexing vars with idx fixed at 2
 
 fprintf(':::Starting simulation:::\n')
 
-while timepoint_counter <= num_timepoints
+while timepoint_counter < num_timepoints
     
     timepoint_counter = timepoint_counter+1;
     state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
     
     %loop equations
     
-    I = (Erev - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*Gg;
-    I = I + (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
+    %%excitatiory input
+    %I = (Erev - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*Gg;
+    %%inhibitory input 
+    %I = I + (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
+    inp_Ecells = (Erev - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*Gg;
+    inp_Icells = (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
+    I = inp_Ecells + inp_Icells;
     I = I + (Gext(:,idx-1,ext_inds.E).*(Erev-V(:,idx-1)));
     I = I + (Gext(:,idx-1,ext_inds.I).*(Irev-V(:,idx-1)));
     dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
@@ -178,10 +187,11 @@ while timepoint_counter <= num_timepoints
     
     spiking_cells = V(:,idx) > spike_thresh;
     
-    if timepoint_counter == .25 / timestep
-        spiking_cells(1) = 1; %single excitatory spike
+    if timepoint_counter == Espk_time / timestep
+        spiking_cells(10) = 1; %single excitatory spike
+    elseif timepoint_counter == Ispk_time / timestep
+        spiking_cells(Icell_2_spike) = 1; %single inhibitory spike 
     end
-    
     %if sum(spiking_cells) > 0
     %    spiking_cells = V(:,idx) > spike_thresh;
         Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
@@ -227,7 +237,10 @@ while timepoint_counter <= num_timepoints
     %---noisy spiking input from elsewhere
     %ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
     ext_spikes = zeros(pool_options.num_cells,2);
-    
+    if timepoint_counter > Ispk_time / timestep - (100e-3 / timestep)
+        ext_spikes(celltype.excit,:) = poissrnd(Lext,sum(celltype.excit),2);
+    end
+
 %     if ~avail_stim
 %         %don't do this for current testing
 %         %         %we're in between stimulus delivery pulses
@@ -261,6 +274,7 @@ while timepoint_counter <= num_timepoints
     Drec_fast(:,timepoint_counter) = Dfast(:,idx);
     Drec_slow(:,timepoint_counter) = Dslow(:,idx);
     Srec(:,timepoint_counter) = Sg(:,idx);
+    Irec(:,timepoint_counter) = inp_Icells;
     
     %lag equation vars for next timepoint
     V = next_timepoint(V);
@@ -313,19 +327,31 @@ title('Vm')
 colb = colorbar;
 
 
-Vresps = max(Vrec(:,.25 / timestep:end),[],2);
+Vresps = max(Vrec(:,Espk_time/ timestep:end),[],2);
 %look for inhibitiory cells 
 Vmax = max(Vresps(celltype.inhib));
 Vmax = find(Vresps == Vmax & celltype.inhib,1);
 
 figure()
-plot(Vrec(Vmax,:) ./ 1e-3,'LineWidth',2)
+plot(timevec ,Vrec(Vmax,:) ./ 1e-3,'LineWidth',2)
 title('membrane voltage')
 xlabel('time (s)')
-Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%i',round(x*timestep)),Xticks,'UniformOutput', false); %this is for normal stuff
-set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 ylabel('mV')
+
+
+inib_inp = min(Irec(:,Ispk_time / timestep:end),[],2);
+%look for excitatory cells 
+Imin = min(inib_inp(celltype.excit));
+Imin = find(inib_inp == Imin & celltype.excit,1);
+
+figure()
+Tminus = (Ispk_time / timestep) - (10e-3 / timestep); %10 ms before timestep
+Tend = (Ispk_time / timestep) + (100e-3 / timestep); %100 ms after spike 
+plot(timevec(Tminus:Tend) ./ 1e-3,Irec(Imin,Tminus:Tend) ./ 1e-12,'LineWidth',2)
+title('inhibitory input on E-cells')
+xlabel('T+ spike (ms)')
+ylabel('current (pico amps)')
+axis tight
 
 figure()
 %do the raster plot
@@ -349,8 +375,30 @@ set(gca,'Xdir','normal','Ytick',Yticks,'YTickLabel', Ylabs);
 xlabel('time (s)','FontWeight','b')
 title({'spikes','(spikes in matrix enlarged for visualization)'})
 
+figure()
+zoomspikes = zeros(size(spikes));
+zoomspikes(Icell_2_spike,Ispk_time / timestep) = 1;
+zoomspikes = zoomspikes + spikes;
+raster = [zoomspikes(celltype.pool_stay & celltype.excit,:);...
+    zoomspikes(celltype.pool_switch & celltype.inhib,:);...
+    zoomspikes(celltype.pool_switch & celltype.excit,:);...
+    zoomspikes(celltype.pool_stay & celltype.inhib,:)];
+imagesc(raster(:,Tminus:Tend))
+Xticks = num2cell(get(gca,'Xtick'));
+Xlabs = cellfun(@(x) sprintf('%.1f',...
+    ((x - (Ispk_time / timestep - Tminus))*timestep)/1e-3),...
+    Xticks,'UniformOutput', false); %this is for normal stuff
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+Yticks = num2cell(get(gca,'YLim'));
+Yticks = Yticks{2};
+Yticks = [Yticks*.25,Yticks*.75];
+Ylabs = {'stay pool','leave pool'};
+ytickangle(90)
+set(gca,'Xdir','normal','Ytick',Yticks,'YTickLabel', Ylabs);
+xlabel('T+ spike (ms)','FontWeight','b')
+%title({'spikes','(spikes in matrix enlarged for visualization)'})
 
-keyboard
+
 
 window_sz = 50e-3;
 Dmu_fast = sim_windowrate(Drec_fast,timestep,celltype,window_sz);
@@ -404,7 +452,7 @@ xlabel('time (s)')
 legend({'E-stay','E-switch'},'location','northoutside','Orientation','horizontal')
 set(gca,'FontSize',fontsz)
 axis tight;hold off
-
+keyboard
 
 figure;
 %plot the aggregated timecourses

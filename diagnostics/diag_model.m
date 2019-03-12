@@ -153,7 +153,7 @@ for trialidx = 1:num_trials
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
     
-    while timepoint_counter <= num_timepoints
+    while timepoint_counter < num_timepoints
         
         timepoint_counter = timepoint_counter+1;
         state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
@@ -226,10 +226,9 @@ for trialidx = 1:num_trials
         %---noisy spiking input from elsewhere
         ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
         if ~avail_stim
-            %don't do this for current testing
-            %         %we're in between stimulus delivery pulses
-            %         %do half-noise to all E-cells-- gives barely spiking undecided state
-            %         ext_spikes(celltype.excit,:) = poissrnd(Lext*.5,sum(celltype.excit),2); %half noise E-cells
+            %we're in between stimulus delivery pulses
+            %do half-noise to all E-cells-- gives barely spiking undecided state
+            ext_spikes(celltype.excit,:) = poissrnd(Lext*.5,sum(celltype.excit),2); %half noise E-cells
         elseif avail_stim && strcmp(stim_info.delivery,'pulse') && experiment_set2go
             %stimulus is available, and we're doing pulse-sample delivery
             Tsample = sum(stim_info.pulse); %how long for a single on, off sequence
