@@ -109,11 +109,11 @@ if strcmp(options.modeltype,'PS')
     if options.percent_Dslow > 0
         %range for slow depression sweeep
         options.ItoE = dealers_choice(0.1, 8);
-        options.EtoI = dealers_choice(0.1, 8);
+        options.EtoI = dealers_choice(0.1, .75);
     else
         %range for fast depression sweep
-        options.ItoE = dealers_choice(0.01, 4.5);
-        options.EtoI = dealers_choice(0.01, 1);
+        options.ItoE = dealers_choice(0.01, 3.7);
+        options.EtoI = dealers_choice(0.01, .35);
     end
     
     %this mode should always be for baseline/no stimulus
