@@ -6,6 +6,7 @@ options.comp_location = 'woodstock';
 options.modeltype = ''; %forcing this to break if not specified 
 options.sim_name = 'default_name';
 options.jobID = 9999; 
+options.netpair_file = NaN; %for loading network pair info file 
 options.timestep = .25e-3; %.25 milisecond timestep
 options.noswitch_timeout = 750; %timeout without a switch (s)
 options.tmax = 5000; %trial simulation time (s)
@@ -127,6 +128,19 @@ if strcmp(options.modeltype,'PS')
 end
 
 
+if strcmp(options.modeltype,'equate_stim')
+    options.sim_name = sprintf('ES_%s_%i',options.sim_name,options.jobID);
+    options.batchdir = fullfile(options.save_dir,sprintf('batch_%i',options.jobID));
+    if ~isdir(options.batchdir),mkdir(options.batchdir);end
+        
+    do_config = mod(options.jobID,10);
+    do_config(do_config == 0) = 10; 
+    options.EtoE = .0405; %fixed
+    %pull ItoE, EtoI, Rstim, and stim cell targets for network ID
+    options = get_network_params(do_config,options);
+end
+
+
 if strcmp(options.modeltype,'PS_stim')
     options.sim_name = sprintf('PS_%s_%i',options.sim_name,options.jobID);
     
@@ -147,7 +161,7 @@ if strcmp(options.modeltype,'diagnostics')
 end
 
 
-if sum(strcmp(options.modeltype,{'JK','diagnostics'})) == 0 %don't run this block for outdated jobs 
+if sum(strcmp(options.modeltype,{'JK','diagnostics','equate_stim'})) == 0 %don't run this block for outdated jobs 
     update_logfile('initializing job params...',options.output_log)
     update_logfile(sprintf('tmax = %i',options.tmax),options.output_log)
     update_logfile(sprintf('force back2stay = %s',string(options.force_back2stay)),options.output_log)

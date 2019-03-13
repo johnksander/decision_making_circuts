@@ -130,29 +130,14 @@ end
 
 if strcmp(options.modeltype,'equate_stim')
     options.sim_name = sprintf('ES_%s_%i',options.sim_name,options.jobID);
-    info_file = fullfile(options.helper_funcdir,'network_pairs',[options.netpair_file '.mat']);
-    if ~isfile(info_file),error('%s does not exist!',info_file);end
-    net_params = load(info_file);
-    net_params = net_params.network_pairs;
-    job_idx = mod(options.jobID,10)+1;
-    
-    pair_inds = sort(repmat(1:5,1,2)); net_inds = repmat(1:2,1,5);
-    pair_idx = pair_inds(job_idx); net_idx = net_inds(job_idx);
-    
-    net_params = net_params{pair_idx};
-    net_params = net_params(net_idx,:);
-    %-----set network params-----
+    options.batchdir = fullfile(options.save_dir,sprintf('batch_%i',options.jobID));
+    if ~isdir(options.batchdir),mkdir(options.batchdir);end
+        
+    do_config = mod(options.jobID,10);
+    do_config(do_config == 0) = 10; 
     options.EtoE = .0405; %fixed
-    options.ItoE = net_params.ItoE;
-    options.EtoI = net_params.EtoI;
-    switch net_params.Row{:}
-        case 'fast'
-            options.stim_targs = 'Estay';
-        case 'slow'
-            options.stim_targs = 'Eswitch';
-        otherwise
-            error('problem settin stim targets')
-    end
+    %pull ItoE, EtoI, Rstim, and stim cell targets for network ID
+    options = get_network_params(do_config,options);
 end
 
 
@@ -176,7 +161,7 @@ if strcmp(options.modeltype,'diagnostics')
 end
 
 
-if sum(strcmp(options.modeltype,{'JK','diagnostics'})) == 0 %don't run this block for outdated jobs 
+if sum(strcmp(options.modeltype,{'JK','diagnostics','equate_stim'})) == 0 %don't run this block for outdated jobs 
     update_logfile('initializing job params...',options.output_log)
     update_logfile(sprintf('tmax = %i',options.tmax),options.output_log)
     update_logfile(sprintf('force back2stay = %s',string(options.force_back2stay)),options.output_log)

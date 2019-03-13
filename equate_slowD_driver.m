@@ -7,7 +7,7 @@ Tobj = 7.5;
 toler = .25; %give it 250 ms tolerance
 R0_stim = 25; %start search at 25 hz
 search_opt = optimset('TolX',toler);
-t = 1e3; %trial simulation time (s)
+t = 100; %trial simulation time (s)
 num_nets = 10; %number of network pairs
 
 %---setup---------------------
