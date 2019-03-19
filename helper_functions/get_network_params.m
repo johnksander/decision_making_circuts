@@ -7,28 +7,56 @@ switch options.netpair_file
         
         switch do_config
             case 1
-                options.ItoE = 7.7057; options.EtoI = 0.2640; Rstim = []; options.stim_targs = 'Eswitch';
+                options.ItoE = 7.9608; options.EtoI = 0.2401; Rstim = []; options.stim_targs = 'Eswitch';
             case 2
-                options.ItoE = 7.7374; options.EtoI = 0.1112; Rstim = []; options.stim_targs = 'Estay';
+                options.ItoE = 7.9605; options.EtoI = 0.1066; Rstim = []; options.stim_targs = 'Estay';
             case 3
-                options.ItoE = 6.8143; options.EtoI = 0.3092; Rstim = []; options.stim_targs = 'Eswitch';
+                options.ItoE = 5.9226; options.EtoI = 0.3920; Rstim = []; options.stim_targs = 'Eswitch';
             case 4
-                options.ItoE = 6.8697; options.EtoI = 0.1207; Rstim = []; options.stim_targs = 'Estay';
+                options.ItoE = 5.9009; options.EtoI = 0.1240; Rstim = []; options.stim_targs = 'Estay';
             case 5
                 options.ItoE = 6.3216; options.EtoI = 0.7430; Rstim = []; options.stim_targs = 'Eswitch';
             case 6
                 options.ItoE = 3.4540; options.EtoI = 0.7420; Rstim = []; options.stim_targs = 'Estay';
             case 7
-                options.ItoE = 5.9138; options.EtoI = 0.5039; Rstim = []; options.stim_targs = 'Eswitch';
+                options.ItoE = 6.1513; options.EtoI = 0.4612; Rstim = []; options.stim_targs = 'Eswitch';
             case 8
-                options.ItoE = 3.2364; options.EtoI = 0.5128; Rstim = []; options.stim_targs = 'Estay';
+                options.ItoE = 3.3772; options.EtoI = 0.4647; Rstim = []; options.stim_targs = 'Estay';
             case 9
-                options.ItoE = 5.9226; options.EtoI = 0.3920; Rstim = []; options.stim_targs = 'Eswitch';
+                options.ItoE = 5.8175; options.EtoI = 0.3958; Rstim = []; options.stim_targs = 'Eswitch';
             case 10
-                options.ItoE = 3.4651; options.EtoI = 0.2852; Rstim = []; options.stim_targs = 'Estay';
+                options.ItoE = 3.7917; options.EtoI = 0.1792; Rstim = []; options.stim_targs = 'Estay';
             otherwise
                 error('config disaser')
         end
+        
+        
+    case 'fastD'
+        switch do_config
+            case 1
+                options.ItoE = 3.6690; options.EtoI = 0.0740; Rstim = []; options.stim_targs = 'Eswitch';
+            case 2
+                options.ItoE = 3.7135; options.EtoI = 0.0503; Rstim = []; options.stim_targs = 'Estay';
+            case 3
+                options.ItoE = 2.7421; options.EtoI = 0.0919; Rstim = []; options.stim_targs = 'Eswitch';
+            case 4
+                options.ItoE = 2.7116; options.EtoI = 0.0619; Rstim = []; options.stim_targs = 'Estay';
+            case 5
+                options.ItoE = 1.9414; options.EtoI = 0.3474; Rstim = []; options.stim_targs = 'Eswitch';
+            case 6
+                options.ItoE = 1.5844; options.EtoI = 0.3497; Rstim = []; options.stim_targs = 'Estay';
+            case 7
+                options.ItoE = 1.9242; options.EtoI = 0.2273; Rstim = []; options.stim_targs = 'Eswitch';
+            case 8
+                options.ItoE = 1.5063; options.EtoI = 0.2268; Rstim = []; options.stim_targs = 'Estay';
+            case 9
+                options.ItoE = 2.0132; options.EtoI = 0.1429; Rstim = []; options.stim_targs = 'Eswitch';
+            case 10
+                options.ItoE = 1.7233; options.EtoI = 0.1043; Rstim = []; options.stim_targs = 'Estay';
+            otherwise
+                error('config disaser')
+        end
+        
         
     otherwise
         error('config disaser')
