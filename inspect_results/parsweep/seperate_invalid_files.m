@@ -9,7 +9,7 @@ hold off;close all
 %This preserves all results from a parameter sweep, while simplifying
 %analyses after determining those criteria. 
 
-sim_name = 'parsweep_fastD_Rlim_baseline';
+sim_name = 'parsweep_fastD_Rlim_baseline'; %MUST CHANGE CRITERIA TOO
 
 %----CRITERIA----
 %connection strengths

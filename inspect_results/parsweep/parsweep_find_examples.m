@@ -99,16 +99,65 @@ param_perc = @(x,y) (range(y)*x )+ min(y); %return the Xth percentile value from
 Npairs = 5;
 network_pairs = cell(Npairs,1);
 
-%make this easier to loop over
+%find the one at the "top of the curve"
+minmax_norm = @(x) (x - min(x)) ./ (max(x) - min(x));
+
+center_pair = array2table(NaN(2,3),'VariableNames',{'ItoE','EtoI','duration'},'RowNames',{'slow','fast'});
+
+slowP = [ItoE(slow_nets),EtoI(slow_nets)];
+slowXY = num2cell(slowP,1);
+%slowXY = cellfun(@(x) x - min(x),slowXY,'UniformOutput',false);
+slowXY = cellfun(minmax_norm ,slowXY,'UniformOutput',false);
+slowXY = cat(2,slowXY{:});
+
+minP = pdist2([0,0],slowXY)';
+minP = find(minP == min(minP)); %closest to origin 
+slow_coords = slowXY(minP,:); %save this for next step 
+slowP = slowP(minP,:);
+curr_net = ItoE == slowP(1) & EtoI == slowP(2);
+curr_net = find(curr_net);
+center_pair{'slow','ItoE'} = ItoE(curr_net);
+center_pair{'slow','EtoI'} = EtoI(curr_net);
+center_pair{'slow','duration'} = Sdurs(curr_net);
+
+fastP = [ItoE(fast_nets),EtoI(fast_nets)];
+fastXY = num2cell(fastP,1);
+fastXY = cellfun(minmax_norm ,fastXY,'UniformOutput',false);
+fastXY = cat(2,fastXY{:});
+
+%minP = pdist2([0,0],fastXY)'; %can also do origin like above 
+minP = pdist2(slow_coords,fastXY)'; %can also do origin like above 
+minP = find(minP == min(minP)); %closest to slow net
+fastP = fastP(minP,:);
+curr_net = ItoE == fastP(1) & EtoI == fastP(2);
+curr_net = find(curr_net);
+center_pair{'fast','ItoE'} = ItoE(curr_net);
+center_pair{'fast','EtoI'} = EtoI(curr_net);
+center_pair{'fast','duration'} = Sdurs(curr_net);
+
+network_pairs{5} = center_pair;
+
+
+%find the rest
 p.ItoE = ItoE;
 p.EtoI = EtoI;
-range_vals = [1, .5]; %get one pair at the extreme, one at half-way
+range_vals = [1, .05]; %get one pair at the extreme, one at half-way
 p_types = {'ItoE','EtoI'};
 
 pair_ind = 0;
 for idx = 1:numel(p_types)
     
     curr_Ps = p.(p_types{idx}); %connection strength values for ItoE or EtoI
+    switch p_types{idx}
+        case 'ItoE'
+            
+            this_arm = p.ItoE > center_pair{'slow','ItoE'} & p.EtoI < center_pair{'slow','EtoI'};
+            
+        case 'EtoI'
+            
+            this_arm = p.ItoE < center_pair{'slow','ItoE'} & p.EtoI > center_pair{'slow','EtoI'};
+            
+    end
     
     for RVidx = 1:numel(range_vals)
         
@@ -117,9 +166,10 @@ for idx = 1:numel(p_types)
         
         %find the slow network 
         curr_RV = range_vals(RVidx); %where in the parameter space 
+        param_range = curr_Ps(slow_nets & this_arm); %find the range for this "arm"
         
-        curr_net = param_perc(curr_RV,curr_Ps(slow_nets));
-        curr_net = nearest_val(curr_net,curr_Ps(slow_nets));
+        curr_net = param_perc(curr_RV,param_range);
+        curr_net = nearest_val(curr_net,param_range);
         curr_net = find(curr_Ps == curr_net & slow_nets);
 
         net_pair{'slow','ItoE'} = ItoE(curr_net);
@@ -137,55 +187,6 @@ for idx = 1:numel(p_types)
         network_pairs{pair_ind} = net_pair;
     end
 end
-
-%now get the one at the "top of the curve"
-minmax_norm = @(x) (x - min(x)) ./ (max(x) - min(x));
-
-net_pair = array2table(NaN(2,3),'VariableNames',{'ItoE','EtoI','duration'},'RowNames',{'slow','fast'});
-
-slowP = [ItoE(slow_nets),EtoI(slow_nets)];
-slowXY = num2cell(slowP,1);
-%slowXY = cellfun(@(x) x - min(x),slowXY,'UniformOutput',false);
-slowXY = cellfun(minmax_norm ,slowXY,'UniformOutput',false);
-slowXY = cat(2,slowXY{:});
-
-minP = pdist2([0,0],slowXY)';
-minP = find(minP == min(minP)); %closest to origin 
-slow_coords = slowXY(minP,:); %save this for next step 
-slowP = slowP(minP,:);
-curr_net = ItoE == slowP(1) & EtoI == slowP(2);
-curr_net = find(curr_net);
-net_pair{'slow','ItoE'} = ItoE(curr_net);
-net_pair{'slow','EtoI'} = EtoI(curr_net);
-net_pair{'slow','duration'} = Sdurs(curr_net);
-
-%find the matching fast one
-% fastX = ItoE(fast_nets); fastY = EtoI(fast_nets);
-% [~,closeX] = sort(abs(net_pair{'slow','ItoE'} - fastX));
-% [~,closeY] = sort(abs(net_pair{'slow','EtoI'} - fastY));
-% XYrank = sum([closeX,closeY],2);
-% curr_net = find(XYrank == min(XYrank));
-% curr_net = [fastX(curr_net),fastY(curr_net)];
-% curr_net = find(ItoE == curr_net & fast_nets);
-
-fastP = [ItoE(fast_nets),EtoI(fast_nets)];
-fastXY = num2cell(fastP,1);
-fastXY = cellfun(minmax_norm ,fastXY,'UniformOutput',false);
-fastXY = cat(2,fastXY{:});
-
-%minP = pdist2([0,0],fastXY)'; %can also do origin like above 
-minP = pdist2(slow_coords,fastXY)'; %can also do origin like above 
-minP = find(minP == min(minP)); %closest to slow net
-fastP = fastP(minP,:);
-curr_net = ItoE == fastP(1) & EtoI == fastP(2);
-curr_net = find(curr_net);
-net_pair{'fast','ItoE'} = ItoE(curr_net);
-net_pair{'fast','EtoI'} = EtoI(curr_net);
-net_pair{'fast','duration'} = Sdurs(curr_net);
-
-
-network_pairs{5} = net_pair;
-
 
 %mark pairs on the big figure 
 
