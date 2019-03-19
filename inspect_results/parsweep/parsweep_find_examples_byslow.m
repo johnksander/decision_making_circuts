@@ -3,12 +3,12 @@ clc
 format compact
 close all
 
-%rhis one matches by slow networks first 
+%this matches exampes by slow networks
 
 %specify simulation
 %---sim setup-----------------
-Flabel = 'fastD'; %network pairs will be saved with this filename 
-sim_name = 'parsweep_fastD_Rlim_baseline';
+sim_name = 'parsweep_slowD_Rlim_baseline';
+Flabel = 'slowD'; %network pairs will be saved with this filename 
 basedir = '/Users/ksander/Desktop/work/ACClab/rotation/project/';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
@@ -29,7 +29,8 @@ EtoI = cellfun(@(x)  x.EtoI,result_data(:,2));
 state_dur = cellfun(@(x) mean(log10(x+eps)),result_data(:,1));
 Sdurs = 10.^state_dur; %in seconds
 
-slow_range = log10([50,70]); %seconds
+%slow_range = [9.5, 10.5]; %seconds
+slow_range = log10([55,65]); %seconds
 fast_range = log10([1, 1.5]);
 %many more slow, than fast. So start with the slow networks
 in_range = @(x,y) x >= y(1) & x <= y(2);     %find durations X within target range Y (two element vec)
@@ -115,26 +116,25 @@ fastP = [ItoE(fast_nets),EtoI(fast_nets)];
 fastXY = cellfun(@(x) x(fast_nets),XYcoords,'UniformOutput',false);
 fastXY = cat(2,fastXY{:});
 
-
-minP = pdist2([0,0],fastXY)'; %was pdist2([0,0],slowXY)'
+minP = pdist2([0,0],slowXY)';
 minP = find(minP == min(minP)); %closest to origin 
-net_coords = fastXY(minP,:); %save this for next step 
-fastP = fastP(minP,:);
-curr_net = ItoE == fastP(1) & EtoI == fastP(2);
-curr_net = find(curr_net);
-center_pair{'fast','ItoE'} = ItoE(curr_net);
-center_pair{'fast','EtoI'} = EtoI(curr_net);
-center_pair{'fast','duration'} = Sdurs(curr_net);
-
-%minP = pdist2([0,0],fastXY)'; %can also do origin like above 
-minP = pdist2(net_coords,slowXY)'; %can also do origin like above 
-minP = find(minP == min(minP)); %closest to slow net
+slow_coords = slowXY(minP,:); %save this for next step 
 slowP = slowP(minP,:);
 curr_net = ItoE == slowP(1) & EtoI == slowP(2);
 curr_net = find(curr_net);
 center_pair{'slow','ItoE'} = ItoE(curr_net);
 center_pair{'slow','EtoI'} = EtoI(curr_net);
 center_pair{'slow','duration'} = Sdurs(curr_net);
+
+%minP = pdist2([0,0],fastXY)'; %can also do origin like above 
+minP = pdist2(slow_coords,fastXY)'; %can also do origin like above 
+minP = find(minP == min(minP)); %closest to slow net
+fastP = fastP(minP,:);
+curr_net = ItoE == fastP(1) & EtoI == fastP(2);
+curr_net = find(curr_net);
+center_pair{'fast','ItoE'} = ItoE(curr_net);
+center_pair{'fast','EtoI'} = EtoI(curr_net);
+center_pair{'fast','duration'} = Sdurs(curr_net);
 
 network_pairs{5} = center_pair;
 
@@ -153,12 +153,12 @@ for idx = 1:numel(p_types)
         case 'ItoE'
             this_arm.fast = p.ItoE > center_pair{'fast','ItoE'};
             this_arm.slow = p.ItoE > center_pair{'slow','ItoE'} & p.EtoI < center_pair{'slow','EtoI'};
-            %this_arm = p.ItoE > center_pair{'fast','ItoE'} & p.EtoI < center_pair{'fast','EtoI'};
+            %this_arm = p.ItoE > center_pair{'slow','ItoE'} & p.EtoI < center_pair{'slow','EtoI'};
             
         case 'EtoI'
             this_arm.fast = p.EtoI > center_pair{'fast','EtoI'};
             this_arm.slow = p.EtoI > center_pair{'slow','EtoI'} & p.EtoI > center_pair{'slow','EtoI'};
-            %this_arm = p.ItoE < center_pair{'fast','ItoE'} & p.EtoI > center_pair{'fast','EtoI'};
+            %this_arm = p.ItoE < center_pair{'slow','ItoE'} & p.EtoI > center_pair{'slow','EtoI'};
             
     end
     
@@ -167,25 +167,25 @@ for idx = 1:numel(p_types)
         pair_ind = pair_ind + 1;
         net_pair = array2table(NaN(2,3),'VariableNames',{'ItoE','EtoI','duration'},'RowNames',{'slow','fast'});
         
-        %find the fast network 
+        %find the slow network 
         curr_RV = range_vals(RVidx); %where in the parameter space 
-        param_range = curr_Ps(fast_nets & this_arm.fast); %find the range for this "arm"
+        param_range = curr_Ps(slow_nets & this_arm.slow); %find the range for this "arm"
         
         curr_net = param_perc(curr_RV,param_range);
         curr_net = nearest_val(curr_net,param_range);
-        curr_net = find(curr_Ps == curr_net & fast_nets);
-
-        net_pair{'fast','ItoE'} = ItoE(curr_net);
-        net_pair{'fast','EtoI'} = EtoI(curr_net);
-        net_pair{'fast','duration'} = Sdurs(curr_net);
-        
-        %find the matching slow one
-        curr_net = nearest_val(net_pair{'fast',p_types{idx}},curr_Ps(slow_nets & this_arm.slow));
         curr_net = find(curr_Ps == curr_net & slow_nets);
-        
+
         net_pair{'slow','ItoE'} = ItoE(curr_net);
         net_pair{'slow','EtoI'} = EtoI(curr_net);
         net_pair{'slow','duration'} = Sdurs(curr_net);
+        
+        %find the matching fast one
+        curr_net = nearest_val(net_pair{'slow',p_types{idx}},curr_Ps(fast_nets & this_arm.fast));
+        curr_net = find(curr_Ps == curr_net & fast_nets);
+        
+        net_pair{'fast','ItoE'} = ItoE(curr_net);
+        net_pair{'fast','EtoI'} = EtoI(curr_net);
+        net_pair{'fast','duration'} = Sdurs(curr_net);
         
         network_pairs{pair_ind} = net_pair;
     end

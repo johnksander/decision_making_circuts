@@ -1,0 +1,20 @@
+case 1
+options.ItoE = 3.7310; options.EtoI = 0.0705; Rstim = []; options.stim_targs = Eswitch;
+case 2
+options.ItoE = 3.7135; options.EtoI = 0.0503; Rstim = []; options.stim_targs = Estay;
+case 3
+options.ItoE = 2.7470; options.EtoI = 0.0890; Rstim = []; options.stim_targs = Eswitch;
+case 4
+options.ItoE = 2.7630; options.EtoI = 0.0637; Rstim = []; options.stim_targs = Estay;
+case 5
+options.ItoE = 1.9469; options.EtoI = 0.3468; Rstim = []; options.stim_targs = Eswitch;
+case 6
+options.ItoE = 1.5351; options.EtoI = 0.3482; Rstim = []; options.stim_targs = Estay;
+case 7
+options.ItoE = 1.8636; options.EtoI = 0.2135; Rstim = []; options.stim_targs = Eswitch;
+case 8
+options.ItoE = 1.5534; options.EtoI = 0.2137; Rstim = []; options.stim_targs = Estay;
+case 9
+options.ItoE = 2.0245; options.EtoI = 0.1234; Rstim = []; options.stim_targs = Eswitch;
+case 10
+options.ItoE = 1.7280; options.EtoI = 0.1085; Rstim = []; options.stim_targs = Estay;
