@@ -34,7 +34,7 @@ W = reorder_weightmat(W,celltype);
 %----cell connections---------
 Erev = 0; %reversal potential, excitatory
 Irev = -70e-3; %reversal potential, inhibitory
-Gg = 10e-9; %max connductance microSiemens
+Gg = 10e-9; %max conductance microSiemens
 Pr = NaN(pool_options.num_cells,1); %release probability
 Pr(celltype.excit) = .2; %excitatory release probability
 Pr(celltype.inhib) = .2; %inhibitory release probability

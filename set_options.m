@@ -121,18 +121,15 @@ if strcmp(options.modeltype,'PS')
     options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
     Rstim = 0; %rate for stimulus input spikes
     options.trial_stimuli = [Rstim,Rstim];
-    
-    %from first paramter sweep w/ bad noise
-    %options.ItoE = dealers_choice(0.15, 0.65 *2);  %double "fastswitch"
-    %options.EtoI = dealers_choice(0.15, 0.35 *2);  %double "slowswitch"
 end
 
-
+%for stimulus search jobs (e.g. equating network behaviors)
 if strcmp(options.modeltype,'equate_stim')
     options.sim_name = sprintf('ES_%s_%i',options.sim_name,options.jobID);
     options.batchdir = fullfile(options.save_dir,sprintf('batch_%i',options.jobID));
     if ~isdir(options.batchdir),mkdir(options.batchdir);end
-        
+    
+    %-----set network params-----    
     do_config = mod(options.jobID,10);
     do_config(do_config == 0) = 10; 
     options.EtoE = .0405; %fixed
@@ -140,18 +137,19 @@ if strcmp(options.modeltype,'equate_stim')
     options = get_network_params(do_config,options);
 end
 
-
-if strcmp(options.modeltype,'PS_stim')
-    options.sim_name = sprintf('PS_%s_%i',options.sim_name,options.jobID);
+%for running specific networks (in get_network_params() )
+if strcmp(options.modeltype,'NETS') 
+    options.sim_name = sprintf('NETS_%s_%i',options.sim_name,options.jobID);
     
-    %-----set network params-----
+    %-----set network params-----    
     do_config = mod(options.jobID,10);
+    do_config(do_config == 0) = 10; 
     options.EtoE = .0405; %fixed
-    %pull ItoE, EtoI, Rstim, and stim cell targets for network ID 
-    options = get_network_params(do_config,options); 
+    %pull ItoE, EtoI, Rstim, and stim cell targets for network ID
+    options = get_network_params(do_config,options);
 end
 
-
+%for diagnostic jobs 
 if strcmp(options.modeltype,'diagnostics')
     options.sim_name = sprintf('%s_%i',options.sim_name,options.jobID);
     %diagnostic specific defaults
@@ -161,7 +159,7 @@ if strcmp(options.modeltype,'diagnostics')
 end
 
 
-if sum(strcmp(options.modeltype,{'JK','diagnostics','equate_stim'})) == 0 %don't run this block for outdated jobs 
+if sum(strcmp(options.modeltype,{'JK','diagnostics','equate_stim'})) == 0 %don't run this block for these jobs 
     update_logfile('initializing job params...',options.output_log)
     update_logfile(sprintf('tmax = %i',options.tmax),options.output_log)
     update_logfile(sprintf('force back2stay = %s',string(options.force_back2stay)),options.output_log)

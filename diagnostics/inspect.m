@@ -6,8 +6,8 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-%jobID = 3;
-%sname = 'diag_inhib';
+%jobID = 11;
+%sname = 'daig_timestep';
 jobID = str2num(getenv('JID'));
 sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
@@ -49,7 +49,7 @@ if ~isempty(term_idx)
     Srec = Srec(:,1:term_idx);
 end
 
-timestep = .25e-3; %.25 milisecond timestep
+timestep = options.timestep;
 lnsz = 3; %spikerate plots
 fontsz = 12;
 
@@ -390,7 +390,17 @@ writetable(TCfile,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
 
 function cell_data = sim_spikerate(cell_raster,timestep,celltype)
 
-num_binsamps = 75e-3/timestep; %num samples in 2ms
+binsz = 75e-3;
+num_binsamps = binsz/timestep; %num samples in Xms (the bin size)
+if mod(num_binsamps,1) ~= 0 %not evenly divisible... find next best thing 
+    alt_binsz = binsz-(5e-3):1e-3:binsz+(5e-3);
+    even_div = rem(alt_binsz, timestep) == 0;
+    alt_binsz = alt_binsz(even_div);
+    [~,binsz] = min(abs(binsz - alt_binsz)); %find closest evenly divisible binsize
+    binsz = alt_binsz(binsz);
+    num_binsamps = binsz/timestep;
+end
+ 
 raster_sz = size(cell_raster);
 if mod(raster_sz(2),num_binsamps) ~= 0 %you have to trim it down, equally divisible by bin size
     cell_raster = cell_raster(:,1:end - mod(raster_sz(2),num_binsamps));
@@ -412,6 +422,15 @@ end
 function cell_data = sim_windowrate(cell_raster,timestep,celltype,window_sz)
 
 num_binsamps = window_sz/timestep; %num samples in Xms
+if mod(num_binsamps,1) ~= 0 %not evenly divisible... find next best thing 
+    alt_binsz = window_sz-(5e-3):1e-3:window_sz+(5e-3);
+    even_div = rem(alt_binsz, timestep) == 0;
+    alt_binsz = alt_binsz(even_div);
+    [~,binsz] = min(abs(binsz - alt_binsz)); %find closest evenly divisible binsize
+    binsz = alt_binsz(binsz);
+    num_binsamps = binsz/timestep;
+end
+
 cell_raster = num2cell(cell_raster,2);
 k = ones(1, num_binsamps);
 k = k ./ (num_binsamps * timestep); %convert to Hz

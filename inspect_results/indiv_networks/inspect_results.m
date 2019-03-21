@@ -1,167 +1,80 @@
 clear
 clc
 format compact
+hold off;close all
 
-%result summaries
-fontsz = 36;
-trial_hists = 'off';
-stim_labels = {'stim A','stim B'};
-timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
-cd('/Users/ksander/Desktop/work/ACClab/rotation/project/')
+outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
+
 %specify simulation
 %---sim setup-----------------
-config_options.modeltype = 'JK';
-config_options.sim_name = 'switching_bias8_reparam2';
-options = set_options(config_options);
+sim_name = 'test_real_durations';
+jobID = 3; %set to NaN for all jobs
+basedir = '/home/acclab/Desktop/ksander/rotation/project';
+figdir = fullfile(basedir,'Results',['figures_' sim_name]);
+resdir = fullfile(basedir,'Results',sim_name);
+addpath(fullfile(basedir,'helper_functions'))
+%result summaries
+fontsz = 12;
+stim_labels = {'stim A','stim B'};
 
 %get results
-output_fn = [options.modeltype '_' options.sim_name '.mat'];
-sim_output = load(fullfile(options.save_dir,output_fn));
-options = sim_output.options; %reset to simulation options
-options = reset_options_paths(options); %fix paths if needed
-sim_output = sim_output.sim_results;
-options.trial_hists = trial_hists;
-options.conv2secs = timestep;
-
-%look at results
-num_trials = numel(options.trial_currents(:,1));
-num_stims = numel(options.trial_currents(1,:));
-options.num_stims = num_stims;
-options.stim_labels = stim_labels; %just so it's easier to pass
-stim_duration_means = NaN(num_trials,num_stims);
-stim_num_states = NaN(num_trials,num_stims);
-
-for trialidx = 1:num_trials
-    
-    trial_results = sim_output{trialidx};
-    trial_results = trial_results{1}; %just take the "stay" state
-    
-    %trial_results = flipud(trial_results); %you're an idiot.
-    
-    %sort by stimuli
-    Ainds = 1:2:numel(trial_results);
-    Ainds = Ainds(2:end); %REMOVE the first artifically induced switch 
-    Binds = 2:2:numel(trial_results);
-    trial_results = {trial_results(Ainds),trial_results(Binds)};
-    %do functions
-    trial_histograms(options,trial_results,trialidx);
-    stim_duration_means(trialidx,:) = cellfun(@mean,trial_results);
-    stim_num_states(trialidx,:) = cellfun(@numel,trial_results);
+if ~isnan(jobID)
+    figdir = fullfile(figdir,sprintf('jobID_%i',jobID)); %make job specific directory 
+    output_fns = sprintf('%s_%i.mat',sim_name,jobID);
+    output_fns = dir(fullfile(resdir,['*',output_fns]));
+else
+    output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
 end
-close all
+output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
+num_files = numel(output_fns);
+file_data = cell(num_files,3);
 
-stim_duration_means = stim_duration_means * options.conv2secs; %take care of unit conversion here
-stim_duration_means(isnan(stim_duration_means)) = 0;
-stim_num_states(isnan(stim_num_states)) = 0;
-num_switches = sum(stim_num_states,2) - 1;
-num_switches(num_switches == -1) = 0; %if there were no switches...
+%get the options struct from first file 
+options = load(output_fns{1});
+options = options.options;
+timestep = options.timestep;
 
-figure(1)
-
-curr_diff = options.trial_currents(:,1) - options.trial_currents(:,2);
-for stimidx = 1:num_stims
-    plot(curr_diff,stim_duration_means(:,stimidx),'linewidth',2)
-    hold on 
+for idx = 1:num_files
+    %if mod(idx,1000) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
+    curr_file = load(output_fns{idx});
+    %store parameters
+    %file_data{idx,2} = curr_file.options;
+    %get state durations
+    state_durations = curr_file.sim_results;
+    state_durations = state_durations{1};
+    %just get all stay states. Everything that's not undecided
+    valid_states = startsWith(state_durations(:,end),'stim');
+    %state.count recorded in second col 
+    state_durations = state_durations(valid_states,2);
+    state_durations = cat(1,state_durations{:});
+    %convert to time
+    state_durations = state_durations * timestep;
+    file_data{idx,1} = state_durations;
+    %     %ratecheck estimates
+    %     Rcheck = curr_file.sim_results{4};
+    %     %store durations, parameters, rate estimates
+    %     file_data(idx,:) = {state_durations,curr_file.options,Rcheck};
+    
 end
-% for stimidx = 1:num_stims
-%     plot(options.trial_currents(:,stimidx),stim_duration_means(:,stimidx),'linewidth',2)
-%     hold on %!MUST FIX FOR REAL SIMULATION ^^^
-% end
 
-ylabel('Average state duration (s)')
-xlabel('Stim A current bias')
-title('State durations')
-legend(stim_labels)
-set(gca,'Fontsize',fontsz)
-orient landscape
-Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%.0f%%',x*100),Xticks,'UniformOutput', false);
-set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
-hold off
-fig_fn = [options.sim_name '_mean_durations'];
-print(fullfile(options.save_dir,fig_fn),'-djpeg')
+state_durations = file_data(:,1);
+state_durations = cat(1,state_durations{:});
+
+%get the options struct from first file  
+if ~isdir(figdir),mkdir(figdir);end
 
 
-%for brownbag/CNS
+num_states = numel(state_durations);
+stim = unique(options.trial_stimuli);
 
 figure
-curr_diff = options.trial_currents(:,1) - options.trial_currents(:,2);
-for stimidx = 1:num_stims
-    precision_cutoff = curr_diff <= .2;
-    plot(curr_diff(precision_cutoff),stim_duration_means(precision_cutoff,stimidx),'linewidth',4)
-    hold on 
-end
-
-ylabel('Stay duration (s)','FontWeight','b')
-xlabel('Palatability difference','FontWeight','b')
-%title('State durations')
-%legend({'strong stimulus','weak stimulus'},'FontWeight','b','Location','northoutside','Orientation','horizontal')
-%legend({'strong stimulus','weak stimulus'},'FontWeight','b','Location','north','FontSize',fontsz-8)
-legend({'strong stimulus','weak stimulus'},'Location','north','FontSize',fontsz-8)
-legend('boxoff')
-ylim([0,1000])
-%set(gca,'Fontsize',fontsz)
-%different font sizes for axes ticks % axes labels 
-TL = cellfun(@(x) get(gca,x),{'XAxis','YAxis'},'UniformOutput',false);
-AL = cellfun(@(x) get(gca,x),{'XLabel','YLabel'},'UniformOutput',false);
-cellfun(@(x) set(x,'FontSize',fontsz),AL,'UniformOutput',false) %reset axes label first
-cellfun(@(x) set(x,'FontSize',fontsz-8),TL,'UniformOutput',false)
-box off
-orient landscape
-Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%.0f%%',x*100),Xticks,'UniformOutput', false);
-set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
-hold off
-fig_fn = [options.sim_name '_brownbag_fig'];
-print(fullfile(options.save_dir,fig_fn),'-djpeg')
-
-
-
-figure(2)
-plot(curr_diff,num_switches,'linewidth',2) 
-title('Stimuli switching')
-ylabel('number of switches between stimuli')
-xlabel('Stim A current bias')
-set(gca,'Fontsize',fontsz)
-orient landscape
-Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%.0f%%',x*100),Xticks,'UniformOutput', false);
-set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
-fig_fn = [options.sim_name '_num_switches'];
-print(fullfile(options.save_dir,fig_fn),'-djpeg')
-
-
-% figure(2)
-% plot(options.trial_currents(:,1),num_switches,'linewidth',2) %!MUST FIX FOR REAL SIMULATION
-% title('State switching')
-% ylabel('number of state switches')
-% xlabel('Current (proportion)')
-% set(gca,'Fontsize',fontsz)
-% orient landscape
-% fig_fn = [options.sim_name '_num_switches'];
-% print(fullfile(options.save_dir,fig_fn),'-djpeg')
-
-
-% figure(3)
-% 
-% curr_diff = options.trial_currents(:,1) - options.trial_currents(:,2);
-% for stimidx = 1:num_stims
-%     plot(curr_diff,stim_duration_means(:,stimidx),'linewidth',2)
-%     hold on 
-% end
-% ylim([0 100])
-% ylabel('Average state duration (s)')
-% xlabel('Stim A current bias')
-% title('State durations')
-% legend(stim_labels)
-% set(gca,'Fontsize',fontsz)
-% orient landscape
-% Xticks = num2cell(get(gca,'Xtick'));
-% Xlabs = cellfun(@(x) sprintf('%.0f%%',x*100),Xticks,'UniformOutput', false);
-% set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
-% hold off
-% fig_fn = [options.sim_name '_mean_durationsYlim'];
-% print(fullfile(options.save_dir,fig_fn),'-djpeg')
-
-
-
+subplot(2,1,1)
+histogram(state_durations,num_states)
+title(sprintf('Network:    E-I = %.2f,    I-E = %.2f\nstim = %.1fHz, N states = %i',options.EtoI,options.ItoE,stim,num_states))
+xlabel('duration (s)');ylabel('frequecy');legend(sprintf('\\mu = %.2f',mean(state_durations)),'Location','best')
+set(gca,'FontSize',fontsz)
+subplot(2,1,2)
+histogram(log10(state_durations),num_states)
+xlabel('duration log_{10}(s)');ylabel('frequecy');legend(sprintf('\\mu = %.2f',mean(log10(state_durations))),'Location','best')
+set(gca,'FontSize',fontsz)
+print(fullfile(figdir,'state_durations'),'-djpeg')
