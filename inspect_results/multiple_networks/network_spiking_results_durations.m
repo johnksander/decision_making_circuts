@@ -4,8 +4,13 @@ format compact
 hold off;close all
 
 
-%opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
-%opt.pulse_stim = 'rem'; %'yes' | 'total_time' | 'rem' whether to treat durations as samples (rem = time during sample)
+opt = struct();
+opt.print_anything = 'no'; %'yes' | 'no';
+opt.save_anything = 'no';
+opt.multiple_stimuli = 'yes'; 
+opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
+opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
+
 
 %specify simulation
 %---sim setup-----------------
@@ -13,15 +18,14 @@ hold off;close all
 %     'network_spiking_P6_1', 'network_spiking_P8_1', 'network_spiking_P10_1',...
 %     'network_spiking_P150_1'};
 
-% Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
-%     'sim_v2_P6_1','sim_v2_P8_1','sim_v2_P10_1','sim_v2_P150_1'};
-
-
-Snames = {'dep_pref'};
-
-figdir = 'figures_dep_pref'; %figdir = 'network_spiking_pulse_figures';
+Snames = {'dttest_0-1_fastD'};
+figdir = 'figures_dttest'; 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
+
+%control, log total time @ 150 pulse
+opt.outcome_stat = 'mu'; opt.pulse_stim = 'off';
+make_my_figs(basedir,Snames{1},figdir,opt)
 
 % num_workers = numel(Snames);
 % c = parcluster('local');
@@ -48,11 +52,6 @@ addpath(fullfile(basedir,'helper_functions'))
 % end
 % 
 % delete(gcp('nocreate'))
-
-opt = struct();
-opt.print_anything = 'no'; %'yes' | 'no';
-opt.save_anything = 'no';
-opt.multiple_stimuli = 'yes'; 
 
 %control, log total time @ 150 pulse
 opt.outcome_stat = 'mu'; opt.pulse_stim = 'off';
@@ -136,6 +135,7 @@ print_anything = opt.print_anything; %'yes' | 'no';
 save_anything = opt.save_anything;
 summary_stats = 'no'; %summary_stats = opt.summary_stats;
 
+helpdir = fullfile(basedir,'helper_functions');
 figdir = fullfile(basedir,'Results',figdir,'durations');
 resdir = fullfile(basedir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
@@ -144,6 +144,11 @@ BL_fns = dir(fullfile([resdir '_BL'],['*',sim_name,'*.mat']));
 BL_fns = cellfun(@(x,y) fullfile(x,y),{BL_fns.folder},{BL_fns.name},'UniformOutput',false);
 output_fns = cat(2,BL_fns,output_fns);
 param_varnams = {'ItoE','EtoI','stim_A','stim_B','stim_targs'};
+%get general options file from the first file 
+gen_options = load(output_fns{1});
+gen_options = gen_options.options;
+timestep = gen_options.timestep;
+
 
 switch pulse_stim
     case 'off' 
@@ -158,97 +163,97 @@ end
 
 
 %timestep is in set_options() now
-timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
 
 num_files = numel(output_fns);
 stimtarg_vals = {'baseline','Estay','Eswitch'}; %this is dumb
 stimtarg_labels = {'baseline','fast','slow'}; 
+keyboard
+network_pair_info = load(fullfile(helpdir,'network_pairs',gen_options.netpair_file));
+network_pair_info = network_pair_info.network_pairs;
+num_net_types = cellfun(@(x) size(x,1),network_pair_info);
+num_net_types = sum(num_net_types);
+num_pairs = numel(network_pair_info);
 
-%this file was being created "by hand" with parsweep_find_examples
-%network_pair_info = load(fullfile(basedir,'helper_functions','network_pairs'));
-%network_pair_info = network_pair_info.network_pairs;
-%take this stuff directly from get_network_params()
-%look in get_network_params() for this NPjobs, 0 is the last one paired w/ 9..
-NPjobs = cat(1,[1:2:9],[2:2:9,0])'; %u-g-l-y
-num_net_types = size(NPjobs,1);
-network_pair_info = cell(num_net_types,1);
-for idx = 1:num_net_types
-    CP = num2cell(NPjobs(idx,:))';
-    CP = cellfun(@(x,y) {get_network_params(x,y)}, CP,repmat({struct()},2,1));
-    pair_table = cell2table(cell(2,numel(param_varnams)),'VariableNames',param_varnams);
-    pair_table.ItoE = cellfun(@(x) x.ItoE, CP,'UniformOutput',false);
-    pair_table.EtoI = cellfun(@(x) x.EtoI, CP,'UniformOutput',false);
-    pair_table.stim_A = cellfun(@(x) unique(x.trial_stimuli), CP,'UniformOutput',false);
-    pair_table.stim_B = cellfun(@(x) unique(x.trial_stimuli), CP,'UniformOutput',false);
-    pair_table.stim_targs = cellfun(@(x) x.stim_targs, CP,'UniformOutput',false);
-    pair_table.stim_targs = strrep(pair_table.stim_targs,'Estay','fast');
-    pair_table.stim_targs = strrep(pair_table.stim_targs,'Eswitch','slow');
-    network_pair_info{idx} = pair_table;
-    %     CP = cellfun(@(x) {x.ItoE,x.EtoI,unique(x.trial_stimuli),x.stim_targs},...
-    %         CP,'UniformOutput',false);
-    %     network_pair_info{idx} = cat(1,CP{:});
+%add a little more info to the table 
+for idx = 1:num_pairs
+    T = network_pair_info{idx};
+    T_stargs = T.Properties.RowNames;
+    T_stargs = strrep(T_stargs,'fast','Estay');
+    T_stargs = strrep(T_stargs,'slow','Eswitch');
+    T.stim_targs = T_stargs;
+    network_pair_info{idx} = T;
 end
 
-% %this code is holdover from when it was loaded.. also dumb.
-% network_pair_info = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Estay','fast')],...
-%     network_pair_info,'UniformOutput',false);
-% network_pair_info = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Eswitch','slow')],...
-%     network_pair_info,'UniformOutput',false);
+
+% %this file was being created "by hand" with parsweep_find_examples
+% %network_pair_info = load(fullfile(basedir,'helper_functions','network_pairs'));
+% %network_pair_info = network_pair_info.network_pairs;
+% %take this stuff directly from get_network_params()
+% %look in get_network_params() for this NPjobs, 0 is the last one paired w/ 9..
+% NPjobs = cat(1,[1:2:9],[2:2:9,0])'; %u-g-l-y
+% num_net_types = size(NPjobs,1);
+% network_pair_info = cell(num_net_types,1);
+% for idx = 1:num_net_types
+%     CP = num2cell(NPjobs(idx,:))';
+%     CP = cellfun(@(x,y) {get_network_params(x,y)}, CP,repmat({struct()},2,1));
+%     pair_table = cell2table(cell(2,numel(param_varnams)),'VariableNames',param_varnams);
+%     pair_table.ItoE = cellfun(@(x) x.ItoE, CP,'UniformOutput',false);
+%     pair_table.EtoI = cellfun(@(x) x.EtoI, CP,'UniformOutput',false);
+%     pair_table.stim_A = cellfun(@(x) unique(x.trial_stimuli), CP,'UniformOutput',false);
+%     pair_table.stim_B = cellfun(@(x) unique(x.trial_stimuli), CP,'UniformOutput',false);
+%     pair_table.stim_targs = cellfun(@(x) x.stim_targs, CP,'UniformOutput',false);
+%     pair_table.stim_targs = strrep(pair_table.stim_targs,'Estay','fast');
+%     pair_table.stim_targs = strrep(pair_table.stim_targs,'Eswitch','slow');
+%     network_pair_info{idx} = pair_table;
+%     %     CP = cellfun(@(x) {x.ItoE,x.EtoI,unique(x.trial_stimuli),x.stim_targs},...
+%     %         CP,'UniformOutput',false);
+%     %     network_pair_info{idx} = cat(1,CP{:});
+% end
+
 
 fprintf('\n---loading simulation: %s\n',sim_name)
 
 fprintf('\nHELLO need to check find_stay_durations() with verify argument')
 
 %get results
+fprintf('\nparfor disabled')
+% num_workers = 24;
+% c = parcluster('local');
+% c.NumWorkers = num_workers;
+% parpool(c,c.NumWorkers,'IdleTimeout',Inf,'AttachedFiles',{which('find_stay_durations')})
+% special_progress_tracker = fullfile(basedir,'SPT.txt');
+% if exist(special_progress_tracker) > 0, delete(special_progress_tracker);end %fresh start
 
-num_workers = 24;
-c = parcluster('local');
-c.NumWorkers = num_workers;
-parpool(c,c.NumWorkers,'IdleTimeout',Inf,'AttachedFiles',{which('find_stay_durations')})
-special_progress_tracker = fullfile(basedir,'SPT.txt');
-if exist(special_progress_tracker) > 0, delete(special_progress_tracker);end %fresh start
-
+warning('\nfind_stay_durations() disabled, all non-undecided states')
 file_data = cell(num_files,2);
-parfor idx = 1:num_files
+%parfor idx = 1:num_files
+for idx = 1:num_files
     %if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
     curr_file = load(output_fns{idx});
     %get state durations
     state_durations = curr_file.sim_results;
     state_durations = state_durations{1};
-        
-    %     %--this is prior to change in durations data structure
-    %     %take only stimulus state durations
-    %     state_durations = state_durations{1}(:,1);
-    %     %     state_durations = cellfun(@(x) x(:,1),state_durations,'UniformOutput',false);
-    %     %     state_durations = vertcat(state_durations{:});
-    %     state_durations = cat(1,state_durations{:}); %ooo that's annoying
-    %
-    %     state_durations = find_stay_durations(state_durations,curr_file.options);
-    %
-    %     %convert to time
-    %     state_durations = state_durations * timestep;
-    %     switch pulse_stim
-    %         case 'yes' %just do this now while options is handy
-    %             state_durations = floor(state_durations ./ sum(curr_file.options.stim_pulse));
-    %         case 'rem' %look at when IN the sample switch happened
-    %             state_durations = mod(state_durations,sum(curr_file.options.stim_pulse));
-    %         case 'total_time' %need to subtract the off-period time (in betwn pulses)
-    %             Nsamps = floor(state_durations ./ sum(curr_file.options.stim_pulse));
-    %             state_durations = state_durations - (Nsamps.*curr_file.options.stim_pulse(2));
-    %     end
-
     
-    state_durations = find_stay_durations(state_durations,curr_file.options);
-    switch pulse_stim
-        case 'yes' %just do this now while options is handy
-            state_durations = state_durations.samples;
-        case 'rem' %look at when IN the sample switch happened
-            state_durations = state_durations.decision_time;
-        case 'total_time'
-            state_durations = state_durations.duration;
-        case 'off'
-            state_durations = state_durations.duration;
-    end
+    %just get all of them, baseline test. Everything that's not undecided
+    valid_states = ~strcmpi(state_durations(:,end),'undecided');
+    %state.count recorded in second col 
+    state_durations = state_durations(valid_states,2);
+    state_durations = cat(1,state_durations{:});
+    %convert to time
+    state_durations = state_durations * timestep;
+    %ratecheck estimates
+    
+%     state_durations = find_stay_durations(state_durations,curr_file.options);
+%     switch pulse_stim
+%         case 'yes' %just do this now while options is handy
+%             state_durations = state_durations.samples;
+%         case 'rem' %look at when IN the sample switch happened
+%             state_durations = state_durations.decision_time;
+%         case 'total_time'
+%             state_durations = state_durations.duration;
+%         case 'off'
+%             state_durations = state_durations.duration;
+%     end
     
     %store durations & parameters
     file_data(idx,:) = {state_durations,curr_file.options};
@@ -256,15 +261,15 @@ parfor idx = 1:num_files
     %file_data{idx,2} = curr_file.options;
     
 
-    progress = worker_progress_tracker(special_progress_tracker);
-    if mod(progress,floor(num_files * .05)) == 0 %at half a percent
-        progress = (progress / num_files) * 100;
-        fprintf('----%.1f percent complete\n',progress);
-    end
+%     progress = worker_progress_tracker(special_progress_tracker);
+%     if mod(progress,floor(num_files * .05)) == 0 %at half a percent
+%         progress = (progress / num_files) * 100;
+%         fprintf('----%.1f percent complete\n',progress);
+%     end
 end
-delete(gcp('nocreate'))
-delete(special_progress_tracker)
-keyboard
+%delete(gcp('nocreate'))
+%delete(special_progress_tracker)
+
 %search for jobs with identical parameters, collapse distributions
 %get the randomized network parameters
 
