@@ -20,7 +20,7 @@ opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat d
 
 Snames = {'dttest_0-1_fastD'};
 figdir = 'figures_dttest'; 
-basedir = '/home/acclab/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
 %control, log total time @ 150 pulse
@@ -144,6 +144,11 @@ BL_fns = dir(fullfile([resdir '_BL'],['*',sim_name,'*.mat']));
 BL_fns = cellfun(@(x,y) fullfile(x,y),{BL_fns.folder},{BL_fns.name},'UniformOutput',false);
 output_fns = cat(2,BL_fns,output_fns);
 param_varnams = {'ItoE','EtoI','stim_A','stim_B','stim_targs'};
+%for indexing the result paramters 
+%(MAY HAVE TO CHANGE THIS DEPENDING ON WHAT YOU'RE DOING!!!!
+%IDvars = param_varnams(~ismember(param_varnams,'stim_B')); %stim B not particular to network type
+IDvars = param_varnams(1:2); %only match on strength parameters 
+
 %get general options file from the first file 
 gen_options = load(output_fns{1});
 gen_options = gen_options.options;
@@ -167,14 +172,14 @@ end
 num_files = numel(output_fns);
 stimtarg_vals = {'baseline','Estay','Eswitch'}; %this is dumb
 stimtarg_labels = {'baseline','fast','slow'}; 
-keyboard
+
 network_pair_info = load(fullfile(helpdir,'network_pairs',gen_options.netpair_file));
 network_pair_info = network_pair_info.network_pairs;
 num_net_types = cellfun(@(x) size(x,1),network_pair_info);
 num_net_types = sum(num_net_types);
 num_pairs = numel(network_pair_info);
 
-%add a little more info to the table 
+%add a little more info to the table, truncate param values (for rounding problems)
 for idx = 1:num_pairs
     T = network_pair_info{idx};
     T_stargs = T.Properties.RowNames;
@@ -312,23 +317,16 @@ end
 net_type.stim_targs = cellfun(@(x) stimtarg_labels{x},...
     num2cell(net_type.stim_targs),'UniformOutput',false);
 
-% %just grab some simple stats here
-% mu_duration = cellfun(@(x) mean(x),result_data(:,1));
-% med_duration = cellfun(@(x) median(x),result_data(:,1));
-% logmu_dur = cellfun(@(x) mean(log(x)),result_data(:,1));
-% %get the network parameters
-% EtoE = cellfun(@(x)  x.EtoE,result_data(:,2));
-% ItoE = cellfun(@(x)  x.ItoE,result_data(:,2));
-% EtoI = cellfun(@(x)  x.EtoI,result_data(:,2));
-% stim_value = cellfun(@(x)  unique(x.trial_stimuli),result_data(:,2));
-
-% net_type = num2cell(num2cell(uniq_params),2);
-% net_type = cellfun(@(x)  [x(1:3),stimtarg_vals{x{4}}],net_type,'UniformOutput',false);
-% net_type = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Estay','fast')],net_type,'UniformOutput',false);
-% net_type = cellfun(@(x) [x(:,1:3),strrep(x(:,4),'Eswitch','slow')],net_type,'UniformOutput',false);
-
-keyboard
-
+%okay these strength connections need to be truncated now 
+trunc_val = @(x) round(x,4);
+for idx = 1:num_pairs
+    T = network_pair_info{idx};
+    T.ItoE = trunc_val(T.ItoE);
+    T.EtoI = trunc_val(T.EtoI);
+    network_pair_info{idx} = T;
+end
+net_type.ItoE = trunc_val(net_type.ItoE);
+net_type.EtoI = trunc_val(net_type.EtoI);
 
 fig_fn = [sim_name '_%s'];
 
@@ -361,32 +359,31 @@ matorange = [0.8500,0.3250,0.0980];
 BLcol = [103 115 122] ./ 255;
 alph = .5;
 
-%for indexing the result paramters 
-IDvars = param_varnams(~ismember(param_varnams,'stim_B')); %stim B not particular to network type
-
 plt_idx = 0;
-for idx = 1:num_net_types
+for idx = 1:num_pairs
     
     curr_net_info = network_pair_info{idx};
     for j = 1:2
         
         plt_idx = plt_idx + 1;
-        h(plt_idx) = subplot(5,2,plt_idx);
+        h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
         hold on
         
+        curr_net_type = curr_net_info.Row{j};
         %get the right color
-        if strcmpi(curr_net_info{j,end},'slow')
-            lcol = matorange;
-        elseif strcmpi(curr_net_info{j,end},'fast')
-            lcol = matblue;
+        switch curr_net_type
+            case 'slow'
+                lcol = matorange;
+            case 'fast'
+                lcol = matblue;
         end
         
         %find the right results for network set-up
-        curr_data = table2cell(curr_net_info(j,IDvars));
-        curr_data = cellfun(@(x) isequal(x,curr_data),... %ugly indexing & transform here..
-            num2cell(table2cell(net_type(:,IDvars)),2));
+        curr_data = curr_net_info{j,IDvars};
+        curr_data = ismember(net_type{:,IDvars},curr_data,'rows');
         curr_data = result_data(curr_data,1);
         curr_data = cat(1,curr_data{:});
+        
         
         if ~isempty(curr_data) %skip plot if no data...
             switch outcome_stat
@@ -397,39 +394,43 @@ for idx = 1:num_net_types
             histogram(curr_data,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
             Ylab = 'freq';
         end
-        %take control data
-        BLinfo = curr_net_info(j,IDvars);
-        BLinfo.stim_A = 0; BLinfo.stim_targs = 'baseline'; %0 stim & baseline targets 
-        curr_data = cellfun(@(x) isequal(x,table2cell(BLinfo)),... 
-            num2cell(table2cell(net_type(:,IDvars)),2));
-        curr_data = result_data(curr_data,1);
-        curr_data = cat(1,curr_data{:});
         
-        if ~isempty(curr_data) %skip plot if no data...
-            switch outcome_stat
-                case 'logmu'
-                    curr_data = curr_data(curr_data ~= 0);%inf errors
-                    curr_data = log(curr_data);
-            end
-            switch pulse_stim
-                case 'yes'
-                    histogram(curr_data,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
-                    Ylab = 'freq';
-                otherwise
-                    [kde,kde_i] = ksdensity(curr_data);
-                    area(kde_i,kde,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
-                    Ylab = 'p(x)';
-            end
-        end
+        %-- if you look at the plotting code here, I think this is old anyways
+        %         %take control data
+        %         BLinfo = curr_net_info(j,IDvars);
+        %         BLinfo.stim_A = 0; BLinfo.stim_targs = 'baseline'; %0 stim & baseline targets
+        %         curr_data = cellfun(@(x) isequal(x,table2cell(BLinfo)),...
+        %             num2cell(table2cell(net_type(:,IDvars)),2));
+        %         curr_data = result_data(curr_data,1);
+        %         curr_data = cat(1,curr_data{:});
+        %
+        %         if ~isempty(curr_data) %skip plot if no data...
+        %             switch outcome_stat
+        %                 case 'logmu'
+        %                     curr_data = curr_data(curr_data ~= 0);%inf errors
+        %                     curr_data = log(curr_data);
+        %             end
+        %             switch pulse_stim
+        %                 case 'yes'
+        %                     histogram(curr_data,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
+        %                     Ylab = 'freq';
+        %                 otherwise
+        %                     [kde,kde_i] = ksdensity(curr_data);
+        %                     area(kde_i,kde,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
+        %                     Ylab = 'p(x)';
+        %             end
+        %         end
         
         hold off
-        switch pulse_stim
-            case 'off'
-                legend(sprintf('%.0fHz',curr_net_info.stim_A{j}),'location','best')
-            otherwise
-                legend(sprintf('%.0fHz %s',curr_net_info.stim_A{j},Pdur),'location','best')
-        end
+        %         switch pulse_stim
+        %             case 'off'
+        %                 legend(sprintf('%.0fHz',curr_net_info.stim_A{j}),'location','best')
+        %             otherwise
+        %                 legend(sprintf('%.0fHz %s',curr_net_info.stim_A{j},Pdur),'location','best')
+        %         end
         
+        legend(sprintf('mu = %.2f',mean(curr_data)),'location','best')
+
         if plt_idx == 9 || plt_idx == 10
             xlabel(Zlabel)
         end
