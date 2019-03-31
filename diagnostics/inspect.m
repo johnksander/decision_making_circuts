@@ -6,8 +6,8 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-%jobID = 11;
-%sname = 'daig_timestep';
+%jobID = 1;
+%sname = 'diag_voltage_dt25';
 jobID = str2num(getenv('JID'));
 sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
@@ -333,6 +333,29 @@ title(sprintf('Network:    E-I = %.2f,    I-E = %.2f',options.EtoI,options.ItoE)
 set(gca,'FontSize',fontsz)
 print(fullfile(fig_dir,'parameter_title'),'-djpeg')
 
+
+%membrane voltage distributions
+Ve = Vrec(celltype.excit,:);
+Ve = Ve(:) ./ 1e-3; %convert to mV units 
+Vi = Vrec(celltype.inhib,:);
+Vi = Vi(:) ./ 1e-3; %convert to mV units 
+
+figure;orient tall
+subplot(2,1,1)
+histogram(Ve)
+title(sprintf('Excitatory cells (dt = %.2f ms)',timestep / 1e-3))
+legend(sprintf('\\mu = %.1f mV\\newline\\sigma = %1.f mV',mean(Ve),std(Ve)))
+set(gca,'FontSize',fontsz,'FontWeight','b')
+subplot(2,1,2)
+histogram(Vi)
+title(sprintf('Inhibitory cells (dt = %.2f ms)',timestep / 1e-3))
+legend(sprintf('\\mu = %.1f mV\\newline\\sigma = %1.f mV',mean(Vi),std(Vi)))
+set(gca,'FontSize',fontsz,'FontWeight','b')
+xlabel('membrane potential (mV)')
+print(fullfile(fig_dir,'Vm_dists'),'-djpeg')
+
+
+
 %for printing 
 TCfile = cellfun(@(x) sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false); %for printing
 TCfile = [TCfile,timecourse.state];
@@ -391,7 +414,10 @@ writetable(TCfile,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
 function cell_data = sim_spikerate(cell_raster,timestep,celltype)
 
 binsz = 75e-3;
-num_binsamps = binsz/timestep; %num samples in Xms (the bin size)
+num_binsamps = binsz./timestep; %num samples in Xms (the bin size)
+if round(num_binsamps) - num_binsamps < 1e-12 %roundoff errors...
+    num_binsamps = round(num_binsamps);
+end
 if mod(num_binsamps,1) ~= 0 %not evenly divisible... find next best thing 
     alt_binsz = binsz-(5e-3):1e-3:binsz+(5e-3);
     even_div = rem(alt_binsz, timestep) == 0;
@@ -422,6 +448,9 @@ end
 function cell_data = sim_windowrate(cell_raster,timestep,celltype,window_sz)
 
 num_binsamps = window_sz/timestep; %num samples in Xms
+if round(num_binsamps) - num_binsamps < 1e-12 %roundoff errors...
+    num_binsamps = round(num_binsamps);
+end
 if mod(num_binsamps,1) ~= 0 %not evenly divisible... find next best thing 
     alt_binsz = window_sz-(5e-3):1e-3:window_sz+(5e-3);
     even_div = rem(alt_binsz, timestep) == 0;

@@ -1,0 +1,86 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2017 The MathWorks, Inc.
+                   R2017b (9.3.0.713579) 64-bit (glnxa64)
+                             September 14, 2017
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+Your HTML rendering engine is now set to 'basic'.
+ans =
+     1
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2017 The MathWorks, Inc.
+                   R2017b (9.3.0.713579) 64-bit (glnxa64)
+                             September 14, 2017
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+Your HTML rendering engine is now set to 'basic'.
+ans =
+     1
+{Undefined function or variable 'timecourse'.
+Error in inspect (line 360)
+TCfile = cellfun(@(x)
+sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false);
+%for printing} 
+>> 
+                            < M A T L A B (R) >
+                  Copyright 1984-2017 The MathWorks, Inc.
+                   R2017b (9.3.0.713579) 64-bit (glnxa64)
+                             September 14, 2017
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+Your HTML rendering engine is now set to 'basic'.
+ans =
+     1
+{Undefined function or variable 'timecourse'.
+Error in inspect (line 360)
+TCfile = cellfun(@(x)
+sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false);
+%for printing} 
+>> {Undefined function or variable 'timecourse'.
+Error in inspect (line 360)
+TCfile = cellfun(@(x)
+sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false);
+%for printing} 
+>> 
+                            < M A T L A B (R) >
+                  Copyright 1984-2017 The MathWorks, Inc.
+                   R2017b (9.3.0.713579) 64-bit (glnxa64)
+                             September 14, 2017
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+Your HTML rendering engine is now set to 'basic'.
+ans =
+     1
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2017 The MathWorks, Inc.
+                   R2017b (9.3.0.713579) 64-bit (glnxa64)
+                             September 14, 2017
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+Your HTML rendering engine is now set to 'basic'.
+ans =
+     1
+{Undefined function or variable 'timecourse'.
+Error in inspect (line 360)
+TCfile = cellfun(@(x)
+sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false);
+%for printing} 
+>> 

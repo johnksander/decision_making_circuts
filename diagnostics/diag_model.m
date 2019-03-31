@@ -390,10 +390,10 @@ end
 update_logfile('---Simulation complete---',options.output_log)
 savename = fullfile(options.save_dir,options.sim_name);
 save(savename,'sim_results','options')
-save(sprintf('%s_D',savename),'Drec_fast','Drec_slow','options')
-save(sprintf('%s_V',savename),'Vrec','options')
-save(sprintf('%s_S',savename),'Srec','options')
-save(sprintf('%s_spikes',savename),'spikes','options')
+save(sprintf('%s_D',savename),'Drec_fast','Drec_slow','options','-v7.3')
+save(sprintf('%s_V',savename),'Vrec','options','-v7.3')
+save(sprintf('%s_S',savename),'Srec','options','-v7.3')
+save(sprintf('%s_spikes',savename),'spikes','options','-v7.3')
 
 
 
