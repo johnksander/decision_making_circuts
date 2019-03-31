@@ -2,7 +2,7 @@ clear
 clc
 format compact
 
-
+%NOTE: using longer dt for this search 
 Tobj = 7.5; %target mean duration 
 R0_stim = 25; %start search at 25 hz
 
@@ -19,7 +19,7 @@ for idx = 1:num_nets %use this to index the different network types
     %:::start:::
     t = 200; %trial simulation time (s)
     options = set_options('modeltype','equate_stim','comp_location','hpc',...
-        'timestep',1e-3,...
+        'timestep',.25e-3,...
         'sim_name','equate_slowD_stims','jobID',idx,'tmax',t,...
         'percent_Dslow',.5,'netpair_file','slowD',...
         'stim_pulse',[t,0],'sample_Estay_offset',0);
