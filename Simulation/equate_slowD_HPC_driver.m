@@ -35,8 +35,13 @@ for idx = 1:num_nets %use this to index the different network types
         while ~solution
             %---run-----------------------
             
+            %either do fminsearch()
+            %[Req,~,exitflag] = ...
+            %    fminsearch(@(x) stim_search_wrapper(Tobj,x,options)  ,R0_stim,search_opt);
+            
+            %or fminbnd()
             [Req,~,exitflag] = ...
-                fminsearch(@(x) stim_search_wrapper(Tobj,x,options)  ,R0_stim,search_opt);
+                fminbnd(@(x) stim_search_wrapper(Tobj,x,options),0,750,search_opt);
             
             solution = exitflag == 1; %ensure minima actually found
         end

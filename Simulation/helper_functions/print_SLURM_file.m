@@ -44,7 +44,8 @@ fprintf(f,'\n\n\n');
 fprintf(f,'cd %s\n',options.batchdir);
 fprintf(f,'module load share_modules/MATLAB/R2017a\n\n');
 
-fprintf(f,'srun matlab -singleCompThread -nodisplay -nodesktop -nosplash -r "driver"\n');
+fprintf(f,'matlab -singleCompThread -nodisplay -nodesktop -nosplash -r "driver"\n');
+%fprintf(f,'srun matlab -singleCompThread -nodisplay -nodesktop -nosplash -r "driver"\n');
 
 
 fclose(f);
