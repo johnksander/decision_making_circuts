@@ -8,6 +8,7 @@ opt = struct();
 opt.print_anything = 'yes'; %'yes' | 'no';
 opt.save_anything = 'no';
 opt.multiple_stimuli = 'no'; 
+opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave 
 opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
 
@@ -150,6 +151,9 @@ pulse_stim = opt.pulse_stim;
 print_anything = opt.print_anything; %'yes' | 'no';
 save_anything = opt.save_anything;
 summary_stats = 'no'; %summary_stats = opt.summary_stats;
+params2match = {'conn','stim','targ'}; %!!!IMPORTANT!!! specify how results are matched to network types 
+%this can be at most {'conn','stim','targ'}. That specifies matching on 
+%connection strengths, stimulus values, target cells for stimulus 
 
 helpdir = fullfile(basedir,'helper_functions');
 figdir = fullfile(basedir,'Results',figdir,'durations');
@@ -166,9 +170,13 @@ switch opt.multiple_stimuli
         param_varnams = {'ItoE','EtoI','stim','stim_targs'};
 end
 %for indexing the result paramters 
-%(MAY HAVE TO CHANGE THIS DEPENDING ON WHAT YOU'RE DOING!!!!
 %IDvars = param_varnams(~ismember(param_varnams,'stim_B')); %stim B not particular to network type
-IDvars = param_varnams(1:2); %only match on strength parameters 
+IDvars = [];
+if sum(strcmp('conn',params2match)) > 0,IDvars = {'ItoE','EtoI'};end
+if sum(strcmp('stim',params2match)) > 0
+    IDvars = [IDvars,param_varnams(startsWith(param_varnams,'stim') & ~contains(param_varnams,'targ'))];
+end
+if sum(strcmp('targ',params2match)) > 0,IDvars = [IDvars,{'stim_targs'}];end
 
 %get general options file from the first file 
 gen_options = load(output_fns{1});
@@ -214,7 +222,7 @@ end
 
 fprintf('\n---loading simulation: %s\n',sim_name)
 
-fprintf('\nHELLO need to check find_stay_durations() with verify argument')
+warning('HELLO need to check find_stay_durations() with verify argument')
 
 %get results
 fprintf('\nparfor disabled')
@@ -234,27 +242,28 @@ for idx = 1:num_files
     %get state durations
     state_durations = curr_file.sim_results;
     state_durations = state_durations{1};
-    
-    %just get all of them, baseline test. Everything that's not undecided
-    valid_states = ~strcmpi(state_durations(:,end),'undecided');
-    %state.count recorded in second col 
-    state_durations = state_durations(valid_states,2);
-    state_durations = cat(1,state_durations{:});
-    %convert to time
-    state_durations = state_durations * timestep;
-    %ratecheck estimates
-    
-%     state_durations = find_stay_durations(state_durations,curr_file.options);
-%     switch pulse_stim
-%         case 'yes' %just do this now while options is handy
-%             state_durations = state_durations.samples;
-%         case 'rem' %look at when IN the sample switch happened
-%             state_durations = state_durations.decision_time;
-%         case 'total_time'
-%             state_durations = state_durations.duration;
-%         case 'off'
-%             state_durations = state_durations.duration;
-%     end
+    switch opt.valid_states %select states for analysis
+        case 'all'
+            %just get all of them, baseline test. Everything that's not undecided
+            keep_states = ~strcmpi(state_durations(:,end),'undecided');
+            %state.count recorded in second col
+            state_durations = state_durations(keep_states,2);
+            state_durations = cat(1,state_durations{:});
+            %convert to time
+            state_durations = state_durations * timestep;
+        case 'stay'
+            state_durations = find_stay_durations(state_durations,curr_file.options,'verify');
+            switch pulse_stim
+                case 'yes' %just do this now while options is handy
+                    state_durations = state_durations.samples;
+                case 'rem' %look at when IN the sample switch happened
+                    state_durations = state_durations.decision_time;
+                case 'total_time'
+                    state_durations = state_durations.duration;
+                case 'off'
+                    state_durations = state_durations.duration;
+            end
+    end
     
     %store durations & parameters
     file_data(idx,:) = {state_durations,curr_file.options};

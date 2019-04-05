@@ -10,8 +10,6 @@ Thumbs.db
 
 # don't repo the results anymore, make this practical...
 /Results/
-#ignore bash files for running jobs
-*.sh
 #ignore cluster jobfiles
 /Simulation/job_files/
 #ignore progress tracker file that sticks here sometimes

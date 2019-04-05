@@ -5,15 +5,14 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 1;
+jobID = 2;
 
 %---setup---------------------
-tmax = 30; %diagnostics_fullnoise
+tmax = 20; %diagnostics_fullnoise
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'timestep',.02e-3,...
-    'sim_name','diag_voltage_dt02','jobID',jobID,'tmax',tmax,...
+    'sim_name','diag_transition_time','jobID',jobID,'tmax',tmax,...
     'netpair_file','fastD',...
-    'stim_pulse',[tmax,0],'sample_Estay_offset',0);
+    'stim_pulse',[tmax,0],'sample_Estay_offset',0,'cut_leave_state',9999);
 
 do_config = mod(options.jobID,10);
 do_config(do_config == 0) = 10;

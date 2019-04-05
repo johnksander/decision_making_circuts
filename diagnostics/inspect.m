@@ -6,16 +6,13 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-%jobID = 1;
-%sname = 'diag_voltage_dt25';
-jobID = str2num(getenv('JID'));
-sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
+jobID = 2;
+sname = 'diag_transition_time';
+%jobID = str2num(getenv('JID'));
+%sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
 %---setup---------------------
-tmax = 30; %diagnostics_fullnoise
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name',sname,'tmax',tmax,'jobID',jobID,...
-    'stim_pulse',[tmax,0],'cut_leave_state',tmax,'sample_Estay_offset',0);
+options = set_options('modeltype','diagnostics','comp_location','woodstock','sim_name',sname,'jobID',jobID);
 
 
 fig_dir = fullfile(options.save_dir,options.sim_name);
@@ -50,6 +47,8 @@ if ~isempty(term_idx)
 end
 
 timestep = options.timestep;
+
+
 lnsz = 3; %spikerate plots
 fontsz = 12;
 
@@ -263,10 +262,14 @@ set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'syn_gating_allcells_difference'),'-djpeg')
 
 figure
-plot(Sg.Estay-Sg.Eswitch,'Linewidth',lnsz)
-Xticks = num2cell(get(gca,'Xtick'));
-Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
-set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+%plot(Sg.Estay-Sg.Eswitch,'Linewidth',lnsz)
+%Xticks = num2cell(get(gca,'Xtick'));
+%Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
+%set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+plot(0:timestep:options.tmax, Sg.Estay-Sg.Eswitch,'Linewidth',lnsz)
+above_state_thresh = Sg.Estay-Sg.Eswitch;
+above_state_thresh(abs(above_state_thresh) < options.state_test_thresh) = NaN;
+hold on;plot(0:timestep:options.tmax, above_state_thresh,'Linewidth',lnsz);hold off
 title('Synaptic gating')
 ylabel('Mean pool S-gating')
 xlabel('time (s)')
@@ -334,25 +337,25 @@ set(gca,'FontSize',fontsz)
 print(fullfile(fig_dir,'parameter_title'),'-djpeg')
 
 
-%membrane voltage distributions
-Ve = Vrec(celltype.excit,:);
-Ve = Ve(:) ./ 1e-3; %convert to mV units 
-Vi = Vrec(celltype.inhib,:);
-Vi = Vi(:) ./ 1e-3; %convert to mV units 
-
-figure;orient tall
-subplot(2,1,1)
-histogram(Ve)
-title(sprintf('Excitatory cells (dt = %.2f ms)',timestep / 1e-3))
-legend(sprintf('\\mu = %.1f mV\\newline\\sigma = %1.f mV',mean(Ve),std(Ve)))
-set(gca,'FontSize',fontsz,'FontWeight','b')
-subplot(2,1,2)
-histogram(Vi)
-title(sprintf('Inhibitory cells (dt = %.2f ms)',timestep / 1e-3))
-legend(sprintf('\\mu = %.1f mV\\newline\\sigma = %1.f mV',mean(Vi),std(Vi)))
-set(gca,'FontSize',fontsz,'FontWeight','b')
-xlabel('membrane potential (mV)')
-print(fullfile(fig_dir,'Vm_dists'),'-djpeg')
+% %membrane voltage distributions
+% Ve = Vrec(celltype.excit,:);
+% Ve = Ve(:) ./ 1e-3; %convert to mV units 
+% Vi = Vrec(celltype.inhib,:);
+% Vi = Vi(:) ./ 1e-3; %convert to mV units 
+% 
+% figure;orient tall
+% subplot(2,1,1)
+% histogram(Ve)
+% title(sprintf('Excitatory cells (dt = %.2f ms)',timestep / 1e-3))
+% legend(sprintf('\\mu = %.1f mV\\newline\\sigma = %1.f mV',mean(Ve),std(Ve)))
+% set(gca,'FontSize',fontsz,'FontWeight','b')
+% subplot(2,1,2)
+% histogram(Vi)
+% title(sprintf('Inhibitory cells (dt = %.2f ms)',timestep / 1e-3))
+% legend(sprintf('\\mu = %.1f mV\\newline\\sigma = %1.f mV',mean(Vi),std(Vi)))
+% set(gca,'FontSize',fontsz,'FontWeight','b')
+% xlabel('membrane potential (mV)')
+% print(fullfile(fig_dir,'Vm_dists'),'-djpeg')
 
 
 
