@@ -5,8 +5,18 @@ Smu = mean(Smu);
 active_state = Smu - fliplr(Smu); %A-B, B-A
 active_state = active_state > state.test_thresh; %will return undecided, if neither active
 
+
+switch state.state_def  %whether simulation aknowledges "undecided states" 
+    case 'active_states'
+    %must be a different state, that's not undecided
+    state_transition = any(active_state ~= state.now) && any(active_state);
+    case 'include_undecided'
+    state_transition = any(active_state ~= state.now);   
+end
+
+
 %check if there's suprathreshold change in state activity 
-if any(active_state ~= state.now)
+if state_transition
     state.thresh_clock = state.thresh_clock + 1;
 else 
     state.thresh_clock = 0; %reset the clock 
@@ -30,7 +40,7 @@ if state.thresh_clock == state.test_time
     end
     durations = vertcat(durations,...
         {state.timeidx,state.count,state.sample_clock,record_stim_label});
-    state.now = active_state; %switch state
+    state.now = active_state; %specify new state
     state.count = 0; %reset the clock
     state.thresh_clock = 0; 
 

@@ -36,7 +36,7 @@ W = reorder_weightmat(W,celltype);
 %----cell connections---------
 Erev = 0; %reversal potential, excitatory
 Irev = -70e-3; %reversal potential, inhibitory
-Gg = 10e-9; %max connductance microSiemens
+Gg = 10e-9; %max conductance microSiemens
 Pr = NaN(pool_options.num_cells,1); %release probability
 Pr(celltype.excit) = .2; %excitatory release probability
 Pr(celltype.inhib) = .2; %inhibitory release probability
@@ -139,7 +139,6 @@ for trialidx = 1:num_trials
     %---state tracker-------------
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
-    options.sample_Estay_offset = options.sample_Estay_offset / timestep;
     state.now = state.undecided; %this will always be true when V init to El
     %---switch data recording-----
     %250ms before switch, 150ms after
@@ -149,7 +148,8 @@ for trialidx = 1:num_trials
     switch_record = {};
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
-    avail_stim = true; %in between stimulus delivery pulses in stay state
+    avail_noise.Estay = 1; 
+    avail_noise.Eswitch = 1; 
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
     
@@ -199,7 +199,7 @@ for trialidx = 1:num_trials
         %test for state transition & determine stim availability
         if experiment_set2go
             [state,durations] = test4switch(Sg(:,idx),state,durations);
-            [state,avail_stim] = check_stim_avail(stim_info,state);
+            [state,avail_noise] = check_noise_avail(stim_info,state);
         else
             state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside
         end
@@ -225,21 +225,16 @@ for trialidx = 1:num_trials
         %input spikes: noise & stimulus
         %---noisy spiking input from elsewhere
         ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
-        if ~avail_stim
-            %we're in between stimulus delivery pulses
-            %do half-noise to all E-cells-- gives barely spiking undecided state
-            ext_spikes(celltype.excit,:) = poissrnd(Lext*.5,sum(celltype.excit),2); %half noise E-cells
-        elseif avail_stim && strcmp(stim_info.delivery,'pulse') && experiment_set2go
-            %stimulus is available, and we're doing pulse-sample delivery
-            Tsample = sum(stim_info.pulse); %how long for a single on, off sequence
-            Tsample = mod(state.sample_clock,Tsample); %find out how far into the sample
-            if Tsample <= options.sample_Estay_offset
-                %if during first Xms of a sample, give E-stay full noise &
-                %E-switch half-noise to kick on the stay-state
-                ext_spikes(celltype.excit & celltype.pool_switch,:) = ...
-                    poissrnd(Lext*.5,sum(celltype.excit & celltype.pool_switch),2);
-            end
+        %adjust noise input if needed 
+        if avail_noise.Estay ~= 1
+            ext_spikes(celltype.excit & celltype.pool_stay,:) = ...
+                poissrnd(avail_noise.Estay.*Lext,sum(celltype.excit & celltype.pool_stay),2);
         end
+        if avail_noise.Eswitch ~= 1
+            ext_spikes(celltype.excit & celltype.pool_switch,:) = ...
+                poissrnd(avail_noise.Eswitch.*Lext,sum(celltype.excit & celltype.pool_switch),2);
+        end
+        
         %---spiking input from stimulus
         if experiment_set2go
             stim_spikes = timepoint_stimulus(stim_info,state); %get stimulus spikes

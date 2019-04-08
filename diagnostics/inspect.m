@@ -6,8 +6,8 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 2;
-sname = 'diag_transition_time';
+jobID = 4;
+sname = 'diag_newswitch_crit';
 %jobID = str2num(getenv('JID'));
 %sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
@@ -278,6 +278,25 @@ set(gca,'FontSize',fontsz);axis tight;hold off
 print(fullfile(fig_dir,'syn_gating_difference'),'-djpeg')
 
 
+%I want to see how long it takes to register a switch without "undecided" states
+above_state_thresh = abs(Sg.Estay-Sg.Eswitch) > options.state_test_thresh;
+above_state_thresh = diff(above_state_thresh) == -1;
+tvec = timestep:timestep:options.tmax; %start with 1 b/c of diff
+above_state_thresh = tvec(above_state_thresh);
+above_state_thresh = diff(above_state_thresh);
+above_state_thresh = above_state_thresh(above_state_thresh < .4); %doesn't take a half second
+above_state_thresh = above_state_thresh(above_state_thresh > 25e-3); %takes longer than 25 ms
+figure;histogram(above_state_thresh ./ 1e-3,numel(above_state_thresh));xlabel('transition detection time ms')
+hold on 
+above_state_thresh = Sg.Eswitch-Sg.Estay > options.state_test_thresh;
+above_state_thresh = diff(above_state_thresh) == -1;
+tvec = timestep:timestep:options.tmax; %start with 1 b/c of diff
+above_state_thresh = tvec(above_state_thresh);
+above_state_thresh = diff(above_state_thresh);
+above_state_thresh = above_state_thresh(above_state_thresh < .3); %doesn't take a half second
+above_state_thresh = above_state_thresh(above_state_thresh > 25e-3); %takes longer than 25 ms
+
+
 window_sz = 100e-3;
 Sg_smooth = sim_windowrate(Srec,timestep,celltype,window_sz);
 Sg_smooth = structfun(@(x) x.* timestep ,Sg_smooth,'UniformOutput',false); %undo hz conversion
@@ -311,8 +330,9 @@ if numel(durations) > 1
     samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding
     timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
     timecourse(:,end) = durations(:,end);
+    timecourse = [timecourse(:,1),num2cell(cellfun(@(x,y) x-y,timecourse(:,1),timecourse(:,2))),timecourse(:,2:end)];
     %timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
-    timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
+    timecourse = cell2table(timecourse,'VariableNames',{'event_time','start','duration','sample_time','sample_number','state'});
     figure
     %state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
     state_durs = timecourse.duration(~strcmpi(timecourse.state,'undecided')); %leave states included 
@@ -362,7 +382,7 @@ print(fullfile(fig_dir,'parameter_title'),'-djpeg')
 %for printing 
 TCfile = cellfun(@(x) sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false); %for printing
 TCfile = [TCfile,timecourse.state];
-TCfile = cell2table(TCfile,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});
+TCfile = cell2table(TCfile,'VariableNames',{'event_time','start','duration','sample_time','sample_number','state'});
 writetable(TCfile,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
 
 % %this is what happened, and when
