@@ -148,8 +148,7 @@ for trialidx = 1:num_trials
     switch_record = {};
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
-    avail_noise.Estay = 1; 
-    avail_noise.Eswitch = 1; 
+    avail_noise.Estay = 1; avail_noise.Eswitch = 1; 
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
     

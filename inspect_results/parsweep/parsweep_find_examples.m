@@ -3,19 +3,22 @@ clc
 format compact
 close all
 
-%rhis one matches by slow networks first 
+%rhis one matches by fast networks first 
+save_netfile = 'no'; %yes/no
+save_figs = 'yes';
 
 %specify simulation
 %---sim setup-----------------
 Flabel = 'slowD'; %network pairs will be saved with this filename 
-sim_name = 'parsweep_slowD_Rlim_baseline';
-basedir = '/home/acclab/Desktop/ksander/rotation/project/';
+sim_name = 'parsweep_fastD_Rlim_baseline';
+basedir = '~/Desktop/work/ACClab/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
 helper_dir = fullfile(basedir,'helper_functions');
 addpath(helper_dir)
 svdir = fullfile(helper_dir,'network_pairs');
-if ~isdir(svdir),mkdir(svdir);end
+fig_out_dir = fullfile(figdir,'example_networks'); %where these figs get saved to 
+if ~isdir(svdir),mkdir(svdir);end;if ~isdir(fig_out_dir),mkdir(fig_out_dir);end
 FN = fullfile(svdir,Flabel);
 
 %get results file
@@ -203,8 +206,10 @@ hold on
 
 scatter3(X,Y,Z,1000,'red','p','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em w/ stars
 hold off
-
-  
+switch save_figs
+    case 'yes'
+        print(fullfile(fig_out_dir,'surface_plot_examples'),'-djpeg','-r400')%print high-res
+end
 %now for the heatmap
 
 %need a logical showing all the networks you picked... 
@@ -216,11 +221,17 @@ hold on
 
 scatter(netX(HMcoords),netY(HMcoords),500,'red','p','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1);
 hold off
+switch save_figs
+    case 'yes'
+        print(fullfile(fig_out_dir,'heatmap_examples'),'-djpeg','-r400')%print high-res
+end
 
 
 %save the network pair data
-save(FN,'network_pairs')
-
+switch save_netfile
+    case 'yes'
+        save(FN,'network_pairs')
+end
 
 % net_pair = array2table(NaN(2,3),'VariableNames',{'ItoE','EtoI','duration'},'RowNames',{'slow','fast'});
 %
