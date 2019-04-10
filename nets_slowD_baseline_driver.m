@@ -10,9 +10,14 @@ format compact
 jID = str2num([getenv('SLURM_JOBID'), getenv('SLURM_ARRAY_TASK_ID')]);
 t = 350; %trial simulation time (s) 
 options = set_options('modeltype','NETS','comp_location','hpc',...
-    'sim_name','nets_slowD','jobID',jID,'tmax',t,...
+    'sim_name','nets_slowD_baseline','jobID',jID,'tmax',t,...
     'percent_Dslow',.5,'netpair_file','slowD',...
     'record_spiking','on');
+
+%specify baseline stimulus 0hz
+options.stim_targs = 'baseline'; 
+Rstim = 0; 
+options.trial_stimuli = [Rstim,Rstim];
 
 %---run-----------------------
 modelfile = spikeout_model(options);

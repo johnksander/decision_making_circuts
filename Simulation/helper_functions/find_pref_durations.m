@@ -83,6 +83,10 @@ switch Fopt.rules
         %can be either A-B, or B-A.
         valid_sequence = {'leave','undecided','stim_','undecided','leave','undecided',...
             'stim_','undecided','leave'}';
+        switch options.state_def  %whether simulation aknowledges "undecided states"
+            case 'active_states'
+                valid_sequence = valid_sequence(~ismember(valid_sequence,'undecided'));
+        end
         seq_stim_inds = startsWith(valid_sequence,'stim');
         seq_length = numel(valid_sequence);
         out_vars = {'event_time','duration','sample_time','sample_number','state','seqID'};
@@ -127,6 +131,10 @@ switch Fopt.rules
         leave_states = find(strcmp(timecourse.state,'leave')); %find this again..
         valid_sequence = {'stim_','undecided','leave','undecided',...
             'stim_'}';
+        switch options.state_def  %whether simulation aknowledges "undecided states"
+            case 'active_states'
+                valid_sequence = valid_sequence(~ismember(valid_sequence,'undecided'));
+        end
         seq_stim_inds = startsWith(valid_sequence,'stim');
         seq_length = numel(valid_sequence);
         out_vars = {'event_time','duration','sample_time','sample_number','state','seqID'};
@@ -174,7 +182,12 @@ switch Fopt.rules
         
 end
 
-Tseq = {'stim_','undecided','leave','undecided','stim_'}'; %transition sequence 
+Tseq = {'stim_','undecided','leave','undecided','stim_'}'; %transition sequence
+switch options.state_def  %whether simulation aknowledges "undecided states"
+    case 'active_states'
+        Tseq = Tseq(~ismember(Tseq,'undecided'));
+        error('you need to fix this part by running data through it...')
+end
 num_seq = max(valid_data.seqID);
 Tvars = {'event_time','u1','leave','u2','total','type'};
 Tinfo = array2table(NaN(num_seq,numel(Tvars)),'variablenames',Tvars);

@@ -8,7 +8,7 @@ R0_stim = 25; %start search at 25 hz
 
 %stopping criteria (both must be met)
 fun_tol = .25 .^2; % 250 ms tolerance for changes in objective function
-X_tol = 2; % 2 Hz tolerance for change in stimulus (per step)
+X_tol = 1; % 1 Hz tolerance for change in stimulus (per step)
 search_opt = optimset('TolFun',fun_tol,'TolX',X_tol);
 
 num_nets = 10; %number of network pairs

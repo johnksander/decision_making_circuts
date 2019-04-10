@@ -9,18 +9,18 @@ options.jobID = 9999;
 options.netpair_file = NaN; %for loading network pair info file 
 options.timestep = .1e-3; %.1 milisecond timestep
 options.noswitch_timeout = 750; %timeout without a switch (s)
-options.tmax = 5000; %trial simulation time (s)
+options.tmax = 2500; %trial simulation time (s)
 options.force_back2stay = false; %whether to force switch from stay state (default false)
-options.cut_leave_state = 100e-3; %after Xms in a leave state, cut the noise 
+options.cut_leave_state = 100e-3; %after Xms in a leave state, half noise E-switch cells 
+options.state_def = 'active_states'; %'active_states' | 'include_undecided'; whether simulation aknowledges "undecided states" 
 options.state_test_time = 50e-3; %must be X time above threshold to declare a switch 
 options.state_test_thresh = .02; %difference in mean Sg between E-cell pools 
 options.record_spiking = 'off'; % 'on' saves spiking data, 'off' gives low-memory sim without spiking data 
-%----pulse stimulus delivery (more realistic licking) 
-options.stim_pulse = [NaN, NaN]; %default will be none
-options.stim_schedule = 'flexible'; % 'fixed' or 'flexible' only matters for stim-pulse 
-%format is [on, off] in seconds. 
-%options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI
-options.sample_Estay_offset = 40e-3; %init noise offset Estay-Eswitch at the
+%----pulse stimulus delivery (more realistic licking)
+options.stim_pulse = [NaN, NaN]; %default will be none, NaNs specifies constant stim
+%format is [on, off] in seconds. options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI
+options.stim_schedule = 'flexible'; % 'fixed' or 'flexible'. Flexible starts stim schedule @ stay-state on  
+options.sample_Estay_offset = 40e-3; %(Pulse stim only) init noise offset Estay-Eswitch at the
 %sample availablity onset. This is to kick the network into stay & start sampling 
 %----checking bistability @ sim outset 
 options.init_check_Rext = 400; %pulse strength (Hz to E-stay)

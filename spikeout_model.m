@@ -149,7 +149,7 @@ for trialidx = 1:num_trials
     avail_noise.Estay = 1; avail_noise.Eswitch = 1;
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
-    
+
     while timepoint_counter < num_timepoints
         
         timepoint_counter = timepoint_counter+1;
@@ -297,7 +297,7 @@ for trialidx = 1:num_trials
         
     switch options.record_spiking
         case 'on'
-            %this needs to be fixed, verified like in find_stay_durations()
+            
             %check if we need to record a switch index for spiking data
             leave_states = find(startsWith(durations(:,end),'leave'));
             for LSidx = 1:numel(leave_states)
@@ -316,14 +316,14 @@ for trialidx = 1:num_trials
                         &&  (recwin_check+leave_durr) >= num_postswitch_samples;
                     %if the state-state lasted at least Xms, and meets above criteria
                     if last_duration > num_preswitch_samples && recwin_check
-                        %record this state in the state-record so we can pull its spiking data out later
+                        %record this state in the state-record so we can pull its spiking data out later                        
                         switch_record = vertcat(switch_record,prev_stay);
                     end
                 end
             end
             
             %check if no switches met recording criteria, terminate if needed
-            if isempty(switch_record) | numel(switch_record(:,1)) <= 1,return;end
+            if isempty(switch_record) | numel(switch_record(:,1)) < 1,return;end
             
             %now get these spike timecourses and save them
             num_switches = numel(switch_record(:,1)); %cannot believe this var name is still free
