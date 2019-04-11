@@ -286,7 +286,7 @@ for trialidx = 1:num_trials
     
     %remove the first artificially induced stay state & subsequent switch state
     trim_Bcheck = find(startsWith(durations(:,end),'leave'), 1, 'first');
-    durations = durations(trim_Bcheck+1:end,:);
+    durations = durations(trim_Bcheck+1:end,:); if isempty(durations),return;end
     sim_results{trialidx,1} = durations;
     
     %record ratelim check's rough spikerate estimate

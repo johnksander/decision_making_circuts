@@ -4,17 +4,25 @@ format compact
 hold off;close all
 
 %note-- 8/29/2018: this is the code for analyzing simulation spikerates
-
-
+opt = struct();
+opt.multiple_stimuli = 'no';
+opt.params2match = {'conn','stim'}; %specify how results are matched to network types (at most {'conn','stim'})
+opt.print_anything = 'yes'; %'yes' | 'no';
+opt.make_legend = 'yes';
+opt.Tcourse = 'all';%'presw250to5'; %'preswitch' | 'all' |presw250to5
+opt.treat_data = 'none';%'base0'; % zscore | base0 | minmax
+opt.zoomed_fig = 'yes';%'yes'; %ignore I-stay spiking for Y limits
+opt.pulse_stim = 'off';
+ 
 %specify simulation
 %---sim setup-----------------
 % Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
 %     'sim_v2_P6_1','sim_v2_P8_1','sim_v2_P10_1','sim_v2_P150_1'};
 
-Snames = {'sim_v2_P1_pt5','sim_v2_P4_pt5','sim_v2_P7_pt5','sim_v2_P10_pt5'};
+Snames = {'nets_fastD','nets_fastD_baseline'};
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
-figdir = 'halfsec_ISI_figures'; %figdir = 'network_spiking_pulse_figures';
+figdir = 'figures_nets_fastD';
 addpath(fullfile(basedir,'helper_functions'))
 
 for i = 1:numel(Snames)
@@ -60,23 +68,21 @@ fig_dir = fullfile(home_dir,'Results',figdir,'spikeplots');
 resdir = fullfile(home_dir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
-Tcourse = opt.Tcourse;%'presw250to5'; %'preswitch' | 'all' |presw250to5
-treat_data = opt.treat_data;%'base0'; % zscore | base0 | minmax
-print_anything = 'yes';make_legend = 'no'; %both 'yes'|'no'
-zoomed_fig = opt.zoomed_fig;%'yes'; %ignore I-stay spiking for Y limits
+params2match = opt.params2match;
+if contains(sim_name,'baseline');keyboard;end
 
-%pulse duration... kinda hardcoded here
-Pdur = strsplit(sim_name,'_');
-Pdur = Pdur{3};
-Pdur = strrep(Pdur,'P','');
-Pdur = sprintf('%ss',Pdur);
-
-
+switch opt.pulse_stim
+    case 'off' 
+        %skip this business
+    otherwise
+        %pulse duration... kinda hardcoded here
+        error('get this from  options dude, was previously striped from sim name')
+end
 
 if ~isdir(fig_dir),mkdir(fig_dir);end
 
 
-switch Tcourse
+switch opt.Tcourse
     case 'preswitch'
         fig_fn = 'preswitch_timecourse';
         preswitch_plottime = 105e-3; %preswitch duration to plot (T0-X)
@@ -97,7 +103,7 @@ end
 
 fig_fn = sprintf('%s_%s',sim_name,fig_fn);
 
-switch treat_data
+switch opt.treat_data
     case 'zscore'
         %fig_dir = fullfile(fig_dir,'zscore');
         fig_fn = sprintf('%s_%s',fig_fn,'zscore');
@@ -111,7 +117,6 @@ end
 
 
 recorded_switchtime =  250e-3; %actual switchtime in recorded switch
-timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
 
 %result summaries
 fontsz = 30;
@@ -128,25 +133,57 @@ pool_options.sz_EI = [.8 .2]; %proportion excitable % inhibitory
 pool_options.p_conn = .5; %connection probability 50%
 celltype = celltype_logicals(pool_options);
 
+%get general options file from the first file 
+gen_options = load(output_fns{1});
+gen_options = gen_options.options;
+timestep = gen_options.timestep;
 
-%replace with like... "network types"
-%look in get_network_params() for this NPjobs, 0 is the last one paired w/ 9..
-NPjobs = cat(1,[1:2:9],[2:2:9,0])'; %u-g-l-y
-network_pair_info = cell(size(NPjobs,1),1);
-for idx = 1:numel(NPjobs)/2
-    CP = num2cell(NPjobs(idx,:))';
-    CP = cellfun(@(x,y) {get_network_params(x,y)}, CP,repmat({struct()},2,1));
-    CP = cellfun(@(x) {x.ItoE,x.EtoI,unique(x.trial_stimuli),x.stim_targs},...
-        CP,'UniformOutput',false);
-    network_pair_info{idx} = cat(1,CP{:});
+switch opt.multiple_stimuli
+    case 'yes'
+        param_varnams = {'ItoE','EtoI','stim_A','stim_B','targ_cells'};
+        error('not configured yet'); %look at line below, figure out what you gotta do
+        %IDvars = param_varnams(~ismember(param_varnams,'stim_B')); %stim B not particular to network type
+    case 'no'
+        param_varnams = {'ItoE','EtoI','stim','targ_cells'};
 end
+%for indexing the result paramters 
+IDvars = [];
+if sum(strcmp('conn',params2match)) > 0,IDvars = {'ItoE','EtoI'};end
+if sum(strcmp('stim',params2match)) > 0,IDvars = [IDvars,param_varnams(startsWith(param_varnams,'stim'))];end
 
+
+%info on the specific network parameters in this simulation 
+num_net_types = 10;
+num_pairs = 5;
+pair_inds = num2cell(reshape(1:num_net_types,[],num_pairs)); %just gives a cell array for pair indicies
+network_pair_info = cell(num_pairs,1);
+Psets = [];
+for idx = 1:num_pairs
+    curr_params = cellfun(@(x) get_network_params(x,gen_options),pair_inds(:,idx),'UniformOutput',false);
+    switch opt.multiple_stimuli
+        case 'yes'
+            curr_params = cellfun(@(x)...
+                {x.ItoE, x.EtoI,x.trial_stimuli,x.stim_targs},...
+                curr_params,'UniformOutput',false); %matching "network_pair_info" format
+        otherwise
+            curr_params = cellfun(@(x)...
+                {x.ItoE, x.EtoI,unique(x.trial_stimuli), x.stim_targs},...
+                curr_params,'UniformOutput',false); %matching "network_pair_info" format
+    end
+    curr_params = cat(1,curr_params{:});
+    T = cell2table(curr_params,'VariableNames',param_varnams);
+    curr_types = T.targ_cells;
+    curr_types = strrep(curr_types,'Estay','fast'); curr_types = strrep(curr_types,'Eswitch','slow');
+    T.Properties.RowNames = curr_types;
+    network_pair_info{idx} = T;
+    Psets = [Psets;table2cell(T)];
+end
+Psets = num2cell(Psets,2);
+
+
+keyboard
 %get results & sort into network type
 num_files = numel(output_fns);
-num_types = numel(network_pair_info);
-%reformat the parameter sets for easier searching/indexing
-Psets = num2cell(cat(1,network_pair_info{:}),2);
-%file_data = cell(num_files,2);
 result_data = num2cell(zeros(size(Psets)));
 switch_counts = zeros(size(result_data));
 
@@ -155,7 +192,12 @@ for idx = 1:num_files
     curr_file = load(output_fns{idx});
     %find parameter set
     p = curr_file.options;
-    p = {p.ItoE,p.EtoI,unique(p.trial_stimuli),p.stim_targs};
+    switch opt.multiple_stimuli
+        case 'yes'
+            error('not configed')
+        otherwise
+            p = {p.ItoE,p.EtoI,unique(p.trial_stimuli),p.stim_targs};
+    end
     p = cellfun(@(x) isequal(x,p),Psets); %index
     
     %verify recorded spiking results are valid... after-the-fact... this
@@ -191,7 +233,7 @@ result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput'
 
 figIDs = 'spikes';
 legloc = 'west';
-switch treat_data
+switch opt.treat_data
     case 'zscore'
         Yax_labs = 'Z spiking';
     case 'base0'
@@ -201,6 +243,7 @@ switch treat_data
     otherwise
         Yax_labs = 'spiking (Hz)';
 end
+
 
 
 %only plot -Xms to +Xms
@@ -213,7 +256,7 @@ onset_switch = 1 + recorded_switchtime - min(plotting_window); %adjusted to the 
 %cut down the data matrix to this window
 result_data = cellfun(@(x) x(:,plotting_window,:),result_data,'UniformOutput',false);
 
-switch treat_data
+switch opt.treat_data
     case 'zscore'
         result_data = cellfun(@(x) zscore(x,[],2),result_data,'UniformOutput',false);
     case 'base0'
@@ -224,7 +267,7 @@ switch treat_data
         result_data = cellfun(@(x,y) bsxfun(@minus,x,y),result_data,Xmin,'UniformOutput',false);
         result_data = cellfun(@(x,y,z) bsxfun(@rdivide,x,z-y),result_data,Xmin,Xmax,'UniformOutput',false);
 end
-
+keyboard
 plt_idx = 0;
 for idx = 1:num_types
     
@@ -244,7 +287,7 @@ for idx = 1:num_types
         end
         
         %find the right results for network set-up
-        curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),Psets,'UniformOutput',false);
+        curr_data = cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
         curr_data = result_data{curr_data};
         
@@ -289,7 +332,7 @@ for idx = 1:num_types
 end
 orient tall
 
-switch zoomed_fig
+switch opt.zoomed_fig
     case 'yes'
         %zoom in better
         Yl = arrayfun(@(x) x.Children,h,'UniformOutput',false);
@@ -304,7 +347,7 @@ switch zoomed_fig
 end
 
 linkaxes(h,'x')
-switch print_anything
+switch opt.print_anything
     case 'yes'
         print(fullfile(fig_dir,fig_fn),'-djpeg','-r300')
 end
@@ -312,7 +355,7 @@ end
 close all;hold off
 %print a legend seperately
 
-switch make_legend
+switch opt.make_legend
     case 'yes'
         %plot the aggregated timecourses
         hold on
@@ -321,24 +364,12 @@ switch make_legend
         end
         hold off
         legend(legend_labels)
-        switch print_anything
+        switch opt.print_anything
             case 'yes'
                 print(fullfile(fig_dir,sprintf('%s_legend',fig_fn)),'-djpeg','-r300')
         end
         %save the line colors for below
         tr_col = arrayfun(@(x) x.Color,tr_col,'UniformOutput',false);
 end
-
-
-    function cell_raster = sim_spikerate(cell_raster,timestep)
-        
-        num_binsamps = 2e-3/timestep; %num samples in 2ms
-        raster_sz = size(cell_raster);
-        bin_magic = [numel(cell_raster(:,1)), num_binsamps, numel(cell_raster(1,:))/num_binsamps]; %set up for a magic trick
-        cell_raster = reshape(cell_raster,bin_magic);
-        cell_raster = squeeze(sum(cell_raster,2)) ./ (num_binsamps * timestep); %convert to Hz
-        cell_raster = repmat(cell_raster,[num_binsamps 1 1]);
-        cell_raster = reshape(cell_raster,raster_sz); %put the rabit back in the hat
-    end
 
 end

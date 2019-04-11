@@ -6,17 +6,23 @@ hold off;close all
 
 opt = struct();
 opt.print_anything = 'yes'; %'yes' | 'no';
-opt.save_anything = 'no';
+opt.save_anything = 'yes';
 opt.multiple_stimuli = 'no'; 
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave 
 opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
+opt.parfor_load = 'on'; %on/off, must also (un)comment the actual for... line 
+opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are matched to network types 
+%this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
 %specify simulations
-Snames = {'dttest_0-25_fastD','dttest_0-25_slowD','dttest_0-1_fastD','dttest_0-1_slowD',...
-    'dttest_0-02_fastD','dttest_0-02_slowD'};
-figdir = 'figures_dttest';
+%Snames = {'dttest_0-25_fastD','dttest_0-25_slowD','dttest_0-1_fastD','dttest_0-1_slowD',...
+%    'dttest_0-02_fastD','dttest_0-02_slowD'}; figdir = 'figures_dttest';
+
+Snames = {'nets_fastD'};
+figdir = 'figures_nets_fastD'; %print multiple sims to one figdir using this
+
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
@@ -26,6 +32,7 @@ for idx = 1:numel(Snames)
     opt.outcome_stat = 'logmu';
     make_my_figs(basedir,Snames{idx},figdir,opt)
 end
+
 % num_workers = numel(Snames);
 % c = parcluster('local');
 % c.NumWorkers = num_workers;
@@ -60,10 +67,11 @@ end
 % opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
 % make_my_figs(basedir,Snames{1},figdir,opt)
 
+return
 
 %equate X axes for all figs of the same type
 %Snames = Snames(1:end-1);
-figdir =  fullfile(basedir,'Results',figdir,'durations');
+figdir = fullfile(basedir,'Results',figdir,'durations');
 savedir = fullfile(figdir,'Xsynced');
 if ~isdir(savedir),mkdir(savedir);end
 ftypes = {'total_time','total_time_log'};
@@ -151,93 +159,98 @@ pulse_stim = opt.pulse_stim;
 print_anything = opt.print_anything; %'yes' | 'no';
 save_anything = opt.save_anything;
 summary_stats = 'no'; %summary_stats = opt.summary_stats;
-params2match = {'conn','stim','targ'}; %!!!IMPORTANT!!! specify how results are matched to network types 
-%this can be at most {'conn','stim','targ'}. That specifies matching on 
-%connection strengths, stimulus values, target cells for stimulus 
+params2match = opt.params2match; 
 
 helpdir = fullfile(basedir,'helper_functions');
 figdir = fullfile(basedir,'Results',figdir,'durations');
 resdir = fullfile(basedir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
-BL_fns = dir(fullfile([resdir '_BL'],['*',sim_name,'*.mat']));
+BL_fns = dir(fullfile([resdir '_baseline'],['*',sim_name,'*.mat']));
 BL_fns = cellfun(@(x,y) fullfile(x,y),{BL_fns.folder},{BL_fns.name},'UniformOutput',false);
 output_fns = cat(2,BL_fns,output_fns);
 switch opt.multiple_stimuli
     case 'yes'
-        param_varnams = {'ItoE','EtoI','stim_A','stim_B','stim_targs'};
+        param_varnams = {'ItoE','EtoI','stim_A','stim_B','targ_cells'};
+        error('not configured yet'); %look at line below, figure out what you gotta do
+        %IDvars = param_varnams(~ismember(param_varnams,'stim_B')); %stim B not particular to network type
     case 'no'
-        param_varnams = {'ItoE','EtoI','stim','stim_targs'};
+        param_varnams = {'ItoE','EtoI','stim','targ_cells'};
 end
 %for indexing the result paramters 
-%IDvars = param_varnams(~ismember(param_varnams,'stim_B')); %stim B not particular to network type
 IDvars = [];
 if sum(strcmp('conn',params2match)) > 0,IDvars = {'ItoE','EtoI'};end
-if sum(strcmp('stim',params2match)) > 0
-    IDvars = [IDvars,param_varnams(startsWith(param_varnams,'stim') & ~contains(param_varnams,'targ'))];
-end
-if sum(strcmp('targ',params2match)) > 0,IDvars = [IDvars,{'stim_targs'}];end
+if sum(strcmp('stim',params2match)) > 0,IDvars = [IDvars,param_varnams(startsWith(param_varnams,'stim'))];end
+
 
 %get general options file from the first file 
 gen_options = load(output_fns{1});
 gen_options = gen_options.options;
 timestep = gen_options.timestep;
 
-
 switch pulse_stim
     case 'off' 
         %skip this business
     otherwise
         %pulse duration... kinda hardcoded here
-        Pdur = strsplit(sim_name,'_');
-        Pdur = Pdur{3};
-        Pdur = strrep(Pdur,'P','');
-        Pdur = sprintf('%ss',Pdur);
+        error('get this from  options dude, was previously striped from sim name')
 end
-
-
-%timestep is in set_options() now
 
 num_files = numel(output_fns);
 stimtarg_vals = {'baseline','Estay','Eswitch'}; %this is dumb
 stimtarg_labels = {'baseline','fast','slow'}; 
 
-network_pair_info = load(fullfile(helpdir,'network_pairs',gen_options.netpair_file));
-network_pair_info = network_pair_info.network_pairs;
-num_net_types = cellfun(@(x) size(x,1),network_pair_info);
-num_net_types = sum(num_net_types);
-num_pairs = numel(network_pair_info);
-
-%add a little more info to the table, truncate param values (for rounding problems)
+%info on the specific network parameters in this simulation 
+num_net_types = 10;
+num_pairs = 5;
+pair_inds = num2cell(reshape(1:num_net_types,[],num_pairs)); %just gives a cell array for pair indicies
+network_pair_info = cell(num_pairs,1);
 for idx = 1:num_pairs
-    T = network_pair_info{idx};
-    T_stargs = T.Properties.RowNames;
-    T_stargs = strrep(T_stargs,'fast','Estay');
-    T_stargs = strrep(T_stargs,'slow','Eswitch');
-    T.stim_targs = T_stargs;
+    curr_params = cellfun(@(x) get_network_params(x,gen_options),pair_inds(:,idx),'UniformOutput',false);
+    switch opt.multiple_stimuli
+        case 'yes'
+            curr_params = cellfun(@(x)...
+                {x.ItoE, x.EtoI,x.trial_stimuli,x.stim_targs},...
+                curr_params,'UniformOutput',false); %matching "network_pair_info" format
+        otherwise
+            curr_params = cellfun(@(x)...
+                {x.ItoE, x.EtoI,unique(x.trial_stimuli), x.stim_targs},...
+                curr_params,'UniformOutput',false); %matching "network_pair_info" format
+    end
+    curr_params = cat(1,curr_params{:});
+    T = cell2table(curr_params,'VariableNames',param_varnams);
+    curr_types = T.targ_cells;
+    curr_types = strrep(curr_types,'Estay','fast'); curr_types = strrep(curr_types,'Eswitch','slow');
+    T.Properties.RowNames = curr_types;
     network_pair_info{idx} = T;
 end
 
-
-
 fprintf('\n---loading simulation: %s\n',sim_name)
 
-warning('HELLO need to check find_stay_durations() with verify argument')
-
 %get results
-fprintf('\nparfor disabled')
-% num_workers = 24;
-% c = parcluster('local');
-% c.NumWorkers = num_workers;
-% parpool(c,c.NumWorkers,'IdleTimeout',Inf,'AttachedFiles',{which('find_stay_durations')})
-% special_progress_tracker = fullfile(basedir,'SPT.txt');
-% if exist(special_progress_tracker) > 0, delete(special_progress_tracker);end %fresh start
+switch opt.parfor_load
+    case 'off'
+        fprintf('\nparfor disabled\n')
+    case 'on'
+        num_workers = 24;
+        c = parcluster('local');
+        c.NumWorkers = num_workers;
+        parpool(c,c.NumWorkers,'IdleTimeout',Inf,'AttachedFiles',{which('find_stay_durations')})
+        special_progress_tracker = fullfile(basedir,'SPT.txt');
+        if exist(special_progress_tracker) > 0, delete(special_progress_tracker);end %fresh start
+end
+switch opt.valid_states %select states for analysis
+    case 'all'
+        warning('\nfind_stay_durations() disabled, all non-undecided states')
+end
 
-warning('\nfind_stay_durations() disabled, all non-undecided states')
 file_data = cell(num_files,2);
-%parfor idx = 1:num_files
-for idx = 1:num_files
-    %if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
+parfor idx = 1:num_files
+    %for idx = 1:num_files
+    switch opt.parfor_load
+        case 'off'
+            if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
+    end
     curr_file = load(output_fns{idx});
     %get state durations
     state_durations = curr_file.sim_results;
@@ -267,18 +280,21 @@ for idx = 1:num_files
     
     %store durations & parameters
     file_data(idx,:) = {state_durations,curr_file.options};
-    %file_data{idx,1} = state_durations; %when this wasn't parfored
-    %file_data{idx,2} = curr_file.options;
     
-
-%     progress = worker_progress_tracker(special_progress_tracker);
-%     if mod(progress,floor(num_files * .05)) == 0 %at half a percent
-%         progress = (progress / num_files) * 100;
-%         fprintf('----%.1f percent complete\n',progress);
-%     end
+    switch opt.parfor_load
+        case 'on'
+            progress = worker_progress_tracker(special_progress_tracker);
+            if mod(progress,floor(num_files * .05)) == 0 %at half a percent
+                progress = (progress / num_files) * 100;
+                fprintf('----%.1f percent complete\n',progress);
+            end
+    end
 end
-%delete(gcp('nocreate'))
-%delete(special_progress_tracker)
+switch opt.parfor_load
+    case 'on'
+        delete(gcp('nocreate'))
+        delete(special_progress_tracker)
+end
 
 %search for jobs with identical parameters, collapse distributions
 %get the randomized network parameters
@@ -309,7 +325,7 @@ for idx = 1:num_jobs
     curr_file = ismember(job_params,table2array(net_type(idx,:)),'rows');
     Nruns(idx) = sum(curr_file);
     explain_params = net_type(idx,:);
-    explain_params.stim_targs = stimtarg_vals{explain_params.stim_targs};
+    explain_params.targ_cells = stimtarg_vals{explain_params.targ_cells};
     fprintf('\n---parameter set\n');disp(explain_params);fprintf('n files = %i\n',Nruns(idx))
     %collapse & reallocate
     result_data{idx,1} = cell2mat(file_data(curr_file,1));
@@ -318,20 +334,10 @@ for idx = 1:num_jobs
     result_data{idx,2} = file_data{find(curr_file,1),2};
 end
 
-%this is stupid & obviously a hold-over from something I didn't implement well in the first place... 
-net_type.stim_targs = cellfun(@(x) stimtarg_labels{x},...
-    num2cell(net_type.stim_targs),'UniformOutput',false);
+%this is stupid & obviously a hold-over from something I didn't implement well in the first place...
+net_type.targ_cells = cellfun(@(x) stimtarg_labels{x},...
+    num2cell(net_type.targ_cells),'UniformOutput',false);
 
-%okay these strength connections need to be truncated now 
-trunc_val = @(x) round(x,4);
-for idx = 1:num_pairs
-    T = network_pair_info{idx};
-    T.ItoE = trunc_val(T.ItoE);
-    T.EtoI = trunc_val(T.EtoI);
-    network_pair_info{idx} = T;
-end
-net_type.ItoE = trunc_val(net_type.ItoE);
-net_type.EtoI = trunc_val(net_type.EtoI);
 
 fig_fn = [sim_name '_%s'];
 
@@ -353,11 +359,11 @@ switch outcome_stat
     case 'med'
         Zlabel =  sprintf('median duration (%s)',unit_measure);
     case 'logmu'
-        Zlabel = sprintf('log(%s) state duration',unit_measure);
+        Zlabel = sprintf('log_{10}(%s) state duration',unit_measure);
         fig_fn = [fig_fn,'_log'];
 end
 
-Ylab = 'freq';
+Ylab = 'p(x)';%Ylab = 'freq';
 
 if ~isdir(figdir),mkdir(figdir);end
 
@@ -387,56 +393,73 @@ for idx = 1:num_pairs
         end
         
         %find the right results for network set-up
-        curr_data = curr_net_info{j,IDvars};
-        curr_data = ismember(net_type{:,IDvars},curr_data,'rows');
-        curr_data = result_data(curr_data,1);
+        net_ind = curr_net_info{j,IDvars};
+        net_ind = ismember(net_type{:,IDvars},net_ind,'rows');
+        curr_data = result_data(net_ind,1);
         curr_data = cat(1,curr_data{:});
         
-        
+        main_in_leg = false; %for legend
         if ~isempty(curr_data) %skip plot if no data...
             switch outcome_stat
                 case 'logmu'
                     curr_data = curr_data(curr_data ~= 0);%inf errors
-                    curr_data = log(curr_data);
+                    curr_data = log10(curr_data);
             end
-            histogram(curr_data,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
+            histogram(curr_data,'Normalization','pdf','FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
+            main_in_leg = true;main_mu = mean(curr_data);
         end
         
-        %-- if you look at the plotting code here, I think this is old anyways
-        %         %take control data
-        %         BLinfo = curr_net_info(j,IDvars);
-        %         BLinfo.stim_A = 0; BLinfo.stim_targs = 'baseline'; %0 stim & baseline targets
-        %         curr_data = cellfun(@(x) isequal(x,table2cell(BLinfo)),...
-        %             num2cell(table2cell(net_type(:,IDvars)),2));
-        %         curr_data = result_data(curr_data,1);
-        %         curr_data = cat(1,curr_data{:});
-        %
-        %         if ~isempty(curr_data) %skip plot if no data...
-        %             switch outcome_stat
-        %                 case 'logmu'
-        %                     curr_data = curr_data(curr_data ~= 0);%inf errors
-        %                     curr_data = log(curr_data);
-        %             end
-        %             switch pulse_stim
-        %                 case 'yes'
-        %                     histogram(curr_data,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
-        %                     Ylab = 'freq';
-        %                 otherwise
-        %                     [kde,kde_i] = ksdensity(curr_data);
-        %                     area(kde_i,kde,'FaceColor',lcol,'EdgeColor',lcol,'FaceAlpha',alph);
-        %                     Ylab = 'p(x)';
-        %             end
-        %         end
+        
+        %see if there's matching baseline data 
+        BLinfo = net_type(net_ind,:); %set to 0 stim & baseline targets
+        BLinfo{:,startsWith(param_varnams,'stim')} = 0;
+        BLinfo.targ_cells = 'baseline';
+        curr_data = cellfun(@(x) isequal(x,table2cell(BLinfo)),num2cell(table2cell(net_type),2));
+        curr_data = result_data(curr_data,1);
+        curr_data = cat(1,curr_data{:});
+        
+        BL_in_leg = false;
+        if ~isempty(curr_data) %skip plot if no data...
+            switch outcome_stat
+                case 'logmu'
+                    curr_data = curr_data(curr_data ~= 0);%inf errors
+                    curr_data = log10(curr_data);
+            end
+            histogram(curr_data,'Normalization','pdf','FaceColor',BLcol,'EdgeColor',BLcol,'FaceAlpha',alph);
+            BL_in_leg = true;BL_mu = mean(curr_data);
+        end
         
         hold off
-        %         switch pulse_stim
-        %             case 'off'
-        %                 legend(sprintf('%.0fHz',curr_net_info.stim_A{j}),'location','best')
-        %             otherwise
-        %                 legend(sprintf('%.0fHz %s',curr_net_info.stim_A{j},Pdur),'location','best')
-        %         end
         
-        legend(sprintf('\\mu = %.1f',mean(curr_data)),'location','best')
+        %legend labeling
+        switch opt.multiple_stimuli
+            case 'yes'
+                error('not configured')
+            otherwise
+                leg_labels = {};
+                if main_in_leg
+                    %leg_labels = [leg_labels;sprintf('%.0f Hz %s',curr_net_info.stim(j),curr_net_info.targ_cells{j})];
+                    leg_labels = [leg_labels;sprintf('%.0f Hz %s (\\mu=%.1f)',...
+                        curr_net_info.stim(j),curr_net_info.targ_cells{j},main_mu)];
+                end
+                if BL_in_leg
+                    %leg_labels = [leg_labels;'0 Hz baseline'];
+                    leg_labels = [leg_labels;sprintf('0 Hz baseline (\\mu=%.1f)',BL_mu)];
+                end
+        end
+        
+        switch pulse_stim
+            case 'off'
+            otherwise
+                error('not yet configured')
+                legend(sprintf('%.0fHz %s',curr_net_info.stim_A{j},Pdur),'location','best','box','off')
+        end
+        
+        hold off
+        
+        legend(leg_labels,'Location','best','box','off')
+        
+        %legend(sprintf('\\mu = %.1f',mean(curr_data)),'location','best')
 
         if plt_idx == 9 || plt_idx == 10
             xlabel(Zlabel)
@@ -496,7 +519,7 @@ for idx = 1:num_pairs
             num2cell(table2cell(need_more(:,IDvars)),2));
         if sum(curr_data) > 0
             curr_data = find(curr_data);
-            fprintf('\nnetwork #%i %s has < 10k states',idx,curr_net_info.stim_targs{j})
+            fprintf('\nnetwork #%i %s has < 10k states',idx,curr_net_info.targ_cells{j})
             fprintf('\n---parameter sets:\n')
             for h = 1:numel(curr_data)
                 disp(need_more(curr_data(h),:))
@@ -506,12 +529,12 @@ for idx = 1:num_pairs
         end
         
         BLinfo = curr_net_info(j,IDvars);
-        BLinfo.stim_A = 0; BLinfo.stim_targs = 'baseline'; %0 stim & baseline targets
+        BLinfo{:,startsWith(param_varnams,'stim')} = 0; BLinfo.targ_cells = 'baseline';
         curr_data = cellfun(@(x) isequal(x,table2cell(BLinfo)),... %ugly indexing & transform here..
-            num2cell(table2cell(need_more(:,IDvars)),2));
+            num2cell(table2cell(need_more),2));
         if sum(curr_data) > 0
             curr_data = find(curr_data);
-            fprintf('\nnetwork #%i %s has < 10k states',idx,curr_net_info.stim_targs{j})
+            fprintf('\nnetwork #%i %s has < 10k states',idx,curr_net_info.targ_cells{j})
             fprintf('\n---parameter sets:\n')
             for h = 1:numel(curr_data)
                 disp(need_more(curr_data(h),:))
@@ -544,7 +567,7 @@ switch summary_stats
                 curr_data = result_data{curr_data,1};
                 switch outcome_stat
                     case 'logmu'
-                        curr_data = log(curr_data(curr_data~=0));
+                        curr_data = log10(curr_data(curr_data~=0));
                 end
                 Xstim{j} = curr_data;
                 
@@ -562,7 +585,7 @@ switch summary_stats
             fprintf('\n---hyp. test: mu stim durrations\n')
             switch outcome_stat
                 case 'logmu'
-                    Xstim = cellfun(@(x) log(x(x~=0)),Xstim,'UniformOutput',false);
+                    Xstim = cellfun(@(x) log10(x(x~=0)),Xstim,'UniformOutput',false);
             end
             [~,pval] = ttest2(Xstim{1},Xstim{2}); %regular old t-test
             fprintf('t-test p = %.3f\n',pval)

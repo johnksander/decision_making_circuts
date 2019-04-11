@@ -19,12 +19,17 @@ else
 end
 
 
-stimulus_duration = options.stim_pulse(1); 
+if all(isnan(options.stim_pulse)) %there's a legit pulsing stim 
+    sample_duration = options.tmax;
+else %constant stim 
+    sample_duration = sum(options.stim_pulse);
+end
+
 timecourse = size(durations);
 timecourse(2) = timecourse(2) + 1; 
 timecourse = cell(timecourse);
 timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
-timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
+timecourse(:,3) = cellfun(@(x) mod(x,sample_duration),timecourse(:,3),'UniformOutput',false);
 %current sample's onset, rounding is needed for subsequent operations 
 timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
 samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding 
