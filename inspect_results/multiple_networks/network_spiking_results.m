@@ -5,11 +5,9 @@ hold off;close all
 
 %note-- 8/29/2018: this is the code for analyzing simulation spikerates
 
-%take off the num_files limit before you do anything with this!!!
-
+%to do:
+%trial-wise stuff
 %think about normalizing by t-stat or something, reduce by variance/error
-
-%do trial-wise stuff
 
 opt = struct();
 opt.multiple_stimuli = 'no'; %'yes'|'no';
@@ -22,8 +20,6 @@ opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat d
 
 %specify simulation
 %---sim setup-----------------
-% Snames = {'sim_v2_P1_1','sim_v2_P2_1','sim_v2_P4_1',...
-%     'sim_v2_P6_1','sim_v2_P8_1','sim_v2_P10_1','sim_v2_P150_1'};
 
 Snames = {'nets_fastD','nets_fastD_baseline'};
 basedir = '~/Desktop/work/ACClab/rotation/project/';
@@ -204,7 +200,6 @@ if ~load_summary
     num_files = numel(output_fns);
     result_data = num2cell(zeros(size(Psets)));
     switch_counts = zeros(size(result_data));
-    warning('num files set to 115');num_files = 115;
     
     for idx = 1:num_files
         if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
