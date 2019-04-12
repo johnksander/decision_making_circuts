@@ -2,7 +2,10 @@ clear
 clc
 format compact
 hold off;close all
-
+%note: if you ever wana make this nice... make a single function for
+%creating a paramater ID cell array (or table) from an array of options structure. 
+%this function would be used for the template nets from get_network_params() and result files. 
+%Put this same function in network_spiking_results, etc. Also use cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets)
 
 opt = struct();
 opt.print_anything = 'yes'; %'yes' | 'no';

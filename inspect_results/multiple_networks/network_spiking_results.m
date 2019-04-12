@@ -4,15 +4,23 @@ format compact
 hold off;close all
 
 %note-- 8/29/2018: this is the code for analyzing simulation spikerates
+
+%take off the num_files limit before you do anything with this!!!
+
+%think about normalizing by t-stat or something, reduce by variance/error 
+
+%do trial-wise stuff
+
+%save a datafile & check for it 
+
 opt = struct();
-opt.multiple_stimuli = 'no';
+opt.multiple_stimuli = 'no'; %'yes'|'no';
 opt.params2match = {'conn','stim'}; %specify how results are matched to network types (at most {'conn','stim'})
 opt.print_anything = 'yes'; %'yes' | 'no';
-opt.make_legend = 'yes';
-opt.Tcourse = 'all';%'presw250to5'; %'preswitch' | 'all' |presw250to5
-opt.treat_data = 'none';%'base0'; % zscore | base0 | minmax
-opt.zoomed_fig = 'yes';%'yes'; %ignore I-stay spiking for Y limits
-opt.pulse_stim = 'off';
+opt.Tcourse = 'all'; %'preswitch' | 'all' | 'presw250to5' | 'presw150to25'
+opt.treat_data = 'none'; %'base0'; % zscore | base0 | minmax | 'none'
+opt.zoomed_fig = 'no'; %'yes'|'no'; %ignore I-stay spiking for Y limits
+opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
  
 %specify simulation
 %---sim setup-----------------
@@ -20,41 +28,35 @@ opt.pulse_stim = 'off';
 %     'sim_v2_P6_1','sim_v2_P8_1','sim_v2_P10_1','sim_v2_P150_1'};
 
 Snames = {'nets_fastD','nets_fastD_baseline'};
-
-basedir = '/home/acclab/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project/';
 figdir = 'figures_nets_fastD';
 addpath(fullfile(basedir,'helper_functions'))
 
-for i = 1:numel(Snames)
+%loop over these
+timewins = {'preswitch', 'all', 'presw250to5', 'presw150to25'};
+treatments = {'none','zscore', 'base0', 'minmax'};
+zooming = {'yes', 'no'};
+
+for Sidx = 1:numel(Snames)
     
-    %whole timecourse
-    opt.Tcourse = 'all'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
-    netspiking_figure(basedir,Snames{i},figdir,opt)
-    
-    %preswitch, raw
-    opt.Tcourse = 'presw150to25'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
-    netspiking_figure(basedir,Snames{i},figdir,opt)
-    
-    %preswitch, raw & zoomed
-    opt.Tcourse = 'presw150to25'; opt.treat_data = 'none'; opt.zoomed_fig = 'yes';
-    netspiking_figure(basedir,Snames{i},figdir,opt)
-    
-    %preswitch, normalized & zoomed
-    opt.Tcourse = 'presw150to25'; opt.treat_data = 'base0'; opt.zoomed_fig = 'yes';
-    netspiking_figure(basedir,Snames{i},figdir,opt)
-    
-    
-%     %preswitch, raw
-%     opt.Tcourse = 'presw250to5'; opt.treat_data = 'none'; opt.zoomed_fig = 'no';
-%     netspiking_figure(basedir,Snames{i},figdir,opt)
-%     
-%     %preswitch, raw & zoomed
-%     opt.Tcourse = 'presw250to5'; opt.treat_data = 'none'; opt.zoomed_fig = 'yes';
-%     netspiking_figure(basedir,Snames{i},figdir,opt)
-%     
-%     %preswitch, normalized & zoomed
-%     opt.Tcourse = 'presw250to5'; opt.treat_data = 'base0'; opt.zoomed_fig = 'yes';
-%     netspiking_figure(basedir,Snames{i},figdir,opt)
+    %loop through & do everything for these results 
+    for Tidx = 1:numel(timewins)
+        
+        opt.Tcourse = timewins{Tidx};
+        
+        for Didx = 1:numel(treatments)
+            
+            opt.treat_data = treatments{Didx};
+            
+            for Zidx  = 1:numel(zooming)
+                
+                opt.zoomed_fig = zooming{Zidz};
+                
+                %make the digures
+                netspiking_figure(basedir,Snames{Sidx},figdir,opt)
+            end
+        end 
+    end
 end
 
 
@@ -69,7 +71,11 @@ resdir = fullfile(home_dir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 params2match = opt.params2match;
-if contains(sim_name,'baseline');keyboard;end
+if contains(sim_name,'baseline')
+    BLdata = true;
+else
+    BLdata = false;
+end
 
 switch opt.pulse_stim
     case 'off' 
@@ -79,9 +85,7 @@ switch opt.pulse_stim
         error('get this from  options dude, was previously striped from sim name')
 end
 
-if ~isdir(fig_dir),mkdir(fig_dir);end
-
-
+recorded_switchtime =  250e-3; %actual switchtime in recorded switch
 switch opt.Tcourse
     case 'preswitch'
         fig_fn = 'preswitch_timecourse';
@@ -105,18 +109,31 @@ fig_fn = sprintf('%s_%s',sim_name,fig_fn);
 
 switch opt.treat_data
     case 'zscore'
-        %fig_dir = fullfile(fig_dir,'zscore');
+        fig_dir = fullfile(fig_dir,'zscore');
         fig_fn = sprintf('%s_%s',fig_fn,'zscore');
+        Yax_labs = 'Z spiking';
     case 'base0'
-        %fig_dir = fullfile(fig_dir,'base0');
+        fig_dir = fullfile(fig_dir,'base0');
         fig_fn = sprintf('%s_%s',fig_fn,'base0');
+        Yax_labs = 'rate - min (Hz)';
     case 'minmax'
-        %fig_dir = fullfile(fig_dir,'minmax');
+        fig_dir = fullfile(fig_dir,'minmax');
         fig_fn = sprintf('%s_%s',fig_fn,'minmax');
+        Yax_labs = 'spiking (0-1)';
+    case 'none'
+        fig_dir = fullfile(fig_dir,'no_treatment');
+        Yax_labs = 'spiking (Hz)';
 end
 
+switch opt.zoomed_fig
+    case 'yes'
+        fig_dir = fullfile(fig_dir,'zoomed');
+        fig_fn = [fig_fn '_zoomed'];
+    case 'no'
+        axis tight
+end
 
-recorded_switchtime =  250e-3; %actual switchtime in recorded switch
+if ~isdir(fig_dir),mkdir(fig_dir);end
 
 %result summaries
 fontsz = 30;
@@ -175,17 +192,22 @@ for idx = 1:num_pairs
     curr_types = T.targ_cells;
     curr_types = strrep(curr_types,'Estay','fast'); curr_types = strrep(curr_types,'Eswitch','slow');
     T.Properties.RowNames = curr_types;
+    if BLdata %change net paramters to reflect baseline sim
+        T{:,param_varnams(startsWith(param_varnams,'stim'))} = 0;
+        T.targ_cells(:) = {'baseline'};
+    end
     network_pair_info{idx} = T;
     Psets = [Psets;table2cell(T)];
 end
 Psets = num2cell(Psets,2);
 
 
-keyboard
+
 %get results & sort into network type
 num_files = numel(output_fns);
 result_data = num2cell(zeros(size(Psets)));
 switch_counts = zeros(size(result_data));
+warning('num files set to 115');num_files = 115;
 
 for idx = 1:num_files
     if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
@@ -218,6 +240,7 @@ for idx = 1:num_files
     %add to the rest of them
     result_data{p} = result_data{p} + fdata;
 end
+
 %very quickly check for guys that don't have many observations
 for idx = 1:numel(switch_counts)
     if switch_counts(idx) < 10000
@@ -231,26 +254,11 @@ switch_counts = num2cell(switch_counts);
 result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
 result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput',false);
 
-figIDs = 'spikes';
-legloc = 'west';
-switch opt.treat_data
-    case 'zscore'
-        Yax_labs = 'Z spiking';
-    case 'base0'
-        Yax_labs = 'rate - min (Hz)';
-    case 'minmax'
-        Yax_labs = 'spiking 0-1';
-    otherwise
-        Yax_labs = 'spiking (Hz)';
-end
-
-
-
-%only plot -Xms to +Xms
-recorded_switchtime = recorded_switchtime/timestep; %actual switchtime in recorded switch
-postswitch_plottime = postswitch_plottime/timestep;
-preswitch_plottime = preswitch_plottime/timestep;
-record_duration = size(cat(1,result_data{:}),2); %get the duration of recorded timecourses
+%only plot -Xms to +Xms (need round() for roundoff errors...)
+recorded_switchtime = round(recorded_switchtime/timestep,4); %actual switchtime in recorded switch
+postswitch_plottime = round(postswitch_plottime/timestep,4);
+preswitch_plottime = round(preswitch_plottime/timestep,4);
+%record_duration = size(cat(1,result_data{:}),2); %get the duration of recorded timecourses
 plotting_window = 1 + recorded_switchtime - preswitch_plottime:recorded_switchtime + postswitch_plottime;
 onset_switch = 1 + recorded_switchtime - min(plotting_window); %adjusted to the new plotting window
 %cut down the data matrix to this window
@@ -267,9 +275,10 @@ switch opt.treat_data
         result_data = cellfun(@(x,y) bsxfun(@minus,x,y),result_data,Xmin,'UniformOutput',false);
         result_data = cellfun(@(x,y,z) bsxfun(@rdivide,x,z-y),result_data,Xmin,Xmax,'UniformOutput',false);
 end
-keyboard
+
+ln.baseline.Color = [103 115 122] ./ 255;
 plt_idx = 0;
-for idx = 1:num_types
+for idx = 1:num_pairs
     
     curr_net_info = network_pair_info{idx};
     for j = 1:2
@@ -278,14 +287,15 @@ for idx = 1:num_types
         h(plt_idx) = subplot(5,2,plt_idx);
         
         %get the right color
-        if strcmpi(curr_net_info{j,end},'Eswitch')
-            Nspeed = 'slow';
-            lcol = orange;
-        elseif strcmpi(curr_net_info{j,end},'Estay')
-            Nspeed = 'fast';
-            lcol = matblue;
-        end
-        
+        Nspeed = curr_net_info.Row{j};
+        Ntargs = curr_net_info.targ_cells{j};
+%         switch Nspeed
+%             case 'slow'
+%                 lcol = 'Eswitch';
+%             case 'fast'
+%                 lcol = 'Estay';
+%         end
+
         %find the right results for network set-up
         curr_data = cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets,'UniformOutput',false);
         curr_data = cat(1,curr_data{:});
@@ -302,11 +312,13 @@ for idx = 1:num_types
         
         %plot the aggregated timecourses
         hold on
-        plot(Estay,'Linewidth',lnsz)
-        plot(Eswitch,'Linewidth',lnsz)
+        ln.Estay = plot(Estay,'Linewidth',lnsz);
+        ln.Eswitch = plot(Eswitch,'Linewidth',lnsz);
         plot(Istay,'Linewidth',lnsz)
         plot(Iswitch,'Linewidth',lnsz)
-        l = plot(NaN,'Color',lcol,'LineWidth',lnsz); %for legend
+        
+        leg_col = ln.(Ntargs).Color;
+        l = plot(NaN,'Color',leg_col,'LineWidth',lnsz); %for legend
         
         hold off
         Xlim_max = numel(curr_data(1,:));
@@ -316,8 +328,18 @@ for idx = 1:num_types
         if numel(Xticks) > 5,Xticks = Xticks(1:2:numel(Xticks)); end %for crowded axes
         Xlabs = cellfun(@(x) sprintf('%+i',((x-onset_switch)*timestep)/1e-3),Xticks,'UniformOutput', false); %this is for normal stuff
         set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
-        legend(l,sprintf('%.0fHz %s',curr_net_info{j,3},Pdur),'location','best')
         
+        warning('off','MATLAB:legend:IgnoringExtraEntries')
+        switch opt.pulse_stim
+            case 'off'
+                  leg_labels = sprintf('%.0f Hz %s',curr_net_info.stim(j),curr_net_info.targ_cells{j});
+                  l = legend(l,leg_labels,'location','best','Box','off');l.Box = 'off'; %Why do I need boxoff 2x??
+            otherwise
+                legend(l,sprintf('%.0fHz %s',curr_net_info{j,3},Pdur),'location','best','box','off')
+        end
+        warning('on','MATLAB:legend:IgnoringExtraEntries')
+
+
         if plt_idx == 9 || plt_idx == 10
             xlabel('Leave decision (ms)')
         end
@@ -325,51 +347,31 @@ for idx = 1:num_types
             title(sprintf('%s networks',Nspeed),'Fontsize',14)
         end
         if mod(plt_idx,2) == 1
-            ylabel(sprintf('net #%i %s',idx,Yax_labs))
+            ylabel(sprintf('net #%i\n%s',idx,Yax_labs))
         end
         
     end
 end
 orient tall
 
-switch opt.zoomed_fig
-    case 'yes'
-        %zoom in better
-        Yl = arrayfun(@(x) x.Children,h,'UniformOutput',false);
-        %skip legend & I-stay
-        Yl = cellfun(@(x) x([2,4,5]),Yl,'UniformOutput',false);
-        Yl = cellfun(@(x) cat(1,x(:).YData),Yl,'UniformOutput',false);
-        Yl = cellfun(@(x) max(x(:)),Yl);
-        arrayfun(@(x,y) ylim(x,[0,y]),h,Yl,'UniformOutput',false);
-        fig_fn = [fig_fn '_zoomed'];
-    case 'no'
-        axis tight
-end
-
 linkaxes(h,'x')
+
+fake_ax = axes('Position',[-1,-1,0,0],'Visible','off');
+hold on
+for idx = 1:numel(legend_labels)
+    lns(idx) = plot(NaN,'Linewidth',lnsz,'Parent',fake_ax);
+end
+hold off
+lp = legend(lns,legend_labels,'FontWeight','b','Fontsize',14,...
+   'Location','northoutside','Box','off','Orientation','horizontal');
+lp.Position = [(1-lp.Position(3))/2,1-lp.Position(4),lp.Position(3:4)];
+
+
 switch opt.print_anything
     case 'yes'
         print(fullfile(fig_dir,fig_fn),'-djpeg','-r300')
 end
 
+
 close all;hold off
-%print a legend seperately
-
-switch opt.make_legend
-    case 'yes'
-        %plot the aggregated timecourses
-        hold on
-        for idx = 1:numel(legend_labels)
-            tr_col(idx) = plot(NaN,'Linewidth',lnsz);
-        end
-        hold off
-        legend(legend_labels)
-        switch opt.print_anything
-            case 'yes'
-                print(fullfile(fig_dir,sprintf('%s_legend',fig_fn)),'-djpeg','-r300')
-        end
-        %save the line colors for below
-        tr_col = arrayfun(@(x) x.Color,tr_col,'UniformOutput',false);
-end
-
 end
