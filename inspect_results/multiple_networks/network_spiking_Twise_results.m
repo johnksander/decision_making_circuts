@@ -3,11 +3,9 @@ clc
 format compact
 hold off;close all
 
-%note-- 8/29/2018: this is the code for analyzing simulation spikerates
+%note-- 4/16/19: this is the code for analyzing trial-wise simulation spikerates
 
 %to do:
-%trial-wise stuff
-%think about normalizing by t-stat or something, reduce by variance/error
 
 opt = struct();
 opt.multiple_stimuli = 'no'; %'yes'|'no';
@@ -21,11 +19,10 @@ opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat d
 %specify simulation
 %---sim setup-----------------
 
-Snames = {'nets_fastD','nets_fastD_baseline','nets_slowD','nets_slowD_baseline'};
-figdir = {'figures_nets_fastD','figures_nets_fastD',...
-    'figures_nets_slowD','figures_nets_slowD'};
+Snames = {'nets_fastD','nets_fastD_baseline'};
+figdir = {'figures_nets_fastD'};
 
-basedir = '~/Desktop/ksander/rotation/project/';
+basedir = '~/Desktop/work/ACClab/rotation/project/'; %'~/Desktop/ksander/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
 
 %loop over these
@@ -62,12 +59,12 @@ end
 function netspiking_figure(home_dir,sim_name,figdir,opt)
 hold off;close all
 
-mainfig_dir = fullfile(home_dir,'Results',figdir,'spikeplots');
+mainfig_dir = fullfile(home_dir,'Results',figdir,'spikeplots_Twise');
 resdir = fullfile(home_dir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 params2match = opt.params2match;
-data_fn = sprintf('summary_data_%s.mat',sim_name);
+data_fn = sprintf('summary_Twise_data_%s.mat',sim_name);
 if exist(fullfile(mainfig_dir,data_fn)) > 0,load_summary = true;else,load_summary = false;end
 if contains(sim_name,'baseline'),BLdata = true;else,BLdata = false;end
 
@@ -124,6 +121,8 @@ switch opt.zoomed_fig
     case 'yes'
         fig_dir = fullfile(fig_dir,'zoomed');
         fig_fn = [fig_fn '_zoomed'];
+    case 'no'
+        axis tight
 end
 
 if ~isdir(fig_dir),mkdir(fig_dir);end
@@ -142,6 +141,23 @@ pool_options.sz_pools = [.5 .5]; %proportion stay & switch
 pool_options.sz_EI = [.8 .2]; %proportion excitable % inhibitory
 pool_options.p_conn = .5; %connection probability 50%
 celltype = celltype_logicals(pool_options);
+
+%make a pool average function, match to legend labels ordering
+pool_inds = cell(size(legend_labels))';
+pool_inds{1} = celltype.excit & celltype.pool_stay; %E-stay
+pool_inds{2} = celltype.excit & celltype.pool_switch; %E-switch
+pool_inds{3} = celltype.inhib & celltype.pool_stay; %I-stay
+pool_inds{4} = celltype.inhib & celltype.pool_switch; %I-switch
+
+pool_means = @(x) 
+        
+    
+        Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
+        Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
+        Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
+        Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
+        
+
 
 %get general options file from the first file
 gen_options = load(output_fns{1});
@@ -223,10 +239,21 @@ if ~load_summary
         fevents = cat(1,fevents{:}) .* curr_file.options.timestep; %convert to time for comparison
         valid_events = ismember(fevents,valid_events);
         %now back to more regular stuff
-        
+        keyboard
         %file data
         fdata = curr_file.sim_results{2};
         fdata = fdata(:,:,valid_events); %ensure records are valid
+        
+        
+        result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
+        result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput',false);
+        
+        Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
+        Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
+        Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
+        Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
+        
+        
         switch_counts(p) = switch_counts(p) + size(fdata,3); %keep track of how many timecourses
         fdata = sum(fdata,3); %sum over the switches from this file
         %add to the rest of them
