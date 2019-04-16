@@ -3,7 +3,7 @@ clc
 format compact
 
 
-Snames = {'nets_fastD'};
+Snames = {'nets_fastD','nets_slowD'};
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 

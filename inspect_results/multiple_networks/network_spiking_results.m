@@ -21,9 +21,11 @@ opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat d
 %specify simulation
 %---sim setup-----------------
 
-Snames = {'nets_fastD','nets_fastD_baseline'};
-basedir = '~/Desktop/work/ACClab/rotation/project/';
-figdir = 'figures_nets_fastD';
+Snames = {'nets_fastD','nets_fastD_baseline','nets_slowD','nets_slowD_baseline'};
+figdir = {'figures_nets_fastD','figures_nets_fastD',...
+    'figures_nets_slowD','figures_nets_slowD'};
+
+basedir = '~/Desktop/ksander/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
 
 %loop over these
@@ -47,7 +49,7 @@ for Sidx = 1:numel(Snames)
                 opt.zoomed_fig = zooming{Zidx};
                 
                 %make the digures
-                netspiking_figure(basedir,Snames{Sidx},figdir,opt)
+                netspiking_figure(basedir,Snames{Sidx},figdir{Sidx},opt)
             end
         end
     end

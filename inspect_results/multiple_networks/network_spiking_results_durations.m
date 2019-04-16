@@ -23,17 +23,17 @@ opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are mat
 %Snames = {'dttest_0-25_fastD','dttest_0-25_slowD','dttest_0-1_fastD','dttest_0-1_slowD',...
 %    'dttest_0-02_fastD','dttest_0-02_slowD'}; figdir = 'figures_dttest';
 
-Snames = {'nets_fastD'};
-figdir = 'figures_nets_fastD'; %print multiple sims to one figdir using this
+Snames = {'nets_fastD','nets_slowD'};
+figdir = {'figures_nets_fastD','figures_nets_slowD'}; %print multiple sims to one figdir using this
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
-    make_my_figs(basedir,Snames{idx},figdir,opt)
+    make_my_figs(basedir,Snames{idx},figdir{idx},opt)
     opt.outcome_stat = 'logmu';
-    make_my_figs(basedir,Snames{idx},figdir,opt)
+    make_my_figs(basedir,Snames{idx},figdir{idx},opt)
 end
 
 % num_workers = numel(Snames);
