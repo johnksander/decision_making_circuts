@@ -31,7 +31,7 @@ timecourse = cell(timecourse);
 timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
 timecourse(:,3) = cellfun(@(x) mod(x,sample_duration),timecourse(:,3),'UniformOutput',false);
 %current sample's onset, rounding is needed for subsequent operations 
-timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
+timecourse(:,4) = cellfun(@(x,y) round(x-y,3),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
 samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding 
 timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
 timecourse(:,end) = durations(:,end);

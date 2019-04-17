@@ -1,0 +1,27 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2017 The MathWorks, Inc.
+                   R2017b (9.3.0.713579) 64-bit (glnxa64)
+                             September 14, 2017
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+Your HTML rendering engine is now set to 'basic'.
+ans =
+     1
+
+---loading simulation: nets_fastD
+Starting parallel pool (parpool) using the 'local' profile ...
+connected to 24 workers.
+ans = 
+ Pool with properties: 
+
+            Connected: true
+           NumWorkers: 24
+              Cluster: local
+        AttachedFiles: ...otation/project/helper_functions/find_stay_durations.m
+    AutoAddClientPath: true
+          IdleTimeout: Inf (no automatic shut down)
+          SpmdEnabled: true

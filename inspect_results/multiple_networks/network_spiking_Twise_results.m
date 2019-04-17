@@ -12,22 +12,24 @@ opt.multiple_stimuli = 'no'; %'yes'|'no';
 opt.params2match = {'conn','stim'}; %specify how results are matched to network types (at most {'conn','stim'})
 opt.print_anything = 'yes'; %'yes' | 'no';
 opt.Tcourse = 'all'; %'preswitch' | 'all' | 'presw250to5' | 'presw150to25'
-opt.treat_data = 'none'; %'base0'; % zscore | base0 | minmax | 'none'
+opt.treat_data = 'none'; %'none' | 't-stat'
 opt.zoomed_fig = 'no'; %'yes'|'no'; %ignore I-stay spiking for Y limits
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
 
 %specify simulation
 %---sim setup-----------------
 
-Snames = {'nets_fastD','nets_fastD_baseline'};
-figdir = {'figures_nets_fastD'};
+Snames = {'nets_fastD','nets_fastD_baseline','nets_slowD','nets_slowD_baseline'};
+figdir = {'figures_nets_fastD','figures_nets_fastD',...
+    'figures_nets_slowD','figures_nets_slowD'};
 
-basedir = '~/Desktop/work/ACClab/rotation/project/'; %'~/Desktop/ksander/rotation/project/';
+basedir = '~/Desktop/ksander/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
+addpath(fullfile(basedir,'inspect_results','multiple_networks','bounded_lines')) %plotting helper 
 
 %loop over these
 timewins = {'preswitch', 'all', 'presw250to5', 'presw150to25'};
-treatments = {'none','zscore', 'base0', 'minmax'};
+treatments = {'none','t-stat'};
 zooming = {'yes', 'no'};
 
 for Sidx = 1:numel(Snames)
@@ -68,6 +70,10 @@ data_fn = sprintf('summary_Twise_data_%s.mat',sim_name);
 if exist(fullfile(mainfig_dir,data_fn)) > 0,load_summary = true;else,load_summary = false;end
 if contains(sim_name,'baseline'),BLdata = true;else,BLdata = false;end
 
+recorded_switchtime =  250e-3; %actual switchtime in recorded switch
+
+CIalpha = .05;
+rate_binsz = 10e-3; %binsize for spikerate calculations
 
 switch opt.pulse_stim
     case 'off'
@@ -77,7 +83,6 @@ switch opt.pulse_stim
         error('get this from  options dude, was previously striped from sim name')
 end
 
-recorded_switchtime =  250e-3; %actual switchtime in recorded switch
 switch opt.Tcourse
     case 'preswitch'
         fig_fn = 'preswitch_timecourse';
@@ -100,18 +105,10 @@ end
 fig_fn = sprintf('%s_%s',sim_name,fig_fn);
 
 switch opt.treat_data
-    case 'zscore'
-        fig_dir = fullfile(mainfig_dir,'zscore');
-        fig_fn = sprintf('%s_%s',fig_fn,'zscore');
-        Yax_labs = 'Z spiking';
-    case 'base0'
-        fig_dir = fullfile(mainfig_dir,'base0');
-        fig_fn = sprintf('%s_%s',fig_fn,'base0');
-        Yax_labs = 'rate - min (Hz)';
-    case 'minmax'
-        fig_dir = fullfile(mainfig_dir,'minmax');
-        fig_fn = sprintf('%s_%s',fig_fn,'minmax');
-        Yax_labs = 'spiking (0-1)';
+    case 't-stat'
+        fig_dir = fullfile(mainfig_dir,'t-stat');
+        fig_fn = sprintf('%s_%s',fig_fn,'t-stat');
+        Yax_labs = 'spiking (t-stat)';
     case 'none'
         fig_dir = fullfile(mainfig_dir,'no_treatment');
         Yax_labs = 'spiking (Hz)';
@@ -133,7 +130,7 @@ lnsz = 3; %spikerate plots
 orange = [250 70 22]./255;
 matblue = [0,0.4470,0.7410];
 legend_labels = {'E-stay','E-switch','I-stay','I-switch'};
-
+cellcat = @(x,y) cat(y,x{:}); %faster cell2mat... 
 
 %remake celltype logicals.. (if you use this code again, check this over!!!!!)
 pool_options.num_cells = 250;
@@ -148,16 +145,8 @@ pool_inds{1} = celltype.excit & celltype.pool_stay; %E-stay
 pool_inds{2} = celltype.excit & celltype.pool_switch; %E-switch
 pool_inds{3} = celltype.inhib & celltype.pool_stay; %I-stay
 pool_inds{4} = celltype.inhib & celltype.pool_switch; %I-switch
-
-pool_means = @(x) 
-        
-    
-        Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
-        Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
-        Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
-        Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
-        
-
+%function for mean pool timepoint. Takes 2D rasters, gives cell 
+pool_means = @(d) cellfun(@(x) mean(d(x,:),1),pool_inds,'UniformOutput',false); 
 
 %get general options file from the first file
 gen_options = load(output_fns{1});
@@ -216,7 +205,8 @@ if ~load_summary
     num_files = numel(output_fns);
     result_data = num2cell(zeros(size(Psets)));
     switch_counts = zeros(size(result_data));
-    
+    incr_sum = num2cell(zeros(size(Psets))); %running sum
+    incr_SS = num2cell(zeros(size(Psets))); %running sum of squares 
     for idx = 1:num_files
         if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
         curr_file = load(output_fns{idx});
@@ -230,47 +220,35 @@ if ~load_summary
         end
         p = cellfun(@(x) isequal(x,p),Psets); %index
         
-        %verify recorded spiking results are valid... after-the-fact... this
-        %will be fixed in the recording paramters for the next simulation job
+        %verify recorded spiking results are valid... after-the-fact... (should all be valid)
         all_events = curr_file.sim_results{1};
         [~,valid_events] = find_stay_durations(all_events,curr_file.options,'verify');
         valid_events = cat(1,valid_events{:,1});
         fevents = curr_file.sim_results{3}(:,1); %time indicies for the recorded spiking events
         fevents = cat(1,fevents{:}) .* curr_file.options.timestep; %convert to time for comparison
         valid_events = ismember(fevents,valid_events);
-        %now back to more regular stuff
-        keyboard
-        %file data
+        %now get the data, trial-wise
         fdata = curr_file.sim_results{2};
         fdata = fdata(:,:,valid_events); %ensure records are valid
-        
-        
-        result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
-        result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput',false);
-        
-        Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
-        Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
-        Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
-        Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
-        
-        
+        fdata = squeeze(num2cell(fdata,1:2)); %unclear why num2cell(x,3) didn't do this.. 
+        fdata = cellfun(pool_means,fdata,'UniformOutput',false); %mean pool spikes per timepoint
+        fdata = cellfun(@(x) cellcat(x,1),fdata,'UniformOutput',false);
+        fdata = cellfun(@(x) sim_spikerate(x,timestep,rate_binsz),fdata,'UniformOutput',false); %spikerate per bin
+        fdata = cellcat(fdata,3);
         switch_counts(p) = switch_counts(p) + size(fdata,3); %keep track of how many timecourses
-        fdata = sum(fdata,3); %sum over the switches from this file
-        %add to the rest of them
-        result_data{p} = result_data{p} + fdata;
+        incr_sum{p} = incr_sum{p} + sum(fdata,3); %update running sum
+        incr_SS{p} = incr_SS{p} + sum(fdata.^2,3); %update running SS
     end
 
-    %now divide the summed spike timecourses
     switch_counts = num2cell(switch_counts);
-    result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
-    result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput',false);
-    
+        
     fprintf('\nsaving data...\n')
-    save(fullfile(mainfig_dir,data_fn),'result_data','switch_counts')
+    save(fullfile(mainfig_dir,data_fn),'incr_sum','incr_SS','switch_counts')
 elseif load_summary
     fprintf('\nloading saved summary data...\n')
     Fdata = load(fullfile(mainfig_dir,data_fn));
-    result_data = Fdata.result_data;
+    incr_sum = Fdata.incr_sum;
+    incr_SS = Fdata.incr_SS;
     switch_counts = Fdata.switch_counts;
 end
 
@@ -282,6 +260,17 @@ for idx = 1:numel(switch_counts)
     end
 end
 
+%calulcate result statistics 
+Clevel = 1-(CIalpha*2);
+Tcrit = cellfun(@(x) tinv(Clevel,x-1),switch_counts,'UniformOutput',false);
+incr_std = @(S,S_sq,N) sqrt((S_sq ./ N) - ((S ./ N).^2)); %SD from incrememental vars
+calc_SEM = @(sd,N) sd ./ sqrt(N); %standard error for the mean
+
+rate.mean =  cellfun(@(x,y) x./y,incr_sum,switch_counts,'UniformOutput',false);
+rate.SD = cellfun(@(x,y,z) incr_std(x,y,z),incr_sum,incr_SS,switch_counts,'UniformOutput',false);
+rate.SEM = cellfun(@(x,y) calc_SEM(x,y),rate.SD,switch_counts,'UniformOutput',false);
+rate.CI = cellfun(@(t,se) t.*se, Tcrit,rate.SEM,'UniformOutput',false);
+rate.Tstat = cellfun(@(x,y) x ./ y, rate.mean,rate.SEM,'UniformOutput',false);
 
 %only plot -Xms to +Xms (need round() for roundoff errors...)
 recorded_switchtime = round(recorded_switchtime/timestep,4); %actual switchtime in recorded switch
@@ -291,18 +280,15 @@ preswitch_plottime = round(preswitch_plottime/timestep,4);
 plotting_window = 1 + recorded_switchtime - preswitch_plottime:recorded_switchtime + postswitch_plottime;
 onset_switch = 1 + recorded_switchtime - min(plotting_window); %adjusted to the new plotting window
 %cut down the data matrix to this window
-result_data = cellfun(@(x) x(:,plotting_window,:),result_data,'UniformOutput',false);
 
-switch opt.treat_data
-    case 'zscore'
-        result_data = cellfun(@(x) zscore(x,[],2),result_data,'UniformOutput',false);
-    case 'base0'
-        result_data = cellfun(@(x) bsxfun(@minus, x,  min(x,[],2)),result_data,'UniformOutput',false);
-    case 'minmax'
-        Xmin = cellfun(@(x) min(x,[],2),result_data,'UniformOutput',false);
-        Xmax = cellfun(@(x) max(x,[],2),result_data,'UniformOutput',false);
-        result_data = cellfun(@(x,y) bsxfun(@minus,x,y),result_data,Xmin,'UniformOutput',false);
-        result_data = cellfun(@(x,y,z) bsxfun(@rdivide,x,z-y),result_data,Xmin,Xmax,'UniformOutput',false);
+rate = structfun(@(S) cellfun(@(x) x(:,plotting_window,:),S,'UniformOutput',false),rate,'UniformOutput',false);
+
+switch opt.treat_data %think about what these mean here... 
+    case 't-stat'
+        result_data = rate.Tstat;
+    case 'none'
+        result_data = rate.mean;
+        dummyX = 1:numel(plotting_window); %for plotting... 
 end
 
 ln.baseline.Color = [103 115 122] ./ 255;
@@ -320,25 +306,32 @@ for idx = 1:num_pairs
         Ntargs = curr_net_info.targ_cells{j};
         
         %find the right results for network set-up
-        curr_data = cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets,'UniformOutput',false);
-        curr_data = cat(1,curr_data{:});
-        curr_data = result_data{curr_data};
+        curr_inds = cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets,'UniformOutput',false);
+        curr_inds = cat(1,curr_inds{:});
+        curr_data = result_data{curr_inds};
         
         %plot by celltype
-        %normal people indexing that makes sense, then take the mean
-        Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
-        Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
-        Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
-        Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
-        
-        
+        Estay = curr_data(ismember(legend_labels,'E-stay'),:);
+        Eswitch = curr_data(ismember(legend_labels,'E-switch'),:);
+        Istay = curr_data(ismember(legend_labels,'I-stay'),:);
+        Iswitch = curr_data(ismember(legend_labels,'I-switch'),:);
+               
         %plot the aggregated timecourses
         hold on
-        ln.Estay = plot(Estay,'Linewidth',lnsz);
-        ln.Eswitch = plot(Eswitch,'Linewidth',lnsz);
-        plot(Istay,'Linewidth',lnsz)
-        plot(Iswitch,'Linewidth',lnsz)
-        
+        switch opt.treat_data
+            case 't-stat'
+                ln.Estay = plot(Estay,'Linewidth',lnsz);
+                ln.Eswitch = plot(Eswitch,'Linewidth',lnsz);
+                plot(Istay,'Linewidth',lnsz)
+                plot(Iswitch,'Linewidth',lnsz)
+            case 'none'
+                currCI = rate.CI{curr_inds}; %this & curr_data match legend ordering, it's fine 
+                currCI = num2cell(currCI',1); %christ
+                currCI = cellcat(currCI,3);
+                all_ln = boundedline(dummyX,curr_data,currCI,'alpha');
+                ln.Estay = all_ln(ismember(legend_labels,'E-stay'));
+                ln.Eswitch = all_ln(ismember(legend_labels,'E-switch'));
+        end
         leg_col = ln.(Ntargs).Color;
         l = plot(NaN,'Color',leg_col,'LineWidth',lnsz); %for legend
         

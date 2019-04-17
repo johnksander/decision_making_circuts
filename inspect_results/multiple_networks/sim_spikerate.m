@@ -1,6 +1,6 @@
-function cell_raster = sim_spikerate(cell_raster,timestep)
+function cell_raster = sim_spikerate(cell_raster,timestep,binsz)
 
-binsz = 2e-3;
+%binsz = 2e-3;
 num_binsamps = binsz./timestep; %num samples in Xms (the bin size)
 if round(num_binsamps) - num_binsamps < 1e-12 %roundoff errors...
     num_binsamps = round(num_binsamps);

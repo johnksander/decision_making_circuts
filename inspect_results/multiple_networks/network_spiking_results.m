@@ -71,6 +71,8 @@ data_fn = sprintf('summary_data_%s.mat',sim_name);
 if exist(fullfile(mainfig_dir,data_fn)) > 0,load_summary = true;else,load_summary = false;end
 if contains(sim_name,'baseline'),BLdata = true;else,BLdata = false;end
 
+recorded_switchtime =  250e-3; %actual switchtime in recorded switch
+rate_binsz = 2e-3; %binsize for spikerate calculations
 
 switch opt.pulse_stim
     case 'off'
@@ -80,7 +82,6 @@ switch opt.pulse_stim
         error('get this from  options dude, was previously striped from sim name')
 end
 
-recorded_switchtime =  250e-3; %actual switchtime in recorded switch
 switch opt.Tcourse
     case 'preswitch'
         fig_fn = 'preswitch_timecourse';
@@ -134,7 +135,6 @@ lnsz = 3; %spikerate plots
 orange = [250 70 22]./255;
 matblue = [0,0.4470,0.7410];
 legend_labels = {'E-stay','E-switch','I-stay','I-switch'};
-
 
 %remake celltype logicals.. (if you use this code again, check this over!!!!!)
 pool_options.num_cells = 250;
@@ -236,7 +236,7 @@ if ~load_summary
     %now divide the summed spike timecourses
     switch_counts = num2cell(switch_counts);
     result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
-    result_data = cellfun(@(x) sim_spikerate(x,timestep),result_data,'UniformOutput',false);
+    result_data = cellfun(@(x) sim_spikerate(x,timestep,rate_binsz),result_data,'UniformOutput',false);
     
     fprintf('\nsaving data...\n')
     save(fullfile(mainfig_dir,data_fn),'result_data','switch_counts')
