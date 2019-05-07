@@ -12,7 +12,7 @@ opt.multiple_stimuli = 'no'; %'yes'|'no';
 opt.params2match = {'conn','stim'}; %specify how results are matched to network types (at most {'conn','stim'})
 opt.print_anything = 'yes'; %'yes' | 'no';
 opt.Tcourse = 'all'; %'preswitch' | 'all' | 'presw250to5' | 'presw150to25'
-opt.treat_data = 'none'; %'none' | 't-stat'
+opt.treat_data = 'none'; %'none' | 't-stat' | 'show-SD'
 opt.zoomed_fig = 'no'; %'yes'|'no'; %ignore I-stay spiking for Y limits
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
 
@@ -29,7 +29,7 @@ addpath(fullfile(basedir,'inspect_results','multiple_networks','bounded_lines'))
 
 %loop over these
 timewins = {'preswitch', 'all', 'presw250to5', 'presw150to25'};
-treatments = {'none','t-stat'};
+treatments = {'show-SD'}; %{'none','t-stat','show-SD'};
 zooming = {'yes', 'no'};
 
 for Sidx = 1:numel(Snames)
@@ -109,6 +109,10 @@ switch opt.treat_data
         fig_dir = fullfile(mainfig_dir,'t-stat');
         fig_fn = sprintf('%s_%s',fig_fn,'t-stat');
         Yax_labs = 'spiking (t-stat)';
+    case 'show-SD'
+        fig_dir = fullfile(mainfig_dir,'show-SD');
+        fig_fn = sprintf('%s_%s',fig_fn,'show-SD');
+        Yax_labs = 'spiking (Hz)';
     case 'none'
         fig_dir = fullfile(mainfig_dir,'no_treatment');
         Yax_labs = 'spiking (Hz)';
@@ -286,7 +290,7 @@ rate = structfun(@(S) cellfun(@(x) x(:,plotting_window,:),S,'UniformOutput',fals
 switch opt.treat_data %think about what these mean here... 
     case 't-stat'
         result_data = rate.Tstat;
-    case 'none'
+    case {'none','show-SD'}
         result_data = rate.mean;
         dummyX = 1:numel(plotting_window); %for plotting... 
 end
@@ -324,6 +328,16 @@ for idx = 1:num_pairs
                 ln.Eswitch = plot(Eswitch,'Linewidth',lnsz);
                 plot(Istay,'Linewidth',lnsz)
                 plot(Iswitch,'Linewidth',lnsz)
+                
+            case 'show-SD'
+                currSD = rate.SD{curr_inds}; %this & curr_data match legend ordering, it's fine
+                currSD = num2cell(currSD',1); %christ
+                currSD = cellcat(currSD,3);
+                currSD = currSD ./ 2;
+                all_ln = boundedline(dummyX,curr_data,currSD,'alpha');
+                ln.Estay = all_ln(ismember(legend_labels,'E-stay'));
+                ln.Eswitch = all_ln(ismember(legend_labels,'E-switch'));
+                set(all_ln,'Linewidth',lnsz)
             case 'none'
                 currCI = rate.CI{curr_inds}; %this & curr_data match legend ordering, it's fine 
                 currCI = num2cell(currCI',1); %christ
@@ -334,6 +348,11 @@ for idx = 1:num_pairs
         end
         leg_col = ln.(Ntargs).Color;
         l = plot(NaN,'Color',leg_col,'LineWidth',lnsz); %for legend
+        
+       switch opt.treat_data
+            case {'show-SD','none'}
+                set(gca,'YLim',[0,max(get(gca,'YLim'))]) %set minimum Y to zero
+        end
         
         hold off
         Xlim_max = numel(curr_data(1,:));

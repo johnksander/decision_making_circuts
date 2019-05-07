@@ -29,8 +29,8 @@ basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
 for idx = 1:numel(Snames)
-    %     opt.outcome_stat = 'mu';
-    %     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
+    opt.outcome_stat = 'mu';
+    make_my_figs(basedir,Snames{idx},figdir{idx},opt)
     opt.outcome_stat = 'logmu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
 end
