@@ -140,12 +140,6 @@ for trialidx = 1:num_trials
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
     state.now = state.undecided; %this will always be true when V init to El
-    %---switch data recording-----
-    %250ms before switch, 150ms after
-    num_preswitch_samples = 250e-3/timestep;
-    num_postswitch_samples = 150e-3/timestep;
-    num_switch_samples = num_preswitch_samples + num_postswitch_samples;
-    switch_record = {};
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
     avail_noise.Estay = 1; avail_noise.Eswitch = 1; 

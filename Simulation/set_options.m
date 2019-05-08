@@ -16,6 +16,8 @@ options.state_def = 'active_states'; %'active_states' | 'include_undecided'; whe
 options.state_test_time = 50e-3; %must be X time above threshold to declare a switch 
 options.state_test_thresh = .02; %difference in mean Sg between E-cell pools 
 options.record_spiking = 'off'; % 'on' saves spiking data, 'off' gives low-memory sim without spiking data 
+options.record_preswitch = 250e-3; %transition data recording: 250ms before switch, 150ms after
+options.record_postswitch = 150e-3; 
 %----pulse stimulus delivery (more realistic licking)
 options.stim_pulse = [NaN, NaN]; %default will be none, NaNs specifies constant stim
 %format is [on, off] in seconds. options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI

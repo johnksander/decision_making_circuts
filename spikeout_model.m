@@ -138,12 +138,6 @@ for trialidx = 1:num_trials
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
     state.now = state.undecided; %this will always be true when V init to El
-    %---switch data recording-----
-    %250ms before switch, 150ms after
-    num_preswitch_samples = 250e-3/timestep;
-    num_postswitch_samples = 150e-3/timestep;
-    num_switch_samples = num_preswitch_samples + num_postswitch_samples;
-    switch_record = {};
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
     avail_noise.Estay = 1; avail_noise.Eswitch = 1;
@@ -298,35 +292,23 @@ for trialidx = 1:num_trials
     switch options.record_spiking
         case 'on'
             
-            %check if we need to record a switch index for spiking data
-            leave_states = find(startsWith(durations(:,end),'leave'));
-            for LSidx = 1:numel(leave_states)
-                leave_durr = durations{leave_states(LSidx),2}; %How long leave-state lasted
-                leave_start = durations{leave_states(LSidx),1} - leave_durr; %when that leave state started
-                curr_rec = durations(1:leave_states(LSidx),:); %duration record up to that point
-                prev_stay = find(startsWith(curr_rec(:,end),'stim'), 1, 'last');
-                %check for no prior stay-state (2 sequential leaves after 1st artificial stay)
-                if ~isempty(prev_stay)
-                    prev_stay = curr_rec(prev_stay,:); %stay-state prior to leave-transition
-                    last_duration = prev_stay{2}; %how long that stay-state lasted
-                    last_ended = prev_stay{1}; %when it ended
-                    %stay-state followed by a leave-state within Yms later, and lasted at least Y ms
-                    recwin_check = leave_start-last_ended;
-                    recwin_check = recwin_check <= num_postswitch_samples ...
-                        &&  (recwin_check+leave_durr) >= num_postswitch_samples;
-                    %if the state-state lasted at least Xms, and meets above criteria
-                    if last_duration > num_preswitch_samples && recwin_check
-                        %record this state in the state-record so we can pull its spiking data out later                        
-                        switch_record = vertcat(switch_record,prev_stay);
-                    end
-                end
-            end
+            %---switch data recording-----
+            [~,valid_events] = find_stay_durations(durations,options,'verify');
+            good_data = cat(1,valid_events.spiking_data{:});
+            valid_events = valid_events.event_time(good_data);
+            valid_events = cat(1,valid_events{:}); %event times for events with good spiking data 
+            all_events = cat(1,durations{:,1}) .* options.timestep;
+            valid_events = ismember(all_events,valid_events);
+            switch_record = durations(valid_events,:);
             
             %check if no switches met recording criteria, terminate if needed
             if isempty(switch_record) | numel(switch_record(:,1)) < 1,return;end
-            
+          
             %now get these spike timecourses and save them
             num_switches = numel(switch_record(:,1)); %cannot believe this var name is still free
+            num_preswitch_samples = options.record_preswitch/timestep; %window samples
+            num_postswitch_samples = options.record_postswitch/timestep;
+            num_switch_samples = num_preswitch_samples + num_postswitch_samples;
             spiking_output = NaN(pool_options.num_cells,num_switch_samples,num_switches);
             for tc_idx = 1:num_switches
                 record_win = switch_record{tc_idx,1};

@@ -33,19 +33,22 @@ if ~isempty(varargin)
     end
 end
 
-
-
+if all(isnan(options.stim_pulse)) %there's a legit pulsing stim 
+    sample_duration = options.tmax;
+else %constant stim 
+    sample_duration = sum(options.stim_pulse);
+end
 
 %stimulus_duration = options.stim_pulse(1);
 timecourse = size(durations);
 timecourse(2) = timecourse(2) + 1;
 timecourse = cell(timecourse);
 timecourse(:,1:3) = cellfun(@(x) x*options.timestep,durations(:,1:3),'UniformOutput',false);
-timecourse(:,3) = cellfun(@(x) mod(x,sum(options.stim_pulse)),timecourse(:,3),'UniformOutput',false);
-%current sample's onset, rounding is needed for subsequent operations
-timecourse(:,4) = cellfun(@(x,y) round(x-y,2),timecourse(:,1),timecourse(:,3),'UniformOutput',false);
-samp_onsets = unique(cat(1,timecourse{:,4})); %like unique won't work properly here without rounding
-timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
+timecourse(:,3) = cellfun(@(x) mod(x,sample_duration),timecourse(:,3),'UniformOutput',false);
+%must use uniquetol() and ismembertol() for roundoff errors 
+timecourse(:,4) = cellfun(@(x,y) x-y,timecourse(:,1),timecourse(:,3),'UniformOutput',false);
+samp_onsets = uniquetol(cat(1,timecourse{:,4})); 
+timecourse(:,4) = cellfun(@(x) find(ismembertol(samp_onsets,x)),timecourse(:,4),'UniformOutput',false); 
 timecourse(:,end) = durations(:,end);
 %timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
 timecourse = cell2table(timecourse,'VariableNames',{'event_time','duration','sample_time','sample_number','state'});

@@ -6,8 +6,8 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 4;
-sname = 'diag_newswitch_crit';
+jobID = 1;
+sname = 'diag_pulses';
 %jobID = str2num(getenv('JID'));
 %sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
@@ -333,21 +333,21 @@ if numel(durations) > 1
     timecourse = [timecourse(:,1),num2cell(cellfun(@(x,y) x-y,timecourse(:,1),timecourse(:,2))),timecourse(:,2:end)];
     %timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
     timecourse = cell2table(timecourse,'VariableNames',{'event_time','start','duration','sample_time','sample_number','state'});
-    figure
-    %state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
-    state_durs = timecourse.duration(~strcmpi(timecourse.state,'undecided')); %leave states included 
-    if numel(state_durs) > 0
-        if numel(state_durs) < 15
-            histogram(state_durs,numel(state_durs))
-        else
-            histogram(state_durs)
-        end
-        %title(sprintf('stay-state durations\nmu = %.2f',mean(state_durs)))
-        %ylabel('seconds');xlabel('frequecy');set(gca,'FontSize',fontsz)
-        title(sprintf('Network:    E-I = %.2f,    I-E = %.2f\nmu duration = %.2fs',options.EtoI,options.ItoE,mean(state_durs)))
-        ylabel('state duration (s)');xlabel('frequecy');set(gca,'FontSize',fontsz)
-        print(fullfile(fig_dir,'state_durations'),'-djpeg')
-    end
+    %     figure
+    %     %state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
+    %     state_durs = timecourse.duration(~strcmpi(timecourse.state,'undecided')); %leave states included
+    %     if numel(state_durs) > 0
+    %         if numel(state_durs) < 15
+    %             histogram(state_durs,numel(state_durs))
+    %         else
+    %             histogram(state_durs)
+    %         end
+    %         %title(sprintf('stay-state durations\nmu = %.2f',mean(state_durs)))
+    %         %ylabel('seconds');xlabel('frequecy');set(gca,'FontSize',fontsz)
+    %         title(sprintf('Network:    E-I = %.2f,    I-E = %.2f\nmu duration = %.2fs',options.EtoI,options.ItoE,mean(state_durs)))
+    %         ylabel('state duration (s)');xlabel('frequecy');set(gca,'FontSize',fontsz)
+    %         print(fullfile(fig_dir,'state_durations'),'-djpeg')
+    %     end
     %add paramters, print
 end
 
