@@ -19,9 +19,6 @@ opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are mat
 
 
 %specify simulations
-%Snames = {'dttest_0-25_fastD','dttest_0-25_slowD','dttest_0-1_fastD','dttest_0-1_slowD',...
-%    'dttest_0-02_fastD','dttest_0-02_slowD'}; figdir = 'figures_dttest';
-
 Snames = {'nets_fastD','nets_slowD'};
 figdir = {'figures_nets_fastD','figures_nets_slowD'}; %print multiple sims to one figdir using this
 
@@ -184,7 +181,7 @@ if exist(fullfile(svdir,svFN)) > 0,load_summary = true;else,load_summary = false
 switch opt.multiple_stimuli
     case 'yes'
         param_varnams = {'ItoE','EtoI','stim_A','stim_B','targ_cells'};
-        error('not configured yet'); %look at line below, figure out what you gotta do
+        %line below may be important
         %IDvars = param_varnams(~ismember(param_varnams,'stim_B')); %stim B not particular to network type
     case 'no'
         param_varnams = {'ItoE','EtoI','stim','targ_cells'};
@@ -222,7 +219,7 @@ for idx = 1:num_pairs
     switch opt.multiple_stimuli
         case 'yes'
             curr_params = cellfun(@(x)...
-                {x.ItoE, x.EtoI,x.trial_stimuli,x.stim_targs},...
+                [x.ItoE, x.EtoI,num2cell(x.trial_stimuli),x.stim_targs],...
                 curr_params,'UniformOutput',false); %matching "network_pair_info" format
         otherwise
             curr_params = cellfun(@(x)...
