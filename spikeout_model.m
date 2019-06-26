@@ -60,11 +60,14 @@ Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
 detlaGsra = 12.5e-9; %increase adaptation conductance, nano Siemens
 %----depression----------------
-Pr = NaN(pool_options.num_cells,1); %release probability
-Pr(celltype.excit) = .2; %excitatory release probability
-Pr(celltype.inhib) = .2; %inhibitory release probability
+Pr = .1; %release probability
 Td.fast = .3;%synaptic depression time constant, seconds (fast)
-Td.slow = 7;%slow time constant
+Td.slow = 10;%slow time constant
+fD = .05; %availability factor: (max docked vessicles / max pooled vessicles)
+switch options.fastslow_depression
+    case 'off'
+        fD = 0; Td.slow = Td.fast; 
+end
 %----timecourse----------------
 timestep = options.timestep;
 timevec = 0:timestep:options.tmax;
@@ -117,12 +120,10 @@ for trialidx = 1:num_trials
     %---gating & depression-------
     Sg = NaN(size(V)); %synaptic gating
     Sg(:,1) = 0; %initalize at zero
-    Dmax.fast = 1 - options.percent_Dslow;
-    Dmax.slow = options.percent_Dslow;
     Dfast = NaN(size(V)); %synaptic depression: fast
     Dslow = NaN(size(V)); %synaptic depression: slow
-    Dfast(:,1) = Dmax.fast; %initalize at ratio of slow/fast vessicles
-    Dslow(:,1) = Dmax.slow;
+    Dfast(:,1) = 1; 
+    Dslow(:,1) = 1;
     %---spikes--------------------
     switch options.record_spiking
         case 'on'
@@ -162,23 +163,19 @@ for trialidx = 1:num_trials
         tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext
         Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
         Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-        Dfast(:,idx) = Dfast(:,idx-1) + (((Dmax.fast - Dfast(:,idx-1))./Td.fast) .* timestep); %fast syn. depression
-        Dslow(:,idx) = Dslow(:,idx-1) + (((Dmax.slow - Dslow(:,idx-1))./Td.slow) .* timestep); %slow syn. depression
+        Dfast(:,idx) = Dfast(:,idx-1) + (((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast) .* timestep);%fast syn. depression
+        Dslow(:,idx) = Dslow(:,idx-1) + timestep .* ( ((1 - Dslow(:,idx-1))./Td.slow) ...
+            - fD.* ((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast)  ); %slow vessicle replacement
         Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
         
         spiking_cells = V(:,idx) > spike_thresh;
         if sum(spiking_cells) > 0
             Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
-            Pr_spike = Pr(spiking_cells);
-            %vessicle release for slow/fast vessicles
-            fast_release = Pr_spike .* Dfast(spiking_cells,idx);
-            slow_release = Pr_spike .* Dslow(spiking_cells,idx);
-            %synaptic gating, depends on combined vessicle release
+            %synaptic gating, updates with Dfast vessicles 
             Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
-                ((fast_release + slow_release).*(1-Sg(spiking_cells,idx)));
-            %depression update
-            Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - fast_release;
-            Dslow(spiking_cells,idx) = Dslow(spiking_cells,idx) - slow_release;
+                (Pr.* Dfast(spiking_cells,idx).*(1-Sg(spiking_cells,idx)));
+            %depression update (docked vessicles released) 
+            Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - (Pr.* Dfast(spiking_cells,idx));
             V(spiking_cells,idx) = Vreset;
             switch options.record_spiking
                 case {'on','ratelim_only'}
@@ -242,11 +239,16 @@ for trialidx = 1:num_trials
         Dslow = next_timepoint(Dslow);
         Sg = next_timepoint(Sg);
         
-        %check timeout for non-switching
-        if state.count >= state.noswitch_timeout
+        switch options.fastslow_depression
+            case 'off'
+                Dslow(:,idx) =  1; %keep constant at 1.
+        end
+        
+        %check timeout for non-switching or non-dominance 
+        if state.count >= state.noswitch_timeout || state.no_dom_counter >= state.no_dominance_timeout
             update_logfile(':::Bistability check failure:::',options.output_log)
             TOF = timepoint_counter*timestep;
-            update_logfile(sprintf('---no switch timeout at t=%.2f(s)',TOF),options.output_log)
+            update_logfile(sprintf('---no switch/dominance timeout at t=%.2f(s)',TOF),options.output_log)
             return
         end
         

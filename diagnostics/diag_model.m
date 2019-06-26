@@ -143,7 +143,7 @@ for trialidx = 1:num_trials
     state.now = state.undecided; %this will always be true when V init to El
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
-    avail_noise.Estay = 1; avail_noise.Eswitch = 1; 
+    avail_noise.Estay = 1; avail_noise.Eswitch = 1;
     timepoint_counter = 1;
     idx = 2; %keep indexing vars with idx fixed at 2
     
@@ -280,14 +280,12 @@ for trialidx = 1:num_trials
                 end
         end
         
-        
         %progress tracking...
         if mod(timepoint_counter,floor(num_timepoints * .05)) == 0 %5 percent
             progress = (timepoint_counter /  num_timepoints) * 100;
             message = sprintf('Simulation %.1f percent complete',progress);
             update_logfile(message,options.output_log)
         end
-        
     end
     
     if ~isempty(durations)
