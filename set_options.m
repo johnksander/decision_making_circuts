@@ -9,6 +9,7 @@ options.jobID = 9999;
 options.netpair_file = NaN; %for loading network pair info file 
 options.timestep = .1e-3; %.1 milisecond timestep
 options.noswitch_timeout = 750; %timeout without a switch (s)
+options.no_dominance_timeout = 1; %timeout if neither or both pools active > X seconds 
 options.tmax = 2500; %trial simulation time (s)
 options.force_back2stay = false; %whether to force switch from stay state (default false)
 options.cut_leave_state = 100e-3; %after Xms in a leave state, half noise E-switch cells 
@@ -26,7 +27,7 @@ options.sample_Estay_offset = 40e-3; %(Pulse stim only) init noise offset Estay-
 %sample availablity onset. This is to kick the network into stay & start sampling 
 %----checking bistability @ sim outset 
 options.init_check_Rext = 400; %pulse strength (Hz to E-stay)
-options.init_check_tmax = .9; %pulse must keep steady state for (s)
+options.init_check_tmax = 1; %pulse must keep steady state for (s)
 %----checking spikerates against limits & outset
 options.ratelim_check = 'off'; %'off' | 'on'
 options.ratelim_E = 50; %hz maximum
@@ -36,9 +37,8 @@ options.ratelim_mulim = 1.25; % mulim * rate limit gives the average firing rate
 options.ratelim_start = 10; %begin check (s) into sim, check this against init_check_tmax
 options.ratelim_stop = 20; %stop check (s) into sim
 %----depression
-options.percent_Dslow = 0; %fraction of slow vesicles (.2 gives 20% slow, 80% fast)
-%setting value > 0 enables slower depression timescale. 
-
+options.fastslow_depression = 'on'; %'on' | 'off' if off, keep Dslow constant at 1 
+%if this is off: Dslow should be held constant at 1, tau slow should equal tau fast, and fD = 0. 
 
 %parse inputs 
 if mod(numel(varargin),2) ~= 0
@@ -109,14 +109,15 @@ if strcmp(options.modeltype,'PS')
     dealers_choice = @(a,b) (a + (b-a).*rand(1));
     
     options.EtoE = .0405; %fixed
-    if options.percent_Dslow > 0
-        %range for slow depression sweeep
-        options.ItoE = dealers_choice(0.1, 8);
-        options.EtoI = dealers_choice(0.1, .75);
-    else
-        %range for fast depression sweep
-        options.ItoE = dealers_choice(0.01, 3.7);
-        options.EtoI = dealers_choice(0.01, .35);
+    switch fastslow_depression
+        case 'on'
+            %range for slow & fast depression sweeep
+            options.ItoE = dealers_choice(0.1, 8);
+            options.EtoI = dealers_choice(0.1, .75);
+        otherwise
+            %range for fast-only depression sweep
+            options.ItoE = dealers_choice(0.01, 3.7);
+            options.EtoI = dealers_choice(0.01, .35);
     end
     
     %this mode should always be for baseline/no stimulus

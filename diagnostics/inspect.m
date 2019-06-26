@@ -6,8 +6,8 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 2;
-sname = 'diag_slowD_in_pref';
+jobID = 3;
+sname = 'test';
 %jobID = str2num(getenv('JID'));
 %sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
@@ -119,7 +119,7 @@ xlabel('time (s)')
 set(gca,'FontSize',fontsz);axis tight;hold off
 if valid_Drange(Dmu_slow),ylim([0,1]);end
 linkaxes(ax,'xy')
-ylim([0,max([options.percent_Dslow,1-options.percent_Dslow])])
+%ylim([0,max([options.percent_Dslow,1-options.percent_Dslow])])
 print(fullfile(fig_dir,'depression'),'-djpeg')
 savefig(gcf(),fullfile(fig_dir,'depression'),'compact')
 

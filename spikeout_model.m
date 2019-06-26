@@ -31,19 +31,13 @@ W = reorder_weightmat(W,celltype);
 
 %set up simulation parameters
 %--------------------------------------------------------------------------
-%----cell connections---------
+%----cell basics---------------
 Erev = 0; %reversal potential, excitatory
 Irev = -70e-3; %reversal potential, inhibitory
 Gg = 10e-9; %max conductance microSiemens
-Pr = NaN(pool_options.num_cells,1); %release probability
-Pr(celltype.excit) = .2; %excitatory release probability
-Pr(celltype.inhib) = .2; %inhibitory release probability
-Td.fast = .3;%synaptic depression time constant, seconds (fast)
-Td.slow = 7;%slow time constant
 Tsyn = NaN(pool_options.num_cells,1); %gating time constant vector
 Tsyn(celltype.excit) = 50e-3; %excitatory gating time constant, ms
 Tsyn(celltype.inhib) = 10e-3; %inhibitory gating time constant, ms
-%----cell basics--------------
 El = -70e-3; %leak potential mV
 Ek = -80e-3; %potassium potential mV
 Vreset = -80e-3; %reset potential mV
@@ -51,21 +45,27 @@ Rm = 100e6; %resistance megaohms
 Gl = 1/Rm; %leak conductance
 Cm = 100e-12; %cell capacity picofarads
 spike_thresh = 20e-3; %spike reset threshold (higher than Vth)
-%----noisy input--------------
+%----noisy input---------------
 Tau_ext = NaN(pool_options.num_cells,1); %noisy conductance time constant, ms
 Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
 Tau_ext(celltype.inhib) = 2e-3; % was 5e-3;
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
 Rext = 1400; %poisson spike train rate for noise, Hz
-%---adaptation conductance----
+%----adaptation conductance----
 Vth = -50e-3; %ALEIF spike threshold mV
 delta_th = 2e-3; %max voltage threshold, mV  (deltaVth in equation)
 Tsra = NaN(pool_options.num_cells,1);%adaptation conductance time constant, ms
 Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
 detlaGsra = 12.5e-9; %increase adaptation conductance, nano Siemens
-%----timecourse---------------
+%----depression----------------
+Pr = NaN(pool_options.num_cells,1); %release probability
+Pr(celltype.excit) = .2; %excitatory release probability
+Pr(celltype.inhib) = .2; %inhibitory release probability
+Td.fast = .3;%synaptic depression time constant, seconds (fast)
+Td.slow = 7;%slow time constant
+%----timecourse----------------
 timestep = options.timestep;
 timevec = 0:timestep:options.tmax;
 num_timepoints = numel(timevec);
@@ -168,7 +168,6 @@ for trialidx = 1:num_trials
         
         spiking_cells = V(:,idx) > spike_thresh;
         if sum(spiking_cells) > 0
-            spiking_cells = V(:,idx) > spike_thresh;
             Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
             Pr_spike = Pr(spiking_cells);
             %vessicle release for slow/fast vessicles

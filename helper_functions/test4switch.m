@@ -5,6 +5,13 @@ Smu = mean(Smu);
 active_state = Smu - fliplr(Smu); %A-B, B-A
 active_state = active_state > state.test_thresh; %will return undecided, if neither active
 
+%non-dominance check
+if all(active_state) || all(~active_state) %both or neither 
+    state.no_dom_counter = state.no_dom_counter + 1;
+else 
+    state.no_dom_counter = 0; %reset the clock 
+end
+
 
 switch state.state_def  %whether simulation aknowledges "undecided states" 
     case 'active_states'
