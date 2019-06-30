@@ -34,8 +34,8 @@ options.ratelim_E = 50; %hz maximum
 options.ratelim_I = 100;
 options.ratelim_tmax = 1.5; %time limit (s) for sustained firing over threshold
 options.ratelim_mulim = 1.25; % mulim * rate limit gives the average firing rate limit (e.g. 1.25*ratelim.E)
-options.ratelim_start = 10; %begin check (s) into sim, check this against init_check_tmax
-options.ratelim_stop = 20; %stop check (s) into sim
+options.ratelim_start = 11; %begin check (s) into sim, check this against init_check_tmax
+options.ratelim_stop = 21; %stop check (s) into sim
 %----depression
 options.fastslow_depression = 'on'; %'on' | 'off' if off, keep Dslow constant at 1 
 %if this is off: Dslow should be held constant at 1, tau slow should equal tau fast, and fD = 0. 
@@ -109,11 +109,11 @@ if strcmp(options.modeltype,'PS')
     dealers_choice = @(a,b) (a + (b-a).*rand(1));
     
     options.EtoE = .0405; %fixed
-    switch fastslow_depression
+    switch options.fastslow_depression
         case 'on'
             %range for slow & fast depression sweeep
-            options.ItoE = dealers_choice(0.1, 8);
-            options.EtoI = dealers_choice(0.1, .75);
+            options.ItoE = dealers_choice(0.1, 12.5); %before: (I-E .1-8) (E-I .1-.75)
+            options.EtoI = dealers_choice(0.1, 3);
         otherwise
             %range for fast-only depression sweep
             options.ItoE = dealers_choice(0.01, 3.7);

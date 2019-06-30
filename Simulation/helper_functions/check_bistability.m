@@ -8,7 +8,7 @@ check_window = state.count <= state.init_check_stop;
 %add another one for "check over", just in case isnan(state.count) or something...
 check_over = state.count >= state.init_check_stop;
 %give pulse up until 2/3 into check window, then stop
-pulse_window = state.count <= floor(state.init_check_stop *1); % *66 would give 2/3
+pulse_window = state.count <= floor(state.init_check_stop *8); % *.66 would give 2/3
 %if the pulse window is 1/3 over, start checking state dominance
 check_dom = state.count >= floor(state.init_check_stop *.33) && check_window;
 

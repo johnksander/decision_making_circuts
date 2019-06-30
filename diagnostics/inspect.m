@@ -53,7 +53,7 @@ lnsz = 3; %spikerate plots
 fontsz = 12;
 
 
-figure()
+figure
 %do the raster plot
 spikeplot = make_spikeplot(spikes);
 %reorganize the cell groups
@@ -139,7 +139,6 @@ legend({'E-stay','E-switch','I-stay','I-switch'},'location','northoutside','Orie
 set(gca,'FontSize',fontsz);axis tight;hold off
 if valid_Drange(Dmu_fast),ylim([0,1]);end
 print(fullfile(fig_dir,'depression_fastonly'),'-djpeg')
-
 
 %spikerates
 figure;
@@ -287,8 +286,7 @@ above_state_thresh = tvec(above_state_thresh);
 above_state_thresh = diff(above_state_thresh);
 above_state_thresh = above_state_thresh(above_state_thresh < .4); %doesn't take a half second
 above_state_thresh = above_state_thresh(above_state_thresh > 25e-3); %takes longer than 25 ms
-figure;histogram(above_state_thresh ./ 1e-3,numel(above_state_thresh));xlabel('transition detection time ms')
-hold on 
+%figure;histogram(above_state_thresh ./ 1e-3,numel(above_state_thresh));xlabel('transition detection time ms')
 above_state_thresh = Sg.Eswitch-Sg.Estay > options.state_test_thresh;
 above_state_thresh = diff(above_state_thresh) == -1;
 tvec = timestep:timestep:options.tmax; %start with 1 b/c of diff
@@ -332,7 +330,7 @@ if numel(durations) > 1
     timecourse(:,4) = cellfun(@(x) find(x==samp_onsets),timecourse(:,4),'UniformOutput',false); %would also break without rounding
     timecourse(:,end) = durations(:,end);
     timecourse = [timecourse(:,1),num2cell(cellfun(@(x,y) x-y,timecourse(:,1),timecourse(:,2))),timecourse(:,2:end)];
-    %timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
+    %%timecourse(:,1:end-1) = cellfun(@(x) sprintf('%.3f',x),timecourse(:,1:end-1),'UniformOutput',false); %for printing
     timecourse = cell2table(timecourse,'VariableNames',{'event_time','start','duration','sample_time','sample_number','state'});
     %     figure
     %     %state_durs = timecourse.duration(startsWith(timecourse.state,'stim'));
@@ -350,6 +348,11 @@ if numel(durations) > 1
     %         print(fullfile(fig_dir,'state_durations'),'-djpeg')
     %     end
     %add paramters, print
+    
+    TCfile = cellfun(@(x) sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false); %for printing
+    TCfile = [TCfile,timecourse.state];
+    TCfile = cell2table(TCfile,'VariableNames',{'event_time','start','duration','sample_time','sample_number','state'});
+    writetable(TCfile,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
 end
 
 figure
@@ -379,12 +382,6 @@ print(fullfile(fig_dir,'parameter_title'),'-djpeg')
 % print(fullfile(fig_dir,'Vm_dists'),'-djpeg')
 
 
-
-%for printing 
-TCfile = cellfun(@(x) sprintf('%.3f',x),table2cell(timecourse(:,1:end-1)),'UniformOutput',false); %for printing
-TCfile = [TCfile,timecourse.state];
-TCfile = cell2table(TCfile,'VariableNames',{'event_time','start','duration','sample_time','sample_number','state'});
-writetable(TCfile,fullfile(fig_dir,'event_info.txt'),'Delimiter','|')
 
 % %this is what happened, and when
 % %{timeidx,statecount,sample_clock,stim_label}

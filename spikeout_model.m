@@ -51,7 +51,7 @@ Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
 Tau_ext(celltype.inhib) = 2e-3; % was 5e-3;
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
-Rext = 1400; %poisson spike train rate for noise, Hz
+Rext = 1540; %poisson spike train rate for noise, Hz
 %----adaptation conductance----
 Vth = -50e-3; %ALEIF spike threshold mV
 delta_th = 2e-3; %max voltage threshold, mV  (deltaVth in equation)

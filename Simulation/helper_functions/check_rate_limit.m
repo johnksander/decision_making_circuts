@@ -1,4 +1,6 @@
 function [options,outcome] = check_rate_limit(spikes,celltype,options)
+%this performs ratelimit check, and checks for oscillators that passed
+%initial bistability check 
 
 outcome.status = 'pass';
 %total_tmax = options.ratelim.stop - options.ratelim.start; 
@@ -7,11 +9,13 @@ check_start = options.ratelim.start / options.timestep;
 check_stop = options.ratelim.stop / options.timestep;
 spikes = spikes(:,check_start:check_stop);
 
-
 %get rates
 window_sz = 75e-3;
-num_binsamps = window_sz/options.timestep; %num samples in 2ms
 raster_sz = size(spikes);
+num_binsamps = window_sz/options.timestep; %num samples in 2ms
+if round(num_binsamps) - num_binsamps < 1e-12 %roundoff errors...
+    num_binsamps = round(num_binsamps);
+end
 if mod(raster_sz(2),num_binsamps) ~= 0 %you have to trim it down, equally divisible by bin size
     Ntrim = mod(raster_sz(2),num_binsamps);
     spikes = spikes(:,1+Ntrim:end);

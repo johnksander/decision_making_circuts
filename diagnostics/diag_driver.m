@@ -8,12 +8,12 @@ addpath('../')
 jobID = 3;
 
 %---setup---------------------
-tmax = 20; %diagnostics_fullnoise
+tmax = 25; %diagnostics_fullnoise
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','test','jobID',jobID,'tmax',tmax,'cut_leave_state',tmax);
+    'sim_name','test','jobID',jobID,'tmax',tmax,'cut_leave_state',tmax,'timestep',.25e-3);
 
 options.EtoE = .0405; %fixed 
-options.ItoE = 5.8175; options.EtoI = 0.3958;
+options.ItoE = 5; options.EtoI = 0.7420;
 options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
 Rstim = 0; %rate for stimulus input spikes
 options.trial_stimuli = [Rstim,Rstim];
@@ -28,7 +28,7 @@ driverfile = mfilename;
 backup_jobcode(options,driverfile,modelfile)
 delete(options.output_log) %no need for these right now
 
-
+inspect
 
 %when you want this code again 
 % do_config = mod(options.jobID,10);
