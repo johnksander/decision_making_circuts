@@ -6,6 +6,9 @@ format compact
 Tobj = 7.5; %target mean duration 
 R0_stim = 25; %start search at 25 hz
 
+%target time tolerance (must pass to save) 
+targ_tol = .11; 
+
 %stopping criteria (both must be met)
 fun_tol = .25 .^2; % 250 ms tolerance for changes in objective function
 X_tol = 2; % 2 Hz tolerance for change in stimulus (per step)
@@ -70,8 +73,14 @@ for idx = 1:num_nets %use this to index the different network types
         end
         state_durations = cat(1,state_durations{:});
         state_durations = state_durations * options.timestep;
-        %save durations, equated stim value, options
-        save(FN,'state_durations','Req','options')
+        %only save the completed datafile if it's within the target toleranace range!
+        Nstates = numel(state_durations);
+        mu_dur = mean(state_durations);
+        targ_err = abs(Tobj - mu_dur);
+        if Nstates > 1 && targ_err < targ_tol
+            %save durations, equated stim value, options
+            save(FN,'state_durations','Req','options')
+        end
         %remove batch files
         system(sprintf('rm -r %s',options.batchdir));
         update_logfile('file cleanup complete',options.output_log)
