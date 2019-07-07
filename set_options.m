@@ -113,7 +113,7 @@ if strcmp(options.modeltype,'PS')
         case 'on'
             %range for slow & fast depression sweeep
             options.ItoE = dealers_choice(0.1, 12.5); %before: (I-E .1-8) (E-I .1-.75)
-            options.EtoI = dealers_choice(0.1, 3);
+            options.EtoI = dealers_choice(0, .75);
         otherwise
             %range for fast-only depression sweep
             options.ItoE = dealers_choice(0.01, 3.7);
