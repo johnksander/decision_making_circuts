@@ -4,23 +4,23 @@ format compact
 hold off;close all
 
 num_workers = 24; %for parfor loading results 
-rescale_plane = 'on';
+rescale_plane = 'on'; 
+mask_trimming = 'on'; 
 outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
 
 %result summaries
-fontsz = 16;
-trial_hists = 'on';
+fontsz = 20;
 stim_labels = {'stim A','stim B'};
 timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
-limit_prange = 'no'; %'yes' | 'no' if yes, set maximums for connection parameters
+limit_prange = 'yes'; %'yes' | 'no' if yes, set maximums for connection parameters
 
-EI_max = .75; IE_max = 8; %these set connection maximums
+EI_max = .75; IE_max = 12.5; %these set connection maximums
 %for the fastD
 %EI_max = .35; IE_max = 3.75; %these set connection maximums
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_slowD_Rlim_baseline';
+sim_name = 'parsweep_D2t_baseline';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
@@ -32,7 +32,7 @@ num_files = numel(output_fns);
 file_data = cell(num_files,3);
 %parfor stuff
 output_log = fullfile(resdir,'output_log.txt');
-special_progress_tracker = fullfile(resdir,'SPT.txt');
+special_progress_tracker = fullfile(resdir,'SPT.txt');close
 if exist(special_progress_tracker) > 0
     delete(special_progress_tracker) %fresh start
 end
@@ -146,17 +146,14 @@ switch outcome_stat
         outcome = cellfun(@(x) mean(log10(x+eps)),result_data(:,1));
         Zlabel = {'mean stay duration';'log_{10}(s)'};
         figdir = fullfile(figdir,'logmean_duration');
-        rad2keep = .15;
     case 'E-rate'
         outcome = cellfun(@(x) x.Erate,result_data(:,3));
         Zlabel = {'E spikerates';'Hz'};
         figdir = fullfile(figdir,'rates_excit');
-        rad2keep = .15;
     case 'I-rate'
         outcome = cellfun(@(x) x.Irate,result_data(:,3));
         Zlabel = {'I spikerates';'Hz'};
         figdir = fullfile(figdir,'rates_inhib');
-        rad2keep = .5;
 end
 
 switch limit_prange
@@ -188,7 +185,6 @@ end
 
 %surface plot
 figure
-fontsz = 20;
 pointsz = 10; %was 30
 plt_alph = .75;
 num_gridlines = 400; 
@@ -199,18 +195,42 @@ f = scatteredInterpolant(ItoE,EtoI,outcome);
 f.Method = 'natural';
 Z = f(X,Y);
 %---if you need to smooth the plane---
-filtSD = 2.5;
+filtSD = 1.5;
 Z = imgaussfilt(Z,filtSD);
-%---old mask implementation 
+%---old mask implementation
 %mask = tril(ones(size(Z)),50);%mask = logical(flipud(mask));%Z(~mask) = NaN;
-%rad2keep = .15;
-mesh2keep = zeros(size(X));
-for idx = 1:num_jobs
-    x = ItoE(idx);y = EtoI(idx);z = outcome(idx);
-    sphere_voxels = ((Y - y).^2 + (X - x).^2 + (Z - z).^2)<= rad2keep.^2;
-    mesh2keep(sphere_voxels) = 1;
+switch rescale_plane
+    case 'on'
+        Z(Z < 0) = 0;
+        Z(Z > max(outcome)) = max(outcome);
 end
-X(~mesh2keep) = NaN;Y(~mesh2keep) = NaN;Z(~mesh2keep) = NaN;
+switch mask_trimming
+    case 'on'
+        mesh2keep = false(size(X));
+        rad2keep = .075; 
+        %good_dist = @(X,x) (X - x).^2 <= mask_lim.^2; %map - point 
+        minmax = @(x) (x-min(x(:))) ./ (max(x(:)) - min(x(:)));
+        Xsc = minmax(ItoE); Ysc = minmax(EtoI); Zsc = minmax(outcome);
+        Xmap = minmax(X); Ymap = minmax(Y); Zmap = minmax(Z);
+        for idx = 1:num_jobs
+            %x = ItoE(idx);y = EtoI(idx);z = outcome(idx); %coordinate for each datapoint 
+            %sphere_voxels = ((Y - y).^2 + (X - x).^2 + (Z - z).^2)<= rad2keep.^2;
+            %mesh2keep(sphere_voxels) = 1;
+            
+            x = Xsc(idx);y = Ysc(idx);z = Zsc(idx); %coordinate for each datapoint 
+            good_voxels = (Ymap - y).^2 <= rad2keep.^2  & ...
+                (Xmap - x).^2  <= rad2keep.^2  & ...
+                (Zmap - z).^2 <= rad2keep.^2;
+            %good_voxels = ((Ymap - y).^2 + (Xmap - x).^2 + (Zmap - z).^2)<= rad2keep.^2;
+            if good_voxels(223,386) == 1
+                keyboard
+            end
+            mesh2keep(good_voxels) = true;
+
+        end
+        X(~mesh2keep) = NaN;Y(~mesh2keep) = NaN;Z(~mesh2keep) = NaN;
+end
+
 mesh(X,Y,Z,'FaceAlpha',plt_alph,'EdgeAlpha',plt_alph) 
 axis tight; hold on
 %these feel like they need to be slightly bigger 
@@ -227,14 +247,14 @@ hidden off
 rotate3d on
 %also see--
 %https://www.mathworks.com/help/matlab/math/interpolating-scattered-data.html#bsovi2t
-% switch rescale_plane
-%     case 'on'
-%         Zlim = get(gca,'ZLim');
-%         Zlim(1) = 0;
-%         Zlim(2) = max(outcome);
-%         set(gca,'ZLim',Zlim);
-%         caxis(Zlim)
-% end
+switch rescale_plane
+    case 'on'
+        Zlim = get(gca,'ZLim');
+        Zlim(1) = 0;
+        Zlim(2) = max(outcome);
+        set(gca,'ZLim',Zlim);
+        caxis(Zlim)
+end
 %savefig(fullfile(figdir,'surface_plot'))
 %make it big
 set(gcf,'units','normalized','outerposition',[0 0 .75 1])
@@ -260,11 +280,11 @@ figure
 hold off
 
 Z = flipud(Z); %so the bottom left corner is low x, low y
-% switch rescale_plane
-%     case 'on'
-%         Z(Z < 0) = 0;
-%         Z(Z > max(outcome)) = max(outcome);
-% end
+switch rescale_plane
+    case 'on'
+        Z(Z < 0) = 0;
+        Z(Z > max(outcome)) = max(outcome);
+end
 %mask = tril(ones(size(Z)),100);
 %mask = logical(mask);
 %Z(~mask) = NaN;
@@ -368,28 +388,6 @@ hold off; close all
 % set(gca,'FontSize',fontsz)
 % print(fullfile(figdir,'histogram'),'-djpeg')
 
-% 
-% searchlight_radius = .05;
-% mesh2keep = zeros(size(X));
-% for idx = 1:num_jobs
-%     x = ItoE(idx);
-%     y = EtoI(idx);
-%     z = outcome(idx);
-% %     sphere_voxels = logical((Y - y(1)).^2 + ...
-% %         (X - x(1)).^2 + (Z - z(1)).^2 ...
-% %         <= searchlight_radius.^2); %adds a logical
-% 
-% sphere_voxels = (Y - y(1)) <= .01 & ...
-%     (X - x(1)) <= .01 & (Z - z(1)) <= .1;
-% 
-%     mesh2keep(sphere_voxels) = 1;
-% end
-% %imagesc(mesh2keep)
-% 
-% X(~mesh2keep) = NaN;
-% Y(~mesh2keep) = NaN;
-% Z(~mesh2keep) = NaN;
-% 
 
 %this does grid just around the dataponts, doesn't look great tho..
 
@@ -416,12 +414,5 @@ hold off; close all
 %
 %         %also see--
 %         %https://www.mathworks.com/help/matlab/math/interpolating-scattered-data.html#bsovi2t
-%         switch rescale_plane
-%             case 'on'
-%                 Zlim = get(gca,'ZLim');
-%                 Zlim(1) = 0;
-%                 Zlim(2) = max(mu_duration);
-%                 set(gca,'ZLim',Zlim);
-%                 caxis(Zlim)
-%         end
+
 % end

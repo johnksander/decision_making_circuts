@@ -3,15 +3,15 @@ clc
 format compact
 close all
 
-%rhis one matches by fast networks first 
-save_netfile = 'no'; %yes/no
+%this one matches by fast networks first 
+save_netfile = 'yes'; %yes/no
 save_figs = 'yes';
 
 %specify simulation
 %---sim setup-----------------
-Flabel = 'slowD'; %network pairs will be saved with this filename 
-sim_name = 'parsweep_fastD_Rlim_baseline';
-basedir = '~/Desktop/work/ACClab/rotation/project';
+Flabel = 'D2t'; %network pairs will be saved with this filename 
+sim_name = 'parsweep_D2t_baseline';
+basedir = '~/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
 helper_dir = fullfile(basedir,'helper_functions');

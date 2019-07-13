@@ -9,13 +9,13 @@ hold off;close all
 %This preserves all results from a parameter sweep, while simplifying
 %analyses after determining those criteria. 
 
-sim_name = 'parsweep_fastD_Rlim_baseline'; %MUST CHANGE CRITERIA TOO
+sim_name = 'parsweep_D2t_baseline'; %MUST CHANGE CRITERIA TOO
 
 %----CRITERIA----
 %connection strengths
 %EI_max = .75; IE_max = 8; %these set connection maximums
 %for the fastD
-EI_max = .35; IE_max = 3.75; %these set connection maximums
+EI_max = .75; IE_max = 12.5; %these set connection maximums
 
 %state durations
 Tmax = 300; %set a maximum duration for these plots 

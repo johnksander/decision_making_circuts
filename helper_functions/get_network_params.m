@@ -3,8 +3,36 @@ function options = get_network_params(do_config,options)
 
 switch options.netpair_file
     
-    case 'slowD'
+    case 'D2t'
         
+        switch do_config
+            case 1
+                options.ItoE = 12.4541; options.EtoI = 0.2478; Rstim = []; options.stim_targs = 'Eswitch';
+            case 2
+                options.ItoE = 12.4900; options.EtoI = 0.0892; Rstim = []; options.stim_targs = 'Estay';
+            case 3
+                options.ItoE = 8.7866; options.EtoI = 0.3584; Rstim = []; options.stim_targs = 'Eswitch';
+            case 4
+                options.ItoE = 8.7794; options.EtoI = 0.0996; Rstim = []; options.stim_targs = 'Estay';
+            case 5
+                options.ItoE = 7.7681; options.EtoI = 0.7487; Rstim = []; options.stim_targs = 'Eswitch';
+            case 6
+                options.ItoE = 3.9050; options.EtoI = 0.7500; Rstim = []; options.stim_targs = 'Estay';
+            case 7
+                options.ItoE = 8.0928; options.EtoI = 0.4535; Rstim = []; options.stim_targs = 'Eswitch';
+            case 8
+                options.ItoE = 3.7532; options.EtoI = 0.4543; Rstim = []; options.stim_targs = 'Estay';
+            case 9
+                options.ItoE = 8.3703; options.EtoI = 0.3849; Rstim = []; options.stim_targs = 'Eswitch';
+            case 10
+                options.ItoE = 4.6428; options.EtoI = 0.1632; Rstim = []; options.stim_targs = 'Estay';
+            otherwise
+                error('config disaser')
+        end
+        
+        
+    case 'slowD'
+        error('old simulation, check what you''re doing')
         switch do_config
             case 1
                 options.ItoE = 7.9608; options.EtoI = 0.2401; Rstim = 97.9; options.stim_targs = 'Eswitch';
@@ -32,6 +60,7 @@ switch options.netpair_file
         
         
     case 'fastD'
+        error('old simulation, check what you''re doing')
         switch do_config
             case 1
                 options.ItoE = 3.6690; options.EtoI = 0.0740; Rstim = 47.6; options.stim_targs = 'Eswitch';

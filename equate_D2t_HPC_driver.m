@@ -4,13 +4,13 @@ format compact
 
 %NOTE: using longer dt for this search 
 Tobj = 7.5; %target mean duration 
-R0_stim = 25; %start search at 25 hz
+R0_stim = 25; %start search at 25 hz (for fminsearch)
 
-%target time tolerance (must pass to save) 
-targ_tol = .11; 
+%target time tolerance (must pass check to save) 
+targ_tol = .11 ^2; %110 ms tolerance
 
 %stopping criteria (both must be met)
-fun_tol = .25 .^2; % 250 ms tolerance for changes in objective function
+fun_tol = .25 ^2; % 250 ms tolerance for changes in objective function
 X_tol = 2; % 2 Hz tolerance for change in stimulus (per step)
 search_opt = optimset('TolFun',fun_tol,'TolX',X_tol);
 
@@ -22,10 +22,8 @@ for idx = 1:num_nets %use this to index the different network types
     %:::start:::
     t = 200; %trial simulation time (s)
     options = set_options('modeltype','equate_stim','comp_location','hpc',...
-        'timestep',.25e-3,...
-        'sim_name','equate_slowD_stims','jobID',idx,'tmax',t,...
-        'percent_Dslow',.5,'netpair_file','slowD',...
-        'stim_pulse',[t,0],'sample_Estay_offset',0);
+        'sim_name','equate_D2t_stims','timestep',.25e-3,...
+        'netpair_file','D2t','jobID',idx,'tmax',t);
     %:::end:::
     
     %check if network has been optimized yet
@@ -33,9 +31,10 @@ for idx = 1:num_nets %use this to index the different network types
     if exist(FN,'file') == 0 %this network has not been optimized
         
         options.master_driver = which(mfilename);
+        stop_search = false;
         solution = false;
         
-        while ~solution
+        while ~stop_search
             %---run-----------------------
             
             %either do fminsearch()
@@ -43,10 +42,13 @@ for idx = 1:num_nets %use this to index the different network types
             %    fminsearch(@(x) stim_search_wrapper(Tobj,x,options)  ,R0_stim,search_opt);
             
             %or fminbnd()
-            [Req,~,exitflag] = ...
+            [Req,Terr,exitflag] = ...
                 fminbnd(@(x) stim_search_wrapper(Tobj,x,options),0,750,search_opt);
             
-            solution = exitflag == 1; %ensure minima actually found
+            stop_search = exitflag == 1; %see if search alg is done 
+            if Terr < targ_tol
+                solution = true; %found a good parameter 
+            end
         end
         
         %solution found, collect results and delete batchfiles
@@ -73,11 +75,7 @@ for idx = 1:num_nets %use this to index the different network types
         end
         state_durations = cat(1,state_durations{:});
         state_durations = state_durations * options.timestep;
-        %only save the completed datafile if it's within the target toleranace range!
-        Nstates = numel(state_durations);
-        mu_dur = mean(state_durations);
-        targ_err = abs(Tobj - mu_dur);
-        if Nstates > 1 && targ_err < targ_tol
+        if solution %only save the completed datafile if you found a result within toleranace range!
             %save durations, equated stim value, options
             save(FN,'state_durations','Req','options')
         end

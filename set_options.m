@@ -11,7 +11,6 @@ options.timestep = .1e-3; %.1 milisecond timestep
 options.noswitch_timeout = 750; %timeout without a switch (s)
 options.no_dominance_timeout = 1; %timeout if neither or both pools active > X seconds 
 options.tmax = 2500; %trial simulation time (s)
-options.force_back2stay = false; %whether to force switch from stay state (default false)
 options.cut_leave_state = 100e-3; %after Xms in a leave state, half noise E-switch cells 
 options.state_def = 'active_states'; %'active_states' | 'include_undecided'; whether simulation aknowledges "undecided states" 
 options.state_test_time = 50e-3; %must be X time above threshold to declare a switch 
@@ -165,7 +164,7 @@ end
 if sum(strcmp(options.modeltype,{'JK','diagnostics','equate_stim'})) == 0 %don't run this block for these jobs 
     update_logfile('initializing job params...',options.output_log)
     update_logfile(sprintf('tmax = %i',options.tmax),options.output_log)
-    update_logfile(sprintf('force back2stay = %s',string(options.force_back2stay)),options.output_log)
+    update_logfile(sprintf('cut leave after %ims',options.cut_leave_state.*1e3),options.output_log)
     update_logfile('bistability check:',options.output_log)
     update_logfile(sprintf('---pulse = %.1f Hz',options.init_check_Rext),options.output_log)
     update_logfile(sprintf('---test duration = %.1f s',options.init_check_tmax),options.output_log)
