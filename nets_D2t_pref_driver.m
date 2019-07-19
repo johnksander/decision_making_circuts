@@ -10,8 +10,8 @@ format compact
 jID = str2num([getenv('SLURM_JOBID'), getenv('SLURM_ARRAY_TASK_ID')]);
 t = 350; %trial simulation time (s) 
 options = set_options('modeltype','NETS','comp_location','hpc',...
-    'sim_name','nets_slowD_pref','jobID',jID,'tmax',t,...
-    'percent_Dslow',.5,'netpair_file','slowD','record_spiking','on');
+    'sim_name','nets_D2t_pref','jobID',jID,'tmax',t,...
+    'netpair_file','D2t','record_spiking','on');
 
 
 %adjust stimulus B strength
