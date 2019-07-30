@@ -16,8 +16,8 @@ opt.parfor_load = 'on'; %on/off, must also (un)comment the actual for... line
 opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are matched to network types
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
-Snames = {'nets_slowD_pref'};
-figdir = {'figures_nets_slowD_pref'};
+Snames = {'nets_D2t_pref'};
+figdir = {'figures_nets_D2t_pref'};
 
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';

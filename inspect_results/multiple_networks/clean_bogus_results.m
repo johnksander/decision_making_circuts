@@ -3,7 +3,8 @@ clc
 format compact
 
 
-Snames = {'nets_fastD','nets_slowD'};
+
+Snames = {'nets_D2t_pref'}; %Snames = {'nets_fastD','nets_slowD'};
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 
