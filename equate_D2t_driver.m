@@ -3,7 +3,7 @@ clc
 format compact
 
 %NOTE: using longer dt for this search 
-Tobj = 7.5; %target mean duration 
+Tobj = 30; %target mean duration 
 R0_stim = 25; %start search at 25 hz (for fminsearch)
 
 %target time tolerance (must pass check to save) 
@@ -22,8 +22,8 @@ for idx = 1:num_nets %use this to index the different network types
     %:::start:::
     t = 200; %trial simulation time (s)
     options = set_options('modeltype','equate_stim','comp_location','hpc',...
-        'sim_name','equate_D2t_stims','timestep',.25e-3,...
-        'netpair_file','D2t','jobID',idx,'tmax',t);
+        'sim_name','equate_D2t_stims_30s','timestep',.25e-3,...
+        'netpair_file','D2t_30s','jobID',idx,'tmax',t);
     %:::end:::
     
     %check if network has been optimized yet
