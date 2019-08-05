@@ -1,0 +1,56 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2017 The MathWorks, Inc.
+                   R2017b (9.3.0.713579) 64-bit (glnxa64)
+                             September 14, 2017
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+Your HTML rendering engine is now set to 'basic'.
+ans =
+     1
+Starting parallel pool (parpool) using the 'local' profile ...
+connected to 24 workers.
+ans = 
+ Pool with properties: 
+
+            Connected: true
+           NumWorkers: 24
+              Cluster: local
+        AttachedFiles: {}
+    AutoAddClientPath: true
+          IdleTimeout: Inf (no automatic shut down)
+          SpmdEnabled: true
+-----starting simulation results: nets_D2t_pref
+2019-07-30 15:20:47 ---- 5.0 percent complete
+2019-07-30 15:21:57 ---- 10.0 percent complete
+2019-07-30 15:23:05 ---- 15.0 percent complete
+2019-07-30 15:23:41 ---- 20.0 percent complete
+2019-07-30 15:24:01 ---- 25.0 percent complete
+2019-07-30 15:24:01 ---- 25.0 percent complete
+2019-07-30 15:24:18 ---- 30.0 percent complete
+2019-07-30 15:24:18 ---- 30.0 percent complete
+2019-07-30 15:24:18 ---- 30.0 percent complete
+2019-07-30 15:25:15 ---- 50.0 percent complete
+2019-07-30 15:25:59 ---- 55.0 percent complete
+2019-07-30 15:25:59 ---- 55.0 percent complete
+2019-07-30 15:26:53 ---- 60.0 percent complete
+2019-07-30 15:28:32 ---- 70.0 percent complete
+2019-07-30 15:29:58 ---- 80.0 percent complete
+2019-07-30 15:29:58 ---- 80.0 percent complete
+2019-07-30 15:30:59 ---- 95.0 percent complete
+2019-07-30 15:30:59 ---- 95.0 percent complete
+2019-07-30 15:30:59 ---- 95.0 percent complete
+2019-07-30 15:30:59 ---- 95.0 percent complete
+2019-07-30 15:31:32 ---- 100.0 percent complete
+
+
+-----total deleted: 1 out of 52349 total files
+
+Parallel pool using the 'local' profile is shutting down.
+  message with properties:
+
+    Identifier: 'MATLAB:connector:connector:ConnectorNotRunning'
+     Arguments: {}

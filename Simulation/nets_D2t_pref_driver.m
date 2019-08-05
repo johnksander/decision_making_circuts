@@ -15,7 +15,7 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
 
 
 %adjust stimulus B strength
-stim_mod = .5:.25:2; %just randomly sample mod weight, do enough it'll even out 
+stim_mod = 0:.25:.25; % 0:.25:2; %just randomly sample mod weight, do enough it'll even out 
 stim_mod = randsample(stim_mod,1);
 options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
 %---run-----------------------
