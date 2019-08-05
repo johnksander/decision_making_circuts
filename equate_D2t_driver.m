@@ -11,7 +11,7 @@ targ_tol = .11 ^2; %110 ms tolerance
 
 %stopping criteria (both must be met)
 fun_tol = .25 ^2; % 250 ms tolerance for changes in objective function
-X_tol = 2; % 2 Hz tolerance for change in stimulus (per step)
+X_tol = 1; % 1 Hz tolerance for change in stimulus (per step)
 search_opt = optimset('TolFun',fun_tol,'TolX',X_tol);
 
 num_nets = 10; %number of network pairs
@@ -34,6 +34,16 @@ for idx = 1:num_nets %use this to index the different network types
         stop_search = false;
         solution = false;
         
+        switch options.stim_targs %based on prior search
+            case 'Eswitch'
+                Rmax = 100; 
+                Rmin = 0;
+            case 'Estay'
+                Rmax = 1250;
+                Rmin = 300;
+        end
+        
+        
         while ~stop_search
             %---run-----------------------
             
@@ -43,7 +53,7 @@ for idx = 1:num_nets %use this to index the different network types
             
             %or fminbnd()
             [Req,Terr,exitflag] = ...
-                fminbnd(@(x) stim_search_wrapper(Tobj,x,options),0,750,search_opt);
+                fminbnd(@(x) stim_search_wrapper(Tobj,x,options),Rmin,Rmax,search_opt);
             
             stop_search = exitflag == 1; %see if search alg is done 
             if Terr < targ_tol
