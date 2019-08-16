@@ -3,7 +3,7 @@ clc
 format compact
 
 %NOTE: using longer dt for this search 
-Tobj = 30; %target mean duration 
+Tobj = 20; %target mean duration 
 R0_stim = 25; %start search at 25 hz (for fminsearch)
 
 %target time tolerance (must pass check to save) 
@@ -11,7 +11,7 @@ targ_tol = .11 ^2; %110 ms tolerance
 
 %stopping criteria (both must be met)
 fun_tol = .25 ^2; % 250 ms tolerance for changes in objective function
-X_tol = 1; % 1 Hz tolerance for change in stimulus (per step)
+X_tol = .25; % .2 Hz tolerance for change in stimulus (per step)
 search_opt = optimset('TolFun',fun_tol,'TolX',X_tol);
 
 num_nets = 10; %number of network pairs
@@ -22,8 +22,8 @@ for idx = 1:num_nets %use this to index the different network types
     %:::start:::
     t = 200; %trial simulation time (s)
     options = set_options('modeltype','equate_stim','comp_location','hpc',...
-        'sim_name','equate_D2t_stims_30s','timestep',.25e-3,...
-        'netpair_file','D2t_30s','jobID',idx,'tmax',t);
+        'sim_name','equate_D2t_stims_20s','timestep',.25e-3,...
+        'netpair_file','D2t_20s','jobID',idx,'tmax',t);
     %:::end:::
     
     %check if network has been optimized yet
@@ -36,13 +36,21 @@ for idx = 1:num_nets %use this to index the different network types
         
         switch options.stim_targs %based on prior search
             case 'Eswitch'
-                Rmax = 100; 
+                Rmax = 15; 
                 Rmin = 0;
             case 'Estay'
-                Rmax = 1250;
+                Rmax = 575;
                 Rmin = 300;
         end
         
+        if idx == 6
+            Rmax = 800;
+            Rmin = 675;
+        elseif idx == 10
+            Rmax = 500;
+            Rmin = 200;
+        end
+            
         
         while ~stop_search
             %---run-----------------------

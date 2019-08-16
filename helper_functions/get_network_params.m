@@ -31,7 +31,7 @@ switch options.netpair_file
         end
         
         
-    case 'D2t_30s'
+    case 'D2t_20s'
         
         switch do_config
             case 1
