@@ -36,7 +36,7 @@ for idx = 1:num_nets %use this to index the different network types
         
         switch options.stim_targs %based on prior search
             case 'Eswitch'
-                Rmax = 15; 
+                Rmax = 20; 
                 Rmin = 0;
             case 'Estay'
                 Rmax = 575;
