@@ -1,10 +1,14 @@
-clear
-clc
+clear;clc
 format compact
+close all
 
-%this must be parfored... too many files 
+%this was intended for jobs that starting running w/ spiking data saved,
+%but then stopped saving spiking data (or vice-versa). Finds the results
+%with spiking data and sets them aside 
 
-Snames = {'nets_D2t_20s_pref'}; %Snames = {'nets_fastD','nets_slowD'};
+
+
+%this must be parfored... too many files
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
@@ -14,14 +18,12 @@ c = parcluster('local');
 c.NumWorkers = num_workers;
 parpool(c,c.NumWorkers,'IdleTimeout',Inf) %,'AttachedFiles',{which('find_stay_durations')})
 
-for sidx = 1:numel(Snames)
-    fix_this(basedir,Snames{sidx})
-end
 
-delete(gcp('nocreate'))
+sim_name = 'nets_D2t_pref';
 
 
-function fix_this(basedir,sim_name)
+
+
 resdir = fullfile(basedir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
@@ -35,19 +37,17 @@ if exist(special_progress_tracker) > 0, delete(special_progress_tracker);end %fr
 fprintf('-----starting simulation results: %s\n',sim_name)
 
 num_files = numel(output_fns);
-num_deleted = false(num_files,1);
+num_found = false(num_files,1);
 parfor idx = 1:num_files
     %if mod(idx,500) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
     curr_file = load(output_fns{idx});
     %get state durations
-    try
-        state_durations = curr_file.sim_results;
-    catch
-        
-        delete(output_fns{idx})
-        num_deleted(idx) = true;
+    switch curr_file.options.record_spiking
+        case 'off'
+        case 'on'
+             num_found(idx) = true;
     end
-    
+
     progress = worker_progress_tracker(special_progress_tracker);
     if mod(progress,floor(num_files * .05)) == 0 %at half a percent
         progress = (progress / num_files) * 100;
@@ -56,7 +56,25 @@ parfor idx = 1:num_files
     
 end
 
-fprintf('\n\n-----total deleted: %i out of %i total files\n\n',sum(num_deleted),num_files)
+fprintf('\n\n-----total found: %i out of %i total files\n\n',sum(num_found),num_files)
 delete(special_progress_tracker)
 
-end
+delete(gcp('nocreate'))
+
+targ_dir = [resdir,'_spikedata'];
+if ~isdir(targ_dir),mkdir(targ_dir);end
+F2copy = output_fns(num_found);
+
+fprintf('copying files...\n')
+cellfun(@(x) copyfile(x,targ_dir),F2copy)
+
+
+
+
+
+
+
+
+
+
+

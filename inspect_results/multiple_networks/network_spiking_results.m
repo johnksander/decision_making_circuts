@@ -21,12 +21,18 @@ opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat d
 %specify simulation
 %---sim setup-----------------
 
-Snames = {'nets_fastD','nets_fastD_baseline','nets_slowD','nets_slowD_baseline'};
-figdir = {'figures_nets_fastD','figures_nets_fastD',...
-    'figures_nets_slowD','figures_nets_slowD'};
+%Snames = {'nets_fastD','nets_fastD_baseline','nets_slowD','nets_slowD_baseline'};
+%figdir = {'figures_nets_fastD','figures_nets_fastD',...
+%    'figures_nets_slowD','figures_nets_slowD'};
 
 basedir = '~/Desktop/ksander/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
+
+Snames = dir(fullfile(basedir,'Results','nets_D2t_pref_spikedata_preference-*'));
+Snames = {Snames.name};
+Snames = Snames(~ismember(Snames,'nets_D2t_pref_spikedata_preference-200')); %no data
+figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
+
 
 %loop over these
 timewins = {'preswitch', 'all', 'presw250to5', 'presw150to25'};
@@ -64,7 +70,9 @@ hold off;close all
 
 mainfig_dir = fullfile(home_dir,'Results',figdir,'spikeplots');
 resdir = fullfile(home_dir,'Results',sim_name);
-output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+%output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+warning('loading all mat files from results directory!!')
+output_fns = dir(fullfile(resdir,'*.mat')); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 params2match = opt.params2match;
 data_fn = sprintf('summary_data_%s.mat',sim_name);
@@ -210,7 +218,9 @@ if ~load_summary
             case 'yes'
                 error('not configed')
             otherwise
-                p = {p.ItoE,p.EtoI,unique(p.trial_stimuli),p.stim_targs};
+                %p = {p.ItoE,p.EtoI,unique(p.trial_stimuli),p.stim_targs};
+                %HEY BE CAREFUL HERE
+                p = {p.ItoE,p.EtoI,p.trial_stimuli(1),p.stim_targs};
         end
         p = cellfun(@(x) isequal(x,p),Psets); %index
         
@@ -218,7 +228,7 @@ if ~load_summary
         %will be fixed in the recording paramters for the next simulation job
         all_events = curr_file.sim_results{1};
         [~,valid_events] = find_stay_durations(all_events,curr_file.options,'verify');
-        valid_events = cat(1,valid_events{:,1});
+        valid_events = cat(1,valid_events.event_time{:});
         fevents = curr_file.sim_results{3}(:,1); %time indicies for the recorded spiking events
         fevents = cat(1,fevents{:}) .* curr_file.options.timestep; %convert to time for comparison
         valid_events = ismember(fevents,valid_events);
@@ -232,14 +242,15 @@ if ~load_summary
         %add to the rest of them
         result_data{p} = result_data{p} + fdata;
     end
-
+    
     %now divide the summed spike timecourses
+    nodata = switch_counts == 0;
+    if sum(nodata) > 0,error('parameter sets missing data');end
     switch_counts = num2cell(switch_counts);
     result_data = cellfun(@(x,y) x./y,result_data,switch_counts,'UniformOutput',false);
     result_data = cellfun(@(x) sim_spikerate(x,timestep,rate_binsz),result_data,'UniformOutput',false);
-    
     fprintf('\nsaving data...\n')
-    save(fullfile(mainfig_dir,data_fn),'result_data','switch_counts')
+    save(fullfile(mainfig_dir,data_fn),'result_data','switch_counts','-v7.3')
 elseif load_summary
     fprintf('\nloading saved summary data...\n')
     Fdata = load(fullfile(mainfig_dir,data_fn));

@@ -21,17 +21,18 @@ opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat d
 %specify simulation
 %---sim setup-----------------
 
-Snames = {'nets_slowD'}; %,'nets_slowD_baseline'}; %runs outa memory with basline data 
-figdir = {'figures_nets_slowD'}; 
+Snames = {'nets_D2t_pref_spikedata_preference-100'}; %,'nets_slowD_baseline'}; %runs outa memory with basline data 
+figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 basedir = '~/Desktop/ksander/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
 
 %loop over these
 %timewins = {'preswitch', 'all', 'presw250to5', 'presw150to25'};
-timewins = {'presw250to5'};
-treatments = {'base0'}; %{'none', 'base0', 'minmax'};
+timewins = {'all','presw250to5'};
+treatments = {'none','base0','zscore'}; %{'none', 'base0', 'minmax'};
 Xmethods = {'none','unbiased','coeff'}; %{'none','biased','unbiased','coeff'};
+Ypools = {'I-stay','I-switch','E-switch'};
 
 for Sidx = 1:numel(Snames)
     
@@ -48,8 +49,26 @@ for Sidx = 1:numel(Snames)
                 
                 opt.Xcorr_method = Xmethods{Midx};
                 
-                %make the figures
-                netspiking_figure(basedir,Snames{Sidx},figdir{Sidx},opt)
+                for Pidx = 1:numel(Ypools)
+                    
+                    opt.Ypool = Ypools{Pidx};
+                    
+                    
+                    %figure directories and filenames
+                    FN = strrep(opt.Tcourse,'preswitch','preswitch_timecourse');
+                    FN = strrep(FN,'all','switching_timecourse');
+                    FN = sprintf('%s_%s_%s.jpg',Snames{Sidx},opt.Ypool,FN);
+                    FDR = fullfile(basedir,'Results',figdir{Sidx},'Twise_Xcorr');
+                    FDR = fullfile(FDR,sprintf('method_%s',opt.Xcorr_method),...
+                        strrep(opt.treat_data,'none','no_treatment'));
+                    
+                    if exist(fullfile(FDR,FN)) == 0
+                        %make the figures
+                        netspiking_figure(basedir,Snames{Sidx},figdir{Sidx},opt)
+                    else
+                        warning('found figure file: %s\n skipping this run',FN)
+                    end
+                end
             end
         end
     end
@@ -64,7 +83,9 @@ hold off;close all
 
 mainfig_dir = fullfile(home_dir,'Results',figdir,'Twise_Xcorr');
 resdir = fullfile(home_dir,'Results',sim_name);
-output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+%output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+warning('loading all mat files from results directory!!')
+output_fns = dir(fullfile(resdir,'*.mat')); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 params2match = opt.params2match;
 if contains(sim_name,'baseline'),BLdata = true;else,BLdata = false;end
@@ -221,6 +242,8 @@ switch opt.treat_data
     case 'minmax'
         minmax_norm = @(x) bsxfun(@rdivide, bsxfun(@minus,x,min(x,[],2)) ,max(x,[],2) - min(x,[],2));
         data_treatment = @(D) cellfun(minmax_norm,D,'UniformOutput',false);
+    case 'zscore'
+        data_treatment = @(D) cellfun(@(x) zscore(x,[],2),D,'UniformOutput',false);
     case 'none'%parpool gets mad if this isn't defined
         data_treatment = @(D) cellfun(@(x) x ,D,'UniformOutput',false);
 end
@@ -240,13 +263,13 @@ if ~load_summary
     special_progress_tracker = fullfile(home_dir,'SPT.txt');
     if exist(special_progress_tracker) > 0, delete(special_progress_tracker);end %fresh start
     
-    for idx = 1:num_files
+    parfor idx = 1:num_files
         curr_file = load(output_fns{idx});
         
         %verify recorded spiking results are valid... 
         all_events = curr_file.sim_results{1};
         [~,valid_events] = find_stay_durations(all_events,curr_file.options,'verify');
-        valid_events = cat(1,valid_events{:,1});
+        valid_events = cat(1,valid_events.event_time{:});
         fevents = curr_file.sim_results{3}(:,1); %time indicies for the recorded spiking events
         fevents = cat(1,fevents{:}) .* curr_file.options.timestep; %convert to time for comparison
         valid_events = ismember(fevents,valid_events);        

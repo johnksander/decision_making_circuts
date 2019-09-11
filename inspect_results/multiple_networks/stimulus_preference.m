@@ -16,8 +16,9 @@ opt.parfor_load = 'on'; %on/off, must also (un)comment the actual for... line
 opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are matched to network types
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
-Snames = {'nets_D2t_pref'};
-figdir = {'figures_nets_D2t_pref'};
+
+Snames = {'nets_D2t_20s_pref'};
+figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
@@ -31,6 +32,7 @@ for idx = 1:numel(Snames)
     opt.outcome_stat = 'med';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
 end
+return
 
 % num_workers = numel(Snames);
 % c = parcluster('local');
@@ -66,7 +68,6 @@ end
 % opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
 % make_my_figs(basedir,Snames{1},figdir,opt)
 
-return
 
 %equate X axes for all figs of the same type
 %Snames = Snames(1:end-1);
@@ -342,6 +343,9 @@ switch opt.multiple_stimuli
             file_data(:,2),'UniformOutput',false); %matching "network_pair_info" format
 end
 
+
+
+
 job_params = vertcat(job_params{:});
 uniq_params = unique(job_params,'rows');
 net_type = array2table(uniq_params,'VariableNames',param_varnams);
@@ -404,8 +408,8 @@ if ~isdir(figdir),mkdir(figdir);end
 matblue = [0,0.4470,0.7410];
 matorange = [0.8500,0.3250,0.0980];
 BLcol = [103 115 122] ./ 255;
-alph = .5;
 
+SPdata = []; %for scatter plot data
 h = [];
 plt_idx = 0;
 for idx = 1:num_pairs
@@ -416,16 +420,7 @@ for idx = 1:num_pairs
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
         hold on
-        
-        curr_net_type = curr_net_info.Row{j};
-        %get the right color
-        switch curr_net_type
-            case 'slow'
-                lcol = matorange;
-            case 'fast'
-                lcol = matblue;
-        end
-        
+                
         %find the right results for network set-up
         net_ind = curr_net_info{j,IDvars};
         net_ind = ismember(net_type{:,IDvars},net_ind,'rows');
@@ -440,7 +435,7 @@ for idx = 1:num_pairs
         %             data_table{CC} = CCC;
         %         end
         %         data_table = [net_type(net_ind,:),cat(1,data_table{:})];
-        %         save(fullfile(svdir,sprintf('%s_net%i',curr_net_type,idx)),'data_table')
+        %         save(fullfile(svdir,sprintf('%s_net%i',curr_net_info.Row{j},idx)),'data_table')
         %         %end inspection saving code...
         
         switch outcome_stat
@@ -471,7 +466,7 @@ for idx = 1:num_pairs
         %xlim([min(Xvals),max(Xvals)])
         legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
             sprintf('%s: varied','B')};
-        
+                
         sampling_change = curr_data{[1,size(curr_data,1)],{'data_A','data_B'}}; %beginning & end
         sampling_change = diff(sampling_change);
         %legend_labs = cellfun(@(x,y) [x '\newline\Deltay = ' sprintf('%.2f',y)],...
@@ -495,13 +490,16 @@ for idx = 1:num_pairs
             ylabel(sprintf('network #%i\n%s',idx,Zlabel),'FontWeight','bold')
         end
         
+        %organize data for scatter plot
+        curr_data.net_index = repmat(plt_idx,size(curr_data,1),1); %index ID for scatter plot
+        SPdata = [SPdata;curr_data];
     end
 end
 
 orient tall
 switch outcome_stat
     case 'logmu'
-        linkaxes(h,'xy')
+        linkaxes(h,'y')
     case {'mu','med'}
         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
         axis tight
@@ -511,6 +509,71 @@ switch print_anything
     case 'yes'
         print(fullfile(figdir,fig_fn),'-djpeg')
         savefig(fullfile(figdir,fig_fn))
+end
+close all;figure;orient portrait
+%scatter plot 
+alph = .75;Msz = 75;
+Bcol = colormap('winter');Rcol = colormap('autumn');
+SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
+SPcells = {'slow','fast'};
+for idx = 1:numel(SPcells)
+    %subplot(numel(SPcells),1,idx);hold on
+    hold on
+    curr_data = strcmp(SPdata.targ_cells,SPcells{idx});
+    curr_data = SPdata(curr_data,:);
+    curr_nets = unique(curr_data.net_index);
+    for plt_idx = 1:numel(curr_nets)
+        this_net = curr_data.net_index == curr_nets(plt_idx);
+        this_net = curr_data(this_net,:);
+        col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
+        switch SPcells{idx}
+            case 'slow'
+                col = Bcol(col_idx,:);
+            case 'fast'
+                col = Rcol(col_idx,:);
+        end
+        scatter(this_net.X,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
+        % scatter(this_net.X,this_net.data_B,Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+        axis tight
+        title(sprintf('Depression effect\non constant stimulus'),...
+            'FontWeight','bold','Fontsize',14)
+        ylabel(Zlabel,'FontWeight','bold')
+        %if idx == numel(SPcells)
+        xlabel('proportion of alternative stimulus','FontWeight','bold')
+        %end
+    end
+end
+make_lg = 'right';
+switch make_lg
+    case 'left'
+        Y0 = .2; X0 = .025; move_pt = .02;
+    case 'right'
+        Y0 = .2; X0 = .975; move_pt = -.02;%was   Y0 = .5
+end
+lg_fz = 16; get_ax_val = @(p,x) p*range(x)+min(x);
+xlim(xlim + [-(range(xlim)*.015),(range(xlim)*.015)]); %extra room
+ylim(ylim + [-(range(ylim)*.015),(range(ylim)*.015)]);
+X = get_ax_val(X0,xlim);
+text(X,get_ax_val(Y0,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg) 
+text(X,get_ax_val(Y0-.1,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg) 
+%X = get_ax_val(.975,xlim);
+%text(X,get_ax_val(.5,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right') 
+%text(X,get_ax_val(.4,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right') 
+for plt_idx = 1:numel(curr_nets)
+    col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
+    %X = get_ax_val(.975-(plt_idx*.02),xlim);
+    %scatter(X,get_ax_val(.45,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    %scatter(X,get_ax_val(.35,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    X = get_ax_val(X0+(plt_idx*move_pt),xlim);
+    scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+end
+
+set(gca,'FontSize',18)
+switch print_anything
+    case 'yes'
+        print(fullfile(figdir,[fig_fn '-scatter']),'-djpeg')
+        savefig(fullfile(figdir,[fig_fn '-scatter']))
 end
 
 
