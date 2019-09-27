@@ -17,13 +17,17 @@ opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are mat
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
-Snames = {'nets_D2t_20s_pref'};
+Snames = {'nets_D2t_pref'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '/home/acclab/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
+
+opt.outcome_stat = 'logmu';
+make_my_figs(basedir,Snames{1},figdir{1},opt)
+return
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
@@ -516,6 +520,8 @@ alph = .75;Msz = 75;
 Bcol = colormap('winter');Rcol = colormap('autumn');
 SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
 SPcells = {'slow','fast'};
+%markers = {'o','square','diamond','pentagram','hexagram'};
+markers = {'x','+','^','v','d'};
 for idx = 1:numel(SPcells)
     %subplot(numel(SPcells),1,idx);hold on
     hold on
@@ -532,18 +538,23 @@ for idx = 1:numel(SPcells)
             case 'fast'
                 col = Rcol(col_idx,:);
         end
-        scatter(this_net.X,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
-        % scatter(this_net.X,this_net.data_B,Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+        
+        %scatter(this_net.X,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
+        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
+        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph,'Marker',markers{plt_idx})
+        scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx})
         axis tight
-        title(sprintf('Depression effect\non constant stimulus'),...
+        title(sprintf('Implicit Competition'),...
             'FontWeight','bold','Fontsize',14)
-        ylabel(Zlabel,'FontWeight','bold')
-        %if idx == numel(SPcells)
-        xlabel('proportion of alternative stimulus','FontWeight','bold')
-        %end
+        %ylabel(Zlabel,'FontWeight','bold')
+        
+        %xlabel('proportion of alternative stimulus','FontWeight','bold')
+        
+        xlabel(sprintf(['B - varied [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
+        ylabel(sprintf(['A - constant [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
     end
 end
-make_lg = 'right';
+make_lg = 'left';
 switch make_lg
     case 'left'
         Y0 = .2; X0 = .025; move_pt = .02;
@@ -565,8 +576,14 @@ for plt_idx = 1:numel(curr_nets)
     %scatter(X,get_ax_val(.45,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
     %scatter(X,get_ax_val(.35,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
     X = get_ax_val(X0+(plt_idx*move_pt),xlim);
-    scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
-    scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    
+   % %regular w/ colors
+   % scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+   % scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    
+    %for symbols
+    scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'Marker',markers{plt_idx})
+    scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'Marker',markers{plt_idx})
 end
 
 set(gca,'FontSize',18)
