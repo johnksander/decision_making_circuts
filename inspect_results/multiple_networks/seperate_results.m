@@ -19,8 +19,8 @@ parpool(c,c.NumWorkers,'IdleTimeout',Inf) %,'AttachedFiles',{which('find_stay_du
 
 
 
-sim_name = 'nets_D2t_pref_spikedata';
-seperate_into = 'preference-%i'; %B is what percent of A
+sim_name = 'nets_D2t_pref';
+seperate_into = 'stimB-%i'; %B is what percent of A
 
 resdir = fullfile(basedir,'Results',sim_name);
 output_fns = dir(fullfile(resdir,'*.mat')); %use this for unrestricted loading
@@ -41,12 +41,13 @@ parfor idx = 1:num_files
     stims = curr_file.options.trial_stimuli;
     B = stims(2) ./stims(1);
     %where it goes
-    outdir = sprintf('%s_%s',resdir,sprintf(seperate_into,round(B*100)));
-    if ~isdir(outdir),mkdir(outdir);end
-    copyfile(FN,outdir)
+    if round(B*100) == 100
+        outdir = sprintf('%s_%s',resdir,sprintf(seperate_into,round(B*100)));
+        if ~isdir(outdir),mkdir(outdir);end
+        copyfile(FN,outdir)
+    end
     
-   
-
+    
     progress = worker_progress_tracker(special_progress_tracker);
     if mod(progress,floor(num_files * .1)) == 0 %at ten percent
         progress = (progress / num_files) * 100;

@@ -19,8 +19,8 @@ opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are mat
 
 
 %specify simulations
-Snames = {'nets_fastD','nets_slowD'};
-figdir = {'figures_nets_fastD','figures_nets_slowD'}; %print multiple sims to one figdir using this
+Snames = {'nets_D2t_pref_stimB-100'};
+figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
@@ -160,7 +160,9 @@ summary_stats = 'no'; %summary_stats = opt.summary_stats;
 params2match = opt.params2match;
 figdir = fullfile(basedir,'Results',figdir,'durations');
 resdir = fullfile(basedir,'Results',sim_name);
-output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+%output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+output_fns = dir(fullfile(resdir,'*.mat')); %use this for unrestricted loading
+warning('loading all mat files from results directory!!')
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 BL_fns = dir(fullfile([resdir '_baseline'],['*',sim_name,'*.mat']));
 BL_fns = cellfun(@(x,y) fullfile(x,y),{BL_fns.folder},{BL_fns.name},'UniformOutput',false);
