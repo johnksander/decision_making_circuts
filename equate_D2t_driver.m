@@ -34,7 +34,7 @@ for idx = 1:num_nets %use this to index the different network types
         solution = false;
         
         srgFN = fullfile(options.save_dir,sprintf('%s_checkpoint.mat',options.sim_name));
-        search_opt = optimoptions('surrogateopt','CheckpointFile',srgFN,'Display','iter');
+        search_opt = optimoptions('surrogateopt','CheckpointFile',srgFN,'Display','iter','PlotFcn',[]);
         if exist(search_opt.CheckpointFile) > 0
             fprintf('\n RESUMING surrogate search from file:\n::: %s\n',search_opt.CheckpointFile)
             start_new = false;
