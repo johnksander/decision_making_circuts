@@ -20,7 +20,7 @@ fprintf(f,'#!/bin/bash\n');
 fprintf(f,'#SBATCH -J EQstim_batch\n'); 
 fprintf(f,'#SBATCH --time=%s\n',walltime); 
 fprintf(f,'#SBATCH --cpus-per-task 1\n');
-fprintf(f,'#SBATCH --mem-per-cpu 1000\n');
+fprintf(f,'#SBATCH --mem-per-cpu 750\n');
 fprintf(f,'#SBATCH --account=paul-lab\n');
 switch partition
     case 'paul'
