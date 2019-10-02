@@ -53,7 +53,7 @@ for idx = 1:num_nets %use this to index the different network types
             search_opt = optimoptions('fmincon','Display','iter','PlotFcn',[]);
             [Req,Terr,exitflag] = ...
                 fmincon(@(x) stim_search_wrapper(Tobj,x,options),...
-                Rprev,[],[],[],[],Rmin,Rmax,search_opt);
+                Rprev,[],[],[],[],Rmin,Rmax,[],search_opt);
 
             %%surrogateopt()
             %srgFN = fullfile(options.save_dir,sprintf('%s_checkpoint.mat',options.sim_name));
