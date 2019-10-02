@@ -33,15 +33,6 @@ for idx = 1:num_nets %use this to index the different network types
         stop_search = false;
         solution = false;
         
-        srgFN = fullfile(options.save_dir,sprintf('%s_checkpoint.mat',options.sim_name));
-        search_opt = optimoptions('surrogateopt','CheckpointFile',srgFN,'Display','iter','PlotFcn',[]);
-        if exist(search_opt.CheckpointFile) > 0
-            fprintf('\n RESUMING surrogate search from file:\n::: %s\n',search_opt.CheckpointFile)
-            start_new = false;
-        else
-            start_new = true;
-        end
-        
         %set bounds based on previous search results
         Rprev = unique(options.trial_stimuli);
         Rmax = Rprev + .5*Rprev;
@@ -58,17 +49,30 @@ for idx = 1:num_nets %use this to index the different network types
             %[Req,Terr,exitflag] = ...
             %    fminbnd(@(x) stim_search_wrapper(Tobj,x,options),Rmin,Rmax,search_opt);
             
-            
-            %surrogateopt()
-            if start_new
-                
-                [Req,Terr,exitflag] = ...
-                    surrogateopt(@(x) stim_search_wrapper(Tobj,x,options),Rmin,Rmax,search_opt);
-                
-            else %resume from checkpoint file
-                [Req,Terr,exitflag] = surrogateopt(search_opt.CheckpointFile);
-                
-            end
+            %fmincon()
+            search_opt = optimoptions('fmincon','Display','iter','PlotFcn',[]);
+            [Req,Terr,exitflag] = ...
+                fmincon(@(x) stim_search_wrapper(Tobj,x,options),...
+                Rprev,[],[],[],[],Rmin,Rmax,search_opt);
+
+            %%surrogateopt()
+            %srgFN = fullfile(options.save_dir,sprintf('%s_checkpoint.mat',options.sim_name));
+            %search_opt = optimoptions('surrogateopt','CheckpointFile',srgFN,...
+            %   'Display','iter','PlotFcn',[],'InitialPoints',Rprev);
+            %if exist(search_opt.CheckpointFile) > 0
+            %   fprintf('\n RESUMING surrogate search from file:\n::: %s\n',search_opt.CheckpointFile)
+            %   start_new = false;
+            %else,start_new = true; end
+            %
+            %if start_new
+            %
+            %   [Req,Terr,exitflag] = ...
+            %       surrogateopt(@(x) stim_search_wrapper(Tobj,x,options),Rmin,Rmax,search_opt);
+            %   
+            %else %resume from checkpoint file
+            %   [Req,Terr,exitflag] = surrogateopt(search_opt.CheckpointFile);
+            %   
+            %end
             
             stop_search = exitflag == 1; %see if search alg is done
             if Terr < targ_tol

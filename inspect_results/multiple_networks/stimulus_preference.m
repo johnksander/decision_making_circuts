@@ -451,6 +451,7 @@ for idx = 1:num_pairs
                 %protect against inf errors too
                 statfunc = @(x) mean(log10(x(x~=0)));
         end
+        
         curr_data = cellfun(@(x) varfun(statfunc,x,'InputVariables','data',...
             'GroupingVariables','state') ,curr_data,'UniformOutput',false);
         curr_data = cellfun(@(x) x(:,[1,size(x,2)]),curr_data,'UniformOutput',false);

@@ -4,7 +4,7 @@ function Terr = stim_search_wrapper(Tobj,Rstim,options)
 %---takes a target value for mean stimulus duration, stim rate, options
 %---returns the error for target duration  
 
-job_runtime = 4; %how long each job will run for, in hours 
+job_runtime = 2.5; %how long each job will run for, in hours 
 Njobs = 1250; %how many jobs to spawn per batch
 work = 'run'; %run | debug   just makes commenting/uncommenting stuff less annoying 
 
@@ -16,7 +16,6 @@ switch work
         update_logfile('cleaning up files...',options.output_log)
         system(sprintf('rm %s/*',options.batchdir));
 end
-
 
 %create a driver file with the current specifications
 print_driver_file(options)
@@ -102,21 +101,25 @@ update_logfile(message,options.output_log)
 state_durations = cell(Nfiles,1);
 for idx = 1:Nfiles
     
-    data = load(fullfile(options.batchdir,FNs{idx}));
-    data = data.sim_results;
-    data = data{1};
-    valid_states = startsWith(data(:,end),'stim');
-    if sum(valid_states) > 0
-        data = data(valid_states,2);
-        data = cat(1,data{:});
-        state_durations{idx} = data;
+    %this matches analysis code 
+    curr_file = load(fullfile(options.batchdir,FNs{idx}));
+    data = curr_file.sim_results{1};
+    [data,Sinfo] = find_stay_durations(data,curr_file.options,'verify');
+    data = [data(:,'duration'),Sinfo(:,'state')];
+    %take both states....
+    data = data.duration;
+    
+    if numel(data) > 0
+        state_durations{idx} = data; 
     end
 end
 
 state_durations = cat(1,state_durations{:});
-state_durations = state_durations * options.timestep;
 Nstates = numel(state_durations);
 mu_dur = mean(state_durations);
+
+sprintf('mean = %.4f',mu_dur)
+
 
 if Nstates < 1
     update_logfile('',options.output_log)
@@ -127,14 +130,13 @@ if Nstates < 1
 end
 
 
-
 Terr = (Tobj - mu_dur).^2;
 
 message = sprintf('---N states = %i',Nstates);
 update_logfile(message,options.output_log)
 %print results nicely 
 update_logfile('   |   stimulus   |   mean stay   |   error',options.output_log)
-message = sprintf('   |    %.1f Hz   |    %.2fs     |   %.2fs (for %.2fs target)',Rstim,mu_dur,Terr,Tobj);
+message = sprintf('   |    %.1f Hz   |    %.2fs     |   %.2f (for %.2fs target)',Rstim,mu_dur,Terr,Tobj);
 update_logfile(message,options.output_log)
 update_logfile('',options.output_log)
 
