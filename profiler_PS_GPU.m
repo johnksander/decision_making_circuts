@@ -27,8 +27,8 @@ options.trial_stimuli = [Rstim,Rstim];
 
 
 %---run-----------------------
-modelfile = spikeout_model(options);
-%modelfile = spikeout_model_GPU(options);
+%modelfile = spikeout_model(options);
+modelfile = spikeout_model_GPU(options);
 %---cleanup-------------------
 if isempty(dir(fullfile(options.save_dir,'code4*zip')))
     driverfile = mfilename;

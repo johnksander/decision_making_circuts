@@ -74,7 +74,8 @@ end
 timestep = gpuArray(options.timestep);
 num_timepoints = gather(round(options.tmax / timestep) + 1); %same as numel(0:dt:Tmax)
 Lext = Rext * timestep; %poisson lambda for noisy conductance
-Lext = repmat(Lext,pool_options.num_cells,2);%GPU try
+check_GPU_lambda(Lext); %check lambda 
+Lext = repmat(Lext,pool_options.num_cells,2);
 
 %simulation trial loop
 %-------------------------------------------------------------------------
@@ -100,12 +101,11 @@ for trialidx = 1:num_trials
             stim_info.targ_cells = logical(zeros(pool_options.num_cells,1)); %no targets
     end
     stim_info.targ_cells = gpuArray(stim_info.targ_cells);
-    stimA = options.trial_stimuli(trialidx,1);
-    stimB = options.trial_stimuli(trialidx,2);
-    stim_info.stimA_lambda = stimA * timestep; %poisson lambda for stimulus conductance
-    stim_info.stimB_lambda = stimB * timestep;
-    stim_info.stimA_lambda = repmat(stim_info.stimA_lambda,sum(stim_info.targ_cells),1);%GPU try
-    stim_info.stimB_lambda = repmat(stim_info.stimB_lambda,sum(stim_info.targ_cells),1);%GPU try
+    stimA = options.trial_stimuli(trialidx,1) * timestep; %poisson lambda for stimulus conductance
+    stimB = options.trial_stimuli(trialidx,2) * timestep;
+    check_GPU_lambda(stimA); check_GPU_lambda(stimB); %check lambda 
+    stim_info.stimA_lambda = repmat(stimA,sum(stim_info.targ_cells),1);
+    stim_info.stimB_lambda = repmat(stimB,sum(stim_info.targ_cells),1);
     stim_info.num_cells = pool_options.num_cells; %just so I don't have to pass pool_options as well
     if all(~isnan(options.stim_pulse))
         stim_info.delivery = 'pulse';
@@ -145,7 +145,6 @@ for trialidx = 1:num_trials
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
     state.now = state.undecided; %this will always be true when V init to El
-    state.init_check_Lext = repmat(state.init_check_Lext,sum(state.pools2compare(:,state.stay)),1); %GPU try
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
     avail_noise.Estay = 1; avail_noise.Eswitch = 1;
@@ -474,4 +473,7 @@ if check_over && no_switches && no_failure
     BScheck.status = 'pass';
 end
 
+function check_GPU_lambda(lambda)
+nope = lambda >= 15 | lambda < 0 | isinf(lambda); %GPU considerations
+if any(nope),error('cannot handle lambda');end
 
