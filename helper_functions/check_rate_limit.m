@@ -1,13 +1,15 @@
 function [options,outcome] = check_rate_limit(spikes,celltype,options)
 %this performs ratelimit check, and checks for oscillators that passed
-%initial bistability check 
+%initial bistability check
 
 outcome.status = 'pass';
-%total_tmax = options.ratelim.stop - options.ratelim.start; 
-%total_tmax = total_tmax * options.ratelim.total_tmax; %not doing this
-check_start = options.ratelim.start / options.timestep;
-check_stop = options.ratelim.stop / options.timestep;
-spikes = spikes(:,check_start:check_stop);
+if ~strcmp(options.record_spiking,'ratelim_only')
+    %if we're recording spikes for the whole experiment, must select ratelim window.
+    %"ratelim_only" now defaults to only recording during the window.
+    check_start = options.ratelim.start / options.timestep;
+    check_stop = options.ratelim.stop / options.timestep;
+    spikes = spikes(:,check_start:check_stop);
+end
 
 %get rates
 window_sz = 75e-3;
@@ -42,7 +44,7 @@ Eover = overlimit_times(Eover,options.timestep);
 Iover = Imax > options.ratelim.I;
 Iover = overlimit_times(Iover,options.timestep);
 
-%record approximate rates 
+%record approximate rates
 outcome.Erate = mean(Emax);
 outcome.Irate = mean(Imax);
 
@@ -94,7 +96,7 @@ end
 end
 
 
-%for plotting & checking this functionality out 
+%for plotting & checking this functionality out
 
 % figure;
 % lnsz = 3;fontsz = 12;

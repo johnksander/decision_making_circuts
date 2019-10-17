@@ -17,8 +17,15 @@ state.cut_leave_state = options.cut_leave_state / timestep;
 state.stim_labels = {'stim_A','stim_B'};
 state.current_stimulus = logical([1 0]); %initialize in stim A
 state.count = 0;
-state.pools2compare = [celltype.pool_stay & celltype.excit,...
-    celltype.pool_switch & celltype.excit]; %pass in this format, avoid many computations
+switch options.GPU_mdl
+    case 'off'
+        state.pools2compare = [celltype.pool_stay & celltype.excit,...
+            celltype.pool_switch & celltype.excit]; %pass in this format, avoid many computations
+    case 'on'
+          state.pools2compare = [celltype.pool_stay,celltype.pool_switch];
+          state.pools2compare = state.pools2compare(celltype.excit,:);
+end
+state.GPU_mdl = options.GPU_mdl;
 state.init_check_Lext = options.init_check_Rext * timestep;
 state.init_check_stop = options.init_check_tmax / timestep; %minimum time for ready2go check
 state.noswitch_timeout = options.noswitch_timeout / timestep;

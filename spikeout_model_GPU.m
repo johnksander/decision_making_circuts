@@ -1,7 +1,8 @@
-function modelfile = spikeout_model(options)
+function modelfile = spikeout_model_GPU(options)
 %this model func designed to save whole spiking matrix, for short jobs
 modelfile = mfilename; %for backup purposes
-
+options.GPU_mdl = 'on';
+gpurng(options.rand_info)
 
 %set up the circut
 %--------------------------------------------------------------------------
@@ -26,52 +27,54 @@ W(W > 0 & EtoE) = options.EtoE;
 W(W > 0 & ItoE) = options.ItoE;
 W(W > 0 & EtoI) = options.EtoI;
 %reorder weight matrix for column indexing in loop
-W = reorder_weightmat(W,celltype);
+W = gpuArray(reorder_weightmat(W,celltype));
+%celltype = structfun(@(x) gpuArray(x),celltype,'UniformOutput',false);
 %--------------------------------------------------------------------------
 
 %set up simulation parameters
 %--------------------------------------------------------------------------
 %----cell basics---------------
-Erev = 0; %reversal potential, excitatory
-Irev = -70e-3; %reversal potential, inhibitory
-Gg = 10e-9; %max conductance microSiemens
-Tsyn = NaN(pool_options.num_cells,1); %gating time constant vector
-Tsyn(celltype.excit) = 50e-3; %excitatory gating time constant, ms
-Tsyn(celltype.inhib) = 10e-3; %inhibitory gating time constant, ms
-El = -70e-3; %leak potential mV
-Ek = -80e-3; %potassium potential mV
-Vreset = -80e-3; %reset potential mV
-Rm = 100e6; %resistance megaohms
+Erev = gpuArray(0); %reversal potential, excitatory
+Irev = gpuArray(-70e-3); %reversal potential, inhibitory
+Gg = gpuArray(10e-9); %max conductance microSiemens
+%Tsyn = NaN(pool_options.num_cells,1,'gpuArray'); %gating time constant vector
+Tsyn_Ex = gpuArray(50e-3); %excitatory gating time constant, ms
+Tsyn_In = gpuArray(10e-3); %inhibitory gating time constant, ms
+El = gpuArray(-70e-3); %leak potential mV
+Ek = gpuArray(-80e-3); %potassium potential mV
+Vreset = gpuArray(-80e-3); %reset potential mV
+Rm = gpuArray(100e6); %resistance megaohms
 Gl = 1/Rm; %leak conductance
-Cm = 100e-12; %cell capacity picofarads
-spike_thresh = 20e-3; %spike reset threshold (higher than Vth)
+Cm = gpuArray(100e-12); %cell capacity picofarads
+spike_thresh = gpuArray(20e-3); %spike reset threshold (higher than Vth)
 %----noisy input---------------
-Tau_ext = NaN(pool_options.num_cells,1); %noisy conductance time constant, ms
+Tau_ext = NaN(pool_options.num_cells,1,'gpuArray'); %noisy conductance time constant, ms
 Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
 Tau_ext(celltype.inhib) = 2e-3; % was 5e-3;
-initGext = 10e-9; %noisy conductance initialization value, nano Siemens
-deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
-Rext = 1540; %poisson spike train rate for noise, Hz
+initGext = gpuArray(10e-9); %noisy conductance initialization value, nano Siemens
+deltaGext = gpuArray(1e-9); %increase noisy conducrance, nano Siemens
+Rext = gpuArray(1540); %poisson spike train rate for noise, Hz
 %----adaptation conductance----
-Vth = -50e-3; %ALEIF spike threshold mV
-delta_th = 2e-3; %max voltage threshold, mV  (deltaVth in equation)
-Tsra = NaN(pool_options.num_cells,1);%adaptation conductance time constant, ms
+Vth = gpuArray(-50e-3); %ALEIF spike threshold mV
+delta_th = gpuArray(2e-3); %max voltage threshold, mV  (deltaVth in equation)
+Tsra = NaN(pool_options.num_cells,1,'gpuArray');%adaptation conductance time constant, ms
 Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
-detlaGsra = 12.5e-9; %increase adaptation conductance, nano Siemens
+detlaGsra = gpuArray(12.5e-9); %increase adaptation conductance, nano Siemens
 %----depression----------------
-Pr = .1; %release probability
-Td.fast = .3;%synaptic depression time constant, seconds (fast)
-Td.slow = 10;%slow time constant
-fD = .05; %availability factor: (max docked vessicles / max pooled vessicles)
+Pr = gpuArray(.1); %release probability
+Td.fast = gpuArray(.3);%synaptic depression time constant, seconds (fast)
+Td.slow = gpuArray(10);%slow time constant
+fD = gpuArray(.05); %availability factor: (max docked vessicles / max pooled vessicles)
 switch options.fastslow_depression
     case 'off'
         fD = 0; Td.slow = Td.fast;
 end
 %----timecourse----------------
-timestep = options.timestep;
-num_timepoints = round(options.tmax / timestep) + 1; %same as numel(0:dt:Tmax)
+timestep = gpuArray(options.timestep);
+num_timepoints = gather(round(options.tmax / timestep) + 1); %same as numel(0:dt:Tmax)
 Lext = Rext * timestep; %poisson lambda for noisy conductance
+Lext = repmat(Lext,pool_options.num_cells,2);%GPU try
 
 %simulation trial loop
 %-------------------------------------------------------------------------
@@ -84,8 +87,8 @@ for trialidx = 1:num_trials
     %preallocate variables
     %-------------------------------------------------------------------------
     %---membrane potential--------
-    V = NaN(pool_options.num_cells,2);
-    V(:,1) = El; %inital value of membrane potential is leak potential
+    V = zeros(pool_options.num_cells,1,'gpuArray');
+    V = V + El;%inital value of membrane potential is leak potential
     %---stimuli info--------------
     stim_info = struct();
     switch options.stim_targs
@@ -96,10 +99,13 @@ for trialidx = 1:num_trials
         case 'baseline'
             stim_info.targ_cells = logical(zeros(pool_options.num_cells,1)); %no targets
     end
+    stim_info.targ_cells = gpuArray(stim_info.targ_cells);
     stimA = options.trial_stimuli(trialidx,1);
     stimB = options.trial_stimuli(trialidx,2);
     stim_info.stimA_lambda = stimA * timestep; %poisson lambda for stimulus conductance
     stim_info.stimB_lambda = stimB * timestep;
+    stim_info.stimA_lambda = repmat(stim_info.stimA_lambda,sum(stim_info.targ_cells),1);%GPU try
+    stim_info.stimB_lambda = repmat(stim_info.stimB_lambda,sum(stim_info.targ_cells),1);%GPU try
     stim_info.num_cells = pool_options.num_cells; %just so I don't have to pass pool_options as well
     if all(~isnan(options.stim_pulse))
         stim_info.delivery = 'pulse';
@@ -109,20 +115,20 @@ for trialidx = 1:num_trials
         stim_info.delivery = 'constant';
     end
     %---noisy conductance---------
-    Gext = NaN([size(V),2]); %noisy conductance (do I & E input in 3rd D)
+    %Gext = NaN([size(V),2],'gpuArray'); %noisy conductance (do I & E input in 3rd D)
+    %Gext(:,1,:) = initGext; %initialize at leak conductance
     ext_inds.I = 1;
     ext_inds.E = 2;
-    Gext(:,1,:) = initGext; %initialize at leak conductance
+    Gext_Ex = zeros(pool_options.num_cells,1,'gpuArray') + initGext; %initialize at leak conductance
+    Gext_In = zeros(pool_options.num_cells,1,'gpuArray') + initGext;
     %---adaptation conductance----
-    Gsra = NaN(size(V));
-    Gsra(:,1) = 0;
+    Gsra = zeros(size(V),'gpuArray');
     %---gating & depression-------
-    Sg = NaN(size(V)); %synaptic gating
-    Sg(:,1) = 0; %initalize at zero
-    Dfast = NaN(size(V)); %synaptic depression: fast
-    Dslow = NaN(size(V)); %synaptic depression: slow
-    Dfast(:,1) = 1;
-    Dslow(:,1) = 1;
+    %Sg = zeros(size(V),'gpuArray'); %synaptic gating
+    Sg_Ex = zeros(sum(celltype.excit),1,'gpuArray');
+    Sg_In = zeros(sum(celltype.inhib),1,'gpuArray');
+    Dfast = ones(size(V),'gpuArray'); %synaptic depression: fast
+    Dslow = ones(size(V),'gpuArray'); %synaptic depression: slow
     %---spikes--------------------
     switch options.record_spiking
         case 'on'
@@ -139,43 +145,67 @@ for trialidx = 1:num_trials
     durations = {}; %record duration time, state/stimulus label
     state = init_statevar(celltype,options);
     state.now = state.undecided; %this will always be true when V init to El
+    state.init_check_Lext = repmat(state.init_check_Lext,sum(state.pools2compare(:,state.stay)),1); %GPU try
     %---last init-----------------
     experiment_set2go = false; %when experiment is ready to go
     avail_noise.Estay = 1; avail_noise.Eswitch = 1;
     timepoint_counter = 1;
-    idx = 2; %keep indexing vars with idx fixed at 2
+    %idx = 2; %keep indexing vars with idx fixed at 2
     
+    %equation vars (move these when done)
+    W_Ex = W(:,celltype.excit);
+    W_In = W(:,celltype.inhib);
     while timepoint_counter < num_timepoints
         
         timepoint_counter = timepoint_counter+1;
         state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
         %loop equations
-        I = (Erev - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*Gg;
-        I = I + (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
-        I = I + (Gext(:,idx-1,ext_inds.E).*(Erev-V(:,idx-1)));
-        I = I + (Gext(:,idx-1,ext_inds.I).*(Irev-V(:,idx-1)));
-        dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
-            + (Gsra(:,idx-1).*(Ek-V(:,idx-1))) + I;
+        I = (Erev - V).*(W_Ex*Sg_Ex).*Gg ...
+            + (Irev - V).*(W_In*Sg_In).*Gg ...
+            + (Gext_Ex.*(Erev-V)) ...
+            + (Gext_In.*(Irev-V));
+        dVdt = ((El - V + (delta_th.*exp((V - Vth)./delta_th)))./Rm)...
+            + (Gsra.*(Ek - V)) + I;
+        V = ((dVdt./Cm) .* timestep) + V;
         
-        V(:,idx) = ((dVdt./Cm) .* timestep) + V(:,idx-1);
+        %         I = (Erev - V(:,idx-1)).*(W_Ex*Sg(celltype.excit,idx-1)).*Gg;
+        %         I = I + (Irev - V(:,idx-1)).*(W_In*Sg(celltype.inhib,idx-1)).*Gg;
+        %         I = I + (Gext(:,idx-1,ext_inds.E).*(Erev-V(:,idx-1)));
+        %         I = I + (Gext(:,idx-1,ext_inds.I).*(Irev-V(:,idx-1)));
+        %         dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
+        %             + (Gsra(:,idx-1).*(Ek-V(:,idx-1))) + I;
+        %
+        %         V(:,idx) = ((dVdt./Cm) .* timestep) + V(:,idx-1);
         
-        tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext
-        Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
-        Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-        Dfast(:,idx) = Dfast(:,idx-1) + (((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast) .* timestep);%fast syn. depression
-        Dslow(:,idx) = Dslow(:,idx-1) + timestep .* ( ((1 - Dslow(:,idx-1))./Td.slow) ...
-            - fD.* ((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast)  ); %slow vessicle replacement
-        Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
         
-        spiking_cells = V(:,idx) > spike_thresh;
+        %         tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext
+        %         Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
+        %         Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
+        %         Dfast(:,idx) = Dfast(:,idx-1) + (((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast) .* timestep);%fast syn. depression
+        %         Dslow(:,idx) = Dslow(:,idx-1) + timestep .* ( ((1 - Dslow(:,idx-1))./Td.slow) ...
+        %             - fD.* ((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast)  ); %slow vessicle replacement
+        %         Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
+        
+        Gext_Ex =  Gext_Ex - ((Gext_Ex./Tau_ext) .* timestep); %noisy conductance
+        Gext_In =  Gext_In - ((Gext_In./Tau_ext) .* timestep); 
+        Gsra = Gsra - ((Gsra./Tsra) .* timestep); %adaptation conductance
+        Dfast = Dfast + (((Dslow - Dfast)./Td.fast) .* timestep);%fast syn. depression
+        Dslow = Dslow + timestep .* ( ((1 - Dslow)./Td.slow) ...
+            - fD.* ((Dslow - Dfast)./Td.fast)  ); %slow vessicle replacement
+        Sg_Ex = Sg_Ex - ((Sg_Ex./Tsyn_Ex) .* timestep); %synaptic gating
+        Sg_In = Sg_In - ((Sg_In./Tsyn_In) .* timestep);
+        
+        spiking_cells = V > spike_thresh;
         if sum(spiking_cells) > 0
-            Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
+            Gsra(spiking_cells) = Gsra(spiking_cells) + detlaGsra; %adaptation conductance
             %synaptic gating, updates with Dfast vessicles
-            Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
-                (Pr.* Dfast(spiking_cells,idx).*(1-Sg(spiking_cells,idx)));
+            Espike = spiking_cells(celltype.excit);
+            Ispike = spiking_cells(celltype.inhib);
+            Sg_Ex(Espike) = Sg_Ex(Espike) + (Pr.* Dfast(spiking_cells & celltype.excit).*(1-Sg_Ex(Espike)));
+            Sg_In(Ispike) = Sg_In(Ispike) + (Pr.* Dfast(spiking_cells & celltype.inhib).*(1-Sg_In(Ispike)));
             %depression update (docked vessicles released)
-            Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - (Pr.* Dfast(spiking_cells,idx));
-            V(spiking_cells,idx) = Vreset;
+            Dfast(spiking_cells) = Dfast(spiking_cells) - (Pr.* Dfast(spiking_cells));
+            V(spiking_cells) = Vreset;
             switch options.record_spiking
                 case 'on'
                     spikes(spiking_cells,timepoint_counter) = 1;
@@ -188,7 +218,7 @@ for trialidx = 1:num_trials
         
         %test for state transition & determine stim availability
         if experiment_set2go
-            [state,durations] = test4switch(Sg(:,idx),state,durations);
+            [state,durations] = test4switch(gather(Sg_Ex),state,durations);
             [state,avail_noise] = check_noise_avail(stim_info,state);
         else
             state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside
@@ -196,9 +226,9 @@ for trialidx = 1:num_trials
         
         %run the bistability check
         if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
-            [BScheck,Pspikes,state] = check_bistability(Sg(:,idx),state);
+            [BScheck,Pspikes,state] = check_bistability(Sg_Ex,state);
             %add pulse spikes (same as below)
-            Gext(:,idx,ext_inds.E) = Gext(:,idx,ext_inds.E) + (deltaGext.*Pspikes);
+            Gext_Ex(celltype.excit) = Gext_Ex(celltype.excit) + (deltaGext.*Pspikes);
             switch BScheck.status
                 case 'fail'
                     update_logfile(':::Bistability check failure:::',options.output_log)
@@ -213,15 +243,16 @@ for trialidx = 1:num_trials
         
         %input spikes: noise & stimulus
         %---noisy spiking input from elsewhere
-        ext_spikes = poissrnd(Lext,pool_options.num_cells,2);
+        ext_spikes = my_poissrnd(Lext,pool_options.num_cells,2);
+        
         %adjust noise input if needed
         if avail_noise.Estay ~= 1
             ext_spikes(celltype.excit & celltype.pool_stay,:) = ...
-                poissrnd(avail_noise.Estay.*Lext,sum(celltype.excit & celltype.pool_stay),2);
+                my_poissrnd(avail_noise.Estay.*Lext,sum(celltype.excit & celltype.pool_stay),2);
         end
         if avail_noise.Eswitch ~= 1
             ext_spikes(celltype.excit & celltype.pool_switch,:) = ...
-                poissrnd(avail_noise.Eswitch.*Lext,sum(celltype.excit & celltype.pool_switch),2);
+                my_poissrnd(avail_noise.Eswitch.*Lext,sum(celltype.excit & celltype.pool_switch),2);
         end
         
         %---spiking input from stimulus
@@ -232,15 +263,16 @@ for trialidx = 1:num_trials
         end
         
         %update Gexternal. Don't have to index, they get an increase or zero
-        Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*ext_spikes);
+        Gext_Ex = Gext_Ex + (deltaGext.*ext_spikes(:,ext_inds.E));
+        Gext_In = Gext_In + (deltaGext.*ext_spikes(:,ext_inds.I));
         
-        %lag equation vars for next timepoint
-        V = next_timepoint(V);
-        Gsra = next_timepoint(Gsra);
-        Gext = next_timepoint(Gext);
-        Dfast = next_timepoint(Dfast);
-        Dslow = next_timepoint(Dslow);
-        Sg = next_timepoint(Sg);
+%         %lag equation vars for next timepoint
+%         V = next_timepoint(V);
+%         Gsra = next_timepoint(Gsra);
+%         Gext = next_timepoint(Gext);
+%         Dfast = next_timepoint(Dfast);
+%         Dslow = next_timepoint(Dslow);
+%         Sg = next_timepoint(Sg);
         
         switch options.fastslow_depression
             case 'off'
@@ -330,18 +362,116 @@ update_logfile('---Simulation complete---',options.output_log)
 savename = fullfile(options.save_dir,options.sim_name);
 save(savename,'sim_results','options')
 
+function stim_spikes = timepoint_stimulus(stim_info,state)
+%inputs: stimuli info & state parameter structures
 
-function lagged_var = next_timepoint(input_var)
-%takes two column equation variable (T-1,T+0)
-%sets T-1 = T+0, blanks T+0 for next timepoint.
-%"time-lagging" the variable. Fixed for 3d array input
-
-sz = size(input_var);
-lagged_var = NaN(sz);
-
-if numel(sz) == 2
-    lagged_var(:,1) = input_var(:,2);
-elseif numel(sz) == 3
-    lagged_var(:,1,:) = input_var(:,2,:);
+switch state.GPU_mdl
+    case 'off'
+        stim_spikes = zeros(stim_info.num_cells,1);
+    case 'on'
+        stim_spikes = zeros(stim_info.num_cells,1,'gpuArray');
 end
+
+%figure out if we need to apply a stimulus
+if all(state.stay == state.now) %we're in a stay state
+    %we're in a stay state, do something
+    switch stim_info.delivery
+        case 'constant'
+            apply_stimulus = true;
+        case 'pulse'
+            seq_length = sum(stim_info.pulse); %how long for a single on, off sequence
+            t = mod(state.sample_clock,seq_length); %find if we're in the on, or off part of that sequence
+            if t <= stim_info.pulse(1) && state.sample_clock > 0
+                %we're in the initial "stimulus on" part
+                apply_stimulus = true;
+            else
+                %we're past the "stimulus on" part, the stimulus is off. 
+                %Or the sample clock is negative, we're in the delay after leave 
+                apply_stimulus = false;
+            end
+    end
+else
+    %we're in a switch or undecided state, don't do anything
+    %elseif all(state.switch == state.now) || all(state.undecided == state.now)
+    apply_stimulus = false;
+end
+
+
+
+if apply_stimulus
+    %add stimulus-specific spiketrain
+    if strcmp(state.stim_labels{state.current_stimulus},'stim_A')
+        stim_spikes(stim_info.targ_cells) =  my_poissrnd(stim_info.stimA_lambda,sum(stim_info.targ_cells),1);
+    elseif strcmp(state.stim_labels{state.current_stimulus},'stim_B')
+        stim_spikes(stim_info.targ_cells) =  my_poissrnd(stim_info.stimB_lambda,sum(stim_info.targ_cells),1);
+    end
+end
+
+function [BScheck,Pspikes,state] = check_bistability(Sg,state)
+
+BScheck.status = 'running'; %initalize
+target_cells = state.pools2compare(:,state.stay);
+Pspikes = zeros(size(target_cells),'gpuArray');
+%see if we're still in the bistability check window
+check_window = state.count <= state.init_check_stop;
+%add another one for "check over", just in case isnan(state.count) or something...
+check_over = state.count >= state.init_check_stop;
+%give pulse up until 2/3 into check window, then stop
+pulse_window = state.count <= floor(state.init_check_stop *8); % *.66 would give 2/3
+%if the pulse window is 1/3 over, start checking state dominance
+check_dom = state.count >= floor(state.init_check_stop *.33) && check_window;
+
+
+if pulse_window
+    %give pulse spikes
+    Pspikes(target_cells) = ...
+        my_poissrnd(state.init_check_Lext,sum(target_cells),1); %external spikes to noise conductance
+end
+
+if check_dom
+    %test if there's an active state, check if it's the targeted cells (E-stay)
+    Smu = [Sg(state.pools2compare(:,1)), Sg(state.pools2compare(:,2))];
+    Smu = mean(Smu);
+    active_state = Smu - fliplr(Smu); %A-B, B-A
+    state.now = active_state > state.test_thresh; %will return undecided, if neither active
+    
+    targ_active = all(state.now == state.stay); %if it's the state we intended
+    if ~targ_active
+        state.thresh_clock = state.thresh_clock + 1; 
+    elseif targ_active
+        state.thresh_clock = 0; %reset the clock
+    end
+end
+
+%network shouldn't leave target state during the check period
+no_switches = state.thresh_clock < state.test_time;
+
+
+%---outcomes---
+
+if check_dom && ~no_switches
+    %active network state isn't the targeted cells---- fail
+    if ~strcmp(BScheck.status,'fail')
+        %make sure hasn't already failed, give correct message
+        BScheck.status = 'fail';
+        muA = mean(Sg(state.pools2compare(:,state.stay)));
+        muB = mean(Sg(state.pools2compare(:,state.switch)));
+        BScheck.Fcode = sprintf('---non-dominance (muStay=%.2f,muLeave=%.2f)',muA,muB);
+    end
+end
+
+%this was an outcome under the old switch-testing scheme 
+% if ~no_switches && check_window
+%     %active network state isn't the targeted cells during the pulse window---- fail
+%     BScheck.status = 'fail';
+%     BScheck.Fcode = '---N > 1 switches';
+% end
+
+no_failure = ~strcmp(BScheck.status,'fail');
+
+if check_over && no_switches && no_failure
+    %should be good, don't forget to renew your sticker next year
+    BScheck.status = 'pass';
+end
+
 

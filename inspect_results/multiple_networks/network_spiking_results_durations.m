@@ -19,7 +19,7 @@ opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are mat
 
 
 %specify simulations
-Snames = {'nets_D2t_pref_stimB-100'};
+Snames = {'testing_dt10','testing_dt25'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';

@@ -70,8 +70,7 @@ switch options.fastslow_depression
 end
 %----timecourse----------------
 timestep = options.timestep;
-timevec = 0:timestep:options.tmax;
-num_timepoints = numel(timevec);
+num_timepoints = round(options.tmax / timestep) + 1; %same as numel(0:dt:Tmax)
 Lext = Rext * timestep; %poisson lambda for noisy conductance
 
 %simulation trial loop
@@ -131,8 +130,9 @@ for trialidx = 1:num_trials
         otherwise %see if a smaller matrix needs to be allocated for ratelim check
             switch options.ratelim.check
                 case 'on'
-                    spikes = zeros(pool_options.num_cells,options.ratelim.stop / timestep);
-                    options.record_spiking = 'ratelim_only'; %this will be reset to off after check
+                    RLCstart = options.ratelim.start /timestep; RLCstop = options.ratelim.stop /timestep;
+                    spikes = zeros(pool_options.num_cells,RLCstop-RLCstart);
+                    options.record_spiking = 'ratelim_only'; %this will reset -> 'off' after check
             end
     end
     %---state tracker-------------
@@ -178,8 +178,12 @@ for trialidx = 1:num_trials
             Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - (Pr.* Dfast(spiking_cells,idx));
             V(spiking_cells,idx) = Vreset;
             switch options.record_spiking
-                case {'on','ratelim_only'}
+                case 'on'
                     spikes(spiking_cells,timepoint_counter) = 1;
+                case 'ratelim_only' %this gets set to 'off' after the check
+                    if timepoint_counter >=  RLCstart
+                        spikes(spiking_cells,timepoint_counter-RLCstart+1) = 1;
+                    end
             end
         end
         
@@ -255,7 +259,7 @@ for trialidx = 1:num_trials
         %rate limit check
         switch options.ratelim.check
             case 'on'
-                if timepoint_counter == options.ratelim.stop / timestep
+                if timepoint_counter == RLCstop
                     [options,Rcheck] = check_rate_limit(spikes,celltype,options);
                     switch Rcheck.status
                         case 'fail'

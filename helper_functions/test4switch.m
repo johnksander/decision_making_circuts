@@ -1,8 +1,8 @@
 function [state,durations] = test4switch(Sg,state,durations)
 
 Smu = [Sg(state.pools2compare(:,1)), Sg(state.pools2compare(:,2))];
-Smu = mean(Smu);
-active_state = Smu - fliplr(Smu); %A-B, B-A
+Smu = sum(Smu) ./ numel(Smu(:,1)); %faster than mean()
+active_state = Smu - flip(Smu,2); %A-B, B-A
 active_state = active_state > state.test_thresh; %will return undecided, if neither active
 
 %non-dominance check

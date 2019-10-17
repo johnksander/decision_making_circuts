@@ -1,7 +1,12 @@
 function stim_spikes = timepoint_stimulus(stim_info,state)
 %inputs: stimuli info & state parameter structures
 
-stim_spikes = zeros(stim_info.num_cells,1);
+switch state.GPU_mdl
+    case 'off'
+        stim_spikes = zeros(stim_info.num_cells,1);
+    case 'on'
+        stim_spikes = zeros(stim_info.num_cells,1,'gpuArray');
+end
 
 %figure out if we need to apply a stimulus
 if all(state.stay == state.now) %we're in a stay state
