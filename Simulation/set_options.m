@@ -6,6 +6,7 @@ options.comp_location = 'woodstock';
 options.modeltype = ''; %forcing this to break if not specified 
 options.sim_name = 'default_name';
 options.jobID = 9999; 
+options.GPU_mdl = 'off'; %'off' | 'on', set in the actual model code 
 options.netpair_file = NaN; %for loading network pair info file 
 options.timestep = .02e-3; %.1 milisecond timestep
 options.noswitch_timeout = 750; %timeout without a switch (s)

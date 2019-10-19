@@ -34,44 +34,50 @@ W = gpuArray(reorder_weightmat(W,celltype));
 %set up simulation parameters
 %--------------------------------------------------------------------------
 %----cell basics---------------
-Erev = gpuArray(0); %reversal potential, excitatory
-Irev = gpuArray(-70e-3); %reversal potential, inhibitory
-Gg = gpuArray(10e-9); %max conductance microSiemens
+Zvec = zeros(pool_options.num_cells,1,'gpuArray'); %for GPU calcs
+Zvec_Ex = zeros(sum(celltype.excit),1,'gpuArray');
+Zvec_In = zeros(sum(celltype.inhib),1,'gpuArray'); 
+Erev = 0 + Zvec; %reversal potential, excitatory
+Irev = -70e-3 + Zvec; %reversal potential, inhibitory
+Gg = 10e-9 + Zvec; %max conductance microSiemens
 %Tsyn = NaN(pool_options.num_cells,1,'gpuArray'); %gating time constant vector
-Tsyn_Ex = gpuArray(50e-3); %excitatory gating time constant, ms
-Tsyn_In = gpuArray(10e-3); %inhibitory gating time constant, ms
-El = gpuArray(-70e-3); %leak potential mV
-Ek = gpuArray(-80e-3); %potassium potential mV
+Tsyn_Ex = 50e-3 + Zvec_Ex; %excitatory gating time constant, ms
+Tsyn_In = 10e-3 + Zvec_In; %inhibitory gating time constant, ms
+El = -70e-3 + Zvec; %leak potential mV
+Ek = -80e-3 + Zvec; %potassium potential mV
 Vreset = gpuArray(-80e-3); %reset potential mV
-Rm = gpuArray(100e6); %resistance megaohms
+Rm = 100e6 + Zvec; %resistance megaohms
 Gl = 1/Rm; %leak conductance
-Cm = gpuArray(100e-12); %cell capacity picofarads
+Cm = 100e-12 + Zvec; %cell capacity picofarads
 spike_thresh = gpuArray(20e-3); %spike reset threshold (higher than Vth)
 %----noisy input---------------
 Tau_ext = NaN(pool_options.num_cells,1,'gpuArray'); %noisy conductance time constant, ms
 Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
 Tau_ext(celltype.inhib) = 2e-3; % was 5e-3;
 initGext = gpuArray(10e-9); %noisy conductance initialization value, nano Siemens
-deltaGext = gpuArray(1e-9); %increase noisy conducrance, nano Siemens
+deltaGext = 1e-9 + Zvec; %increase noisy conducrance, nano Siemens
 Rext = gpuArray(1540); %poisson spike train rate for noise, Hz
 %----adaptation conductance----
-Vth = gpuArray(-50e-3); %ALEIF spike threshold mV
-delta_th = gpuArray(2e-3); %max voltage threshold, mV  (deltaVth in equation)
+Vth = -50e-3 + Zvec; %ALEIF spike threshold mV
+delta_th = 2e-3 + Zvec; %max voltage threshold, mV  (deltaVth in equation)
 Tsra = NaN(pool_options.num_cells,1,'gpuArray');%adaptation conductance time constant, ms
 Tsra(celltype.excit) = 25e-3; %excitatory
 Tsra(celltype.inhib) = 25e-3; %inhibitory
 detlaGsra = gpuArray(12.5e-9); %increase adaptation conductance, nano Siemens
 %----depression----------------
 Pr = gpuArray(.1); %release probability
-Td.fast = gpuArray(.3);%synaptic depression time constant, seconds (fast)
-Td.slow = gpuArray(10);%slow time constant
-fD = gpuArray(.05); %availability factor: (max docked vessicles / max pooled vessicles)
+Td_fast = .3 + Zvec;%synaptic depression time constant, seconds (fast)
+Td_slow = 10 + Zvec;%slow time constant
+fD = .05 + Zvec; %availability factor: (max docked vessicles / max pooled vessicles)
 switch options.fastslow_depression
     case 'off'
-        fD = 0; Td.slow = Td.fast;
+        fD = 0; Td_slow = Td_fast;
 end
 %----timecourse----------------
 timestep = gpuArray(options.timestep);
+dtvec = timestep + Zvec; %vectors for GPU calcs
+dt_Ex = timestep + Zvec_Ex;
+dt_In = timestep + Zvec_In;
 num_timepoints = gather(round(options.tmax / timestep) + 1); %same as numel(0:dt:Tmax)
 Lext = Rext * timestep; %poisson lambda for noisy conductance
 check_GPU_lambda(Lext); %check lambda 
@@ -119,8 +125,8 @@ for trialidx = 1:num_trials
     %Gext(:,1,:) = initGext; %initialize at leak conductance
     ext_inds.I = 1;
     ext_inds.E = 2;
-    Gext_Ex = zeros(pool_options.num_cells,1,'gpuArray') + initGext; %initialize at leak conductance
-    Gext_In = zeros(pool_options.num_cells,1,'gpuArray') + initGext;
+    Gext_Ex = initGext + Zvec; %initialize at leak conductance
+    Gext_In = initGext + Zvec;
     %---adaptation conductance----
     Gsra = zeros(size(V),'gpuArray');
     %---gating & depression-------
@@ -159,13 +165,26 @@ for trialidx = 1:num_trials
         timepoint_counter = timepoint_counter+1;
         state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
         %loop equations
-        I = (Erev - V).*(W_Ex*Sg_Ex).*Gg ...
-            + (Irev - V).*(W_In*Sg_In).*Gg ...
-            + (Gext_Ex.*(Erev-V)) ...
-            + (Gext_In.*(Irev-V));
-        dVdt = ((El - V + (delta_th.*exp((V - Vth)./delta_th)))./Rm)...
-            + (Gsra.*(Ek - V)) + I;
-        V = ((dVdt./Cm) .* timestep) + V;
+        
+        WS_Ex = W_Ex*Sg_Ex;
+        WS_In = W_In*Sg_In;
+        I = arrayfun(@IFUN,V,Erev,Irev,WS_Ex,WS_In,Gg,Gext_Ex,Gext_In);
+        V = arrayfun(@VtFUN,El,V,delta_th,Vth,Rm,Gsra,Ek,I,Cm,dtvec);
+        
+        Gext_Ex = arrayfun(@XtFUN,Gext_Ex,Tau_ext,dtvec);%noisy conductance
+        Gext_In = arrayfun(@XtFUN,Gext_In,Tau_ext,dtvec);
+        Gsra = arrayfun(@XtFUN,Gsra,Tsra,dtvec);%adaptation conductance
+        Sg_Ex = arrayfun(@XtFUN,Sg_Ex,Tsyn_Ex,dt_Ex);%synaptic gating
+        Sg_In = arrayfun(@XtFUN,Sg_In,Tsyn_In,dt_In);
+        [Dfast,Dslow] = arrayfun(@DtFUN,Dfast,Dslow,Td_fast,Td_slow,fD,dtvec);%fast & slow syn depression
+        
+        %         I = (Erev - V).*(W_Ex*Sg_Ex).*Gg ...
+        %             + (Irev - V).*(W_In*Sg_In).*Gg ...
+        %             + (Gext_Ex.*(Erev-V)) ...
+        %             + (Gext_In.*(Irev-V));
+        %         dVdt = ((El - V + (delta_th.*exp((V - Vth)./delta_th)))./Rm)...
+        %             + (Gsra.*(Ek - V)) + I;
+        %         V = ((dVdt./Cm) .* timestep) + V;
         
         %         I = (Erev - V(:,idx-1)).*(W_Ex*Sg(celltype.excit,idx-1)).*Gg;
         %         I = I + (Irev - V(:,idx-1)).*(W_In*Sg(celltype.inhib,idx-1)).*Gg;
@@ -180,19 +199,19 @@ for trialidx = 1:num_trials
         %         tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext
         %         Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
         %         Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-        %         Dfast(:,idx) = Dfast(:,idx-1) + (((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast) .* timestep);%fast syn. depression
-        %         Dslow(:,idx) = Dslow(:,idx-1) + timestep .* ( ((1 - Dslow(:,idx-1))./Td.slow) ...
-        %             - fD.* ((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast)  ); %slow vessicle replacement
+        %         Dfast(:,idx) = Dfast(:,idx-1) + (((Dslow(:,idx-1) - Dfast(:,idx-1))./Td_fast) .* timestep);%fast syn. depression
+        %         Dslow(:,idx) = Dslow(:,idx-1) + timestep .* ( ((1 - Dslow(:,idx-1))./Td_slow) ...
+        %             - fD.* ((Dslow(:,idx-1) - Dfast(:,idx-1))./Td_fast)  ); %slow vessicle replacement
         %         Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
         
-        Gext_Ex =  Gext_Ex - ((Gext_Ex./Tau_ext) .* timestep); %noisy conductance
-        Gext_In =  Gext_In - ((Gext_In./Tau_ext) .* timestep); 
-        Gsra = Gsra - ((Gsra./Tsra) .* timestep); %adaptation conductance
-        Dfast = Dfast + (((Dslow - Dfast)./Td.fast) .* timestep);%fast syn. depression
-        Dslow = Dslow + timestep .* ( ((1 - Dslow)./Td.slow) ...
-            - fD.* ((Dslow - Dfast)./Td.fast)  ); %slow vessicle replacement
-        Sg_Ex = Sg_Ex - ((Sg_Ex./Tsyn_Ex) .* timestep); %synaptic gating
-        Sg_In = Sg_In - ((Sg_In./Tsyn_In) .* timestep);
+        %         Gext_Ex =  Gext_Ex - ((Gext_Ex./Tau_ext) .* timestep); %noisy conductance
+        %         Gext_In =  Gext_In - ((Gext_In./Tau_ext) .* timestep);
+        %         Gsra = Gsra - ((Gsra./Tsra) .* timestep); %adaptation conductance
+        %         Dfast = Dfast + (((Dslow - Dfast)./Td_fast) .* timestep);%fast syn. depression
+        %         Dslow = Dslow + timestep .* ( ((1 - Dslow)./Td_slow) ...
+        %             - fD.* ((Dslow - Dfast)./Td_fast)  ); %slow vessicle replacement
+        %         Sg_Ex = Sg_Ex - ((Sg_Ex./Tsyn_Ex) .* timestep); %synaptic gating
+        %         Sg_In = Sg_In - ((Sg_In./Tsyn_In) .* timestep);
         
         spiking_cells = V > spike_thresh;
         if sum(spiking_cells) > 0
@@ -227,7 +246,7 @@ for trialidx = 1:num_trials
         if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
             [BScheck,Pspikes,state] = check_bistability(Sg_Ex,state);
             %add pulse spikes (same as below)
-            Gext_Ex(celltype.excit) = Gext_Ex(celltype.excit) + (deltaGext.*Pspikes);
+            Gext_Ex(celltype.excit) = Gext_Ex(celltype.excit) + unique(deltaGext).*Pspikes;
             switch BScheck.status
                 case 'fail'
                     update_logfile(':::Bistability check failure:::',options.output_log)
@@ -242,16 +261,16 @@ for trialidx = 1:num_trials
         
         %input spikes: noise & stimulus
         %---noisy spiking input from elsewhere
-        ext_spikes = my_poissrnd(Lext,pool_options.num_cells,2);
+        ext_spikes = arrayfun(@POISFUN,Lext);
         
         %adjust noise input if needed
         if avail_noise.Estay ~= 1
             ext_spikes(celltype.excit & celltype.pool_stay,:) = ...
-                my_poissrnd(avail_noise.Estay.*Lext,sum(celltype.excit & celltype.pool_stay),2);
+               arrayfun(@POISFUN,avail_noise.Estay.*Lext);
         end
         if avail_noise.Eswitch ~= 1
             ext_spikes(celltype.excit & celltype.pool_switch,:) = ...
-                my_poissrnd(avail_noise.Eswitch.*Lext,sum(celltype.excit & celltype.pool_switch),2);
+                arrayfun(@POISFUN,avail_noise.Eswitch.*Lext);
         end
         
         %---spiking input from stimulus
@@ -262,8 +281,10 @@ for trialidx = 1:num_trials
         end
         
         %update Gexternal. Don't have to index, they get an increase or zero
-        Gext_Ex = Gext_Ex + (deltaGext.*ext_spikes(:,ext_inds.E));
-        Gext_In = Gext_In + (deltaGext.*ext_spikes(:,ext_inds.I));
+        [Gext_Ex,Gext_In] = arrayfun(@GSPIKEFUN,Gext_Ex,Gext_In,deltaGext,...
+            ext_spikes(:,ext_inds.E),ext_spikes(:,ext_inds.I));
+        %         Gext_Ex = Gext_Ex + (deltaGext.*ext_spikes(:,ext_inds.E));
+        %         Gext_In = Gext_In + (deltaGext.*ext_spikes(:,ext_inds.I));
         
 %         %lag equation vars for next timepoint
 %         V = next_timepoint(V);
@@ -400,9 +421,9 @@ end
 if apply_stimulus
     %add stimulus-specific spiketrain
     if strcmp(state.stim_labels{state.current_stimulus},'stim_A')
-        stim_spikes(stim_info.targ_cells) =  my_poissrnd(stim_info.stimA_lambda,sum(stim_info.targ_cells),1);
+        stim_spikes(stim_info.targ_cells) = arrayfun(@POISFUN,stim_info.stimA_lambda);
     elseif strcmp(state.stim_labels{state.current_stimulus},'stim_B')
-        stim_spikes(stim_info.targ_cells) =  my_poissrnd(stim_info.stimB_lambda,sum(stim_info.targ_cells),1);
+        stim_spikes(stim_info.targ_cells) = arrayfun(@POISFUN,stim_info.stimB_lambda);
     end
 end
 
@@ -423,8 +444,7 @@ check_dom = state.count >= floor(state.init_check_stop *.33) && check_window;
 
 if pulse_window
     %give pulse spikes
-    Pspikes(target_cells) = ...
-        my_poissrnd(state.init_check_Lext,sum(target_cells),1); %external spikes to noise conductance
+    Pspikes(target_cells) = arrayfun(@POISFUN,state.init_check_Lext); %external spikes to noise conductance
 end
 
 if check_dom
@@ -477,3 +497,42 @@ function check_GPU_lambda(lambda)
 nope = lambda >= 15 | lambda < 0 | isinf(lambda); %GPU considerations
 if any(nope),error('cannot handle lambda');end
 
+function I = IFUN(V,Erev,Irev,WS_Ex,WS_In,Gg,Gext_Ex,Gext_In)
+E_diff = Erev-V;
+I_diff = Irev-V;
+I = E_diff.*WS_Ex.*Gg + I_diff.*WS_In.*Gg + Gext_Ex.*E_diff + Gext_In.*I_diff;
+
+function V = VtFUN(El,V,delta_th,Vth,Rm,Gsra,Ek,I,Cm,dt)
+
+dVdt = ((El - V + (delta_th.*exp((V - Vth)./delta_th)))./Rm)...
+    + (Gsra.*(Ek - V)) + I;
+
+V = ((dVdt./Cm) .* dt) + V;
+
+function X = XtFUN(X,tau,dt)
+%generic function for updates in the form :
+% Gnew = G - (G / tau) * timestep   (e.g. conductance)
+
+X = X - (X./tau) .* dt;
+
+function [Dt_fast,Dt_slow] = DtFUN(Dfast,Dslow,tauD_fast,tauD_slow,fD,dt)
+
+Ddiff = Dslow - Dfast;
+
+Dt_fast = Dfast + ((Ddiff./tauD_fast) .* dt);%fast syn. depression
+
+Dt_slow = Dslow + dt .* ( ((1 - Dslow)./tauD_slow) ...
+    - fD.* (Ddiff./tauD_fast)  ); %slow vessicle replacement
+
+function [Gext_Ex,Gext_In] = GSPIKEFUN(Gext_Ex,Gext_In,deltaGext,spikes_Ex,spikes_In)
+
+Gext_Ex = Gext_Ex + deltaGext.*spikes_Ex;
+Gext_In = Gext_In + deltaGext.*spikes_In;
+
+function t = POISFUN(lambda)
+t = 0;
+p = 0 - log(rand());
+while p < lambda
+    t = t + 1; 
+    p = p - log(rand());
+end

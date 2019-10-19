@@ -5,18 +5,20 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 3;
+jobID = 2;
 
 %---setup---------------------
-tmax = 25; %diagnostics_fullnoise
+tmax = 10; %diagnostics_fullnoise
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','test','jobID',jobID,'tmax',tmax,'cut_leave_state',tmax,'timestep',.25e-3);
+    'sim_name','test_Gnew','jobID',jobID,'tmax',tmax,'netpair_file','D2t');
 
-options.EtoE = .0405; %fixed 
-options.ItoE = 5; options.EtoI = 0.7420;
-options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
-Rstim = 0; %rate for stimulus input spikes
+%------test with stim found for network #1 
+options = get_network_params(1,options);
+options.EtoE = .0405; %fixed
+Rstim = 0; %found in search 
 options.trial_stimuli = [Rstim,Rstim];
+options.ItoE = options.ItoE .* 2.5;
+options.EtoI = options.EtoI .* 2.5;
 
 %---run-----------------------
 exit_status = false;

@@ -6,8 +6,8 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 4;
-sname = 'test';
+jobID = 2;
+sname = 'test_Gnew';
 %jobID = str2num(getenv('JID'));
 %sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
