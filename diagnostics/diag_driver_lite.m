@@ -4,6 +4,7 @@ format compact
 hold off;close all
 %investigating model behavior
 
+
 addpath('../')
 jobID = 2;
 
@@ -26,6 +27,8 @@ driverfile = mfilename;
 backup_jobcode(options,driverfile,modelfile)
 delete(options.output_log) %no need for these right now
 
+setenv('JID',jobID)
+setenv('SIM_NAME',options.sim_name); %'diag_EtoIfixed'
 inspect
 
 %when you want this code again 

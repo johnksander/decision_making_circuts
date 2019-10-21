@@ -52,7 +52,7 @@ spike_thresh = 20e-3; %spike reset threshold (higher than Vth)
 %----noisy input---------------
 Tau_ext = NaN(pool_options.num_cells,1); %noisy conductance time constant, ms
 Tau_ext(celltype.excit) = 3.5e-3; % was 2e-3
-Tau_ext(celltype.inhib) = 2e-3; % was 5e-3;
+Tau_ext(celltype.inhib) = 2e-3; % was 5e-3
 initGext = 10e-9; %noisy conductance initialization value, nano Siemens
 deltaGext = 1e-9; %increase noisy conducrance, nano Siemens
 Rext = 1540; %poisson spike train rate for noise, Hz
