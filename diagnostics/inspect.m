@@ -54,9 +54,9 @@ fontsz = 12;
 
 %what figures do you want 
 dofig.spiking = 'yes';
-dofig.depression = 'no';
-dofig.gating = 'no';
-dofig.durations = 'no';
+dofig.depression = 'yes';
+dofig.gating = 'yes';
+dofig.durations = 'yes';
 
 switch dofig.spiking
     case 'yes'
