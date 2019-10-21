@@ -111,9 +111,19 @@ if strcmp(options.modeltype,'PS')
     options.EtoE = .0405; %fixed
     switch options.fastslow_depression
         case 'on'
+            %---random 
             %range for slow & fast depression sweeep
-            options.ItoE = dealers_choice(0.1, 12.5); %before: (I-E .1-8) (E-I .1-.75)
-            options.EtoI = dealers_choice(0, .75);
+            %options.ItoE = dealers_choice(0.1, 12.5); 
+            %options.EtoI = dealers_choice(0, .75);
+            %---grid search
+            Ngrid = 100;
+            ItoE = linspace(0.1,12.5,Ngrid);
+            EtoI = linspace(0,.75,Ngrid);keyboard
+            X = linspace(0.1,12.5,10);
+            Y = linspace(0,.75,10);
+            [X,Y] = meshgrid(X,Y);
+            
+            
         otherwise
             %range for fast-only depression sweep
             options.ItoE = dealers_choice(0.01, 3.7);

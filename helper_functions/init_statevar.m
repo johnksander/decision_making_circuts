@@ -24,12 +24,9 @@ state.noswitch_timeout = options.noswitch_timeout / timestep;
 state.no_dominance_timeout = options.no_dominance_timeout / timestep;
 state.no_dom_counter = 0;
 state.sample_Estay_offset = options.sample_Estay_offset / timestep; %new: this right here
+state.pools2compare = [celltype.pool_stay,celltype.pool_switch];
+state.pools2compare = state.pools2compare(celltype.excit,:);
 switch options.GPU_mdl
-    case 'off'
-        state.pools2compare = [celltype.pool_stay & celltype.excit,...
-            celltype.pool_switch & celltype.excit]; %pass in this format, avoid many computations
     case 'on'
-          state.pools2compare = [celltype.pool_stay,celltype.pool_switch];
-          state.pools2compare = state.pools2compare(celltype.excit,:);
-          state.init_check_Lext = repmat(state.init_check_Lext,sum(state.pools2compare(:,state.stay)),1); %GPU try
+        state.init_check_Lext = repmat(state.init_check_Lext,sum(state.pools2compare(:,state.stay)),1); %GPU try
 end

@@ -27,6 +27,9 @@ W(W > 0 & ItoE) = options.ItoE;
 W(W > 0 & EtoI) = options.EtoI;
 %reorder weight matrix for column indexing in loop
 W = reorder_weightmat(W,celltype);
+%seperate for efficiency 
+W_Ex = W(:,celltype.excit);
+W_In = W(:,celltype.inhib);
 %--------------------------------------------------------------------------
 
 %set up simulation parameters
@@ -35,9 +38,8 @@ W = reorder_weightmat(W,celltype);
 Erev = 0; %reversal potential, excitatory
 Irev = -70e-3; %reversal potential, inhibitory
 Gg = 10e-9; %max conductance microSiemens
-Tsyn = NaN(pool_options.num_cells,1); %gating time constant vector
-Tsyn(celltype.excit) = 50e-3; %excitatory gating time constant, ms
-Tsyn(celltype.inhib) = 10e-3; %inhibitory gating time constant, ms
+Tsyn_Ex = 50e-3; %excitatory gating time constant, ms
+Tsyn_In = 10e-3; %inhibitory gating time constant, ms
 El = -70e-3; %leak potential mV
 Ek = -80e-3; %potassium potential mV
 Vreset = -80e-3; %reset potential mV
@@ -84,8 +86,8 @@ for trialidx = 1:num_trials
     %preallocate variables
     %-------------------------------------------------------------------------
     %---membrane potential--------
-    V = NaN(pool_options.num_cells,2);
-    V(:,1) = El; %inital value of membrane potential is leak potential
+    V = zeros(pool_options.num_cells,1);
+    V = V + El;%inital value of membrane potential is leak potential
     %---stimuli info--------------
     stim_info = struct();
     switch options.stim_targs
@@ -109,20 +111,17 @@ for trialidx = 1:num_trials
         stim_info.delivery = 'constant';
     end
     %---noisy conductance---------
-    Gext = NaN([size(V),2]); %noisy conductance (do I & E input in 3rd D)
     ext_inds.I = 1;
     ext_inds.E = 2;
-    Gext(:,1,:) = initGext; %initialize at leak conductance
+    Gext_Ex = initGext + zeros(pool_options.num_cells,1); %initialize at leak conductance
+    Gext_In = initGext + zeros(pool_options.num_cells,1);
     %---adaptation conductance----
-    Gsra = NaN(size(V));
-    Gsra(:,1) = 0;
+    Gsra = zeros(size(V));
     %---gating & depression-------
-    Sg = NaN(size(V)); %synaptic gating
-    Sg(:,1) = 0; %initalize at zero
-    Dfast = NaN(size(V)); %synaptic depression: fast
-    Dslow = NaN(size(V)); %synaptic depression: slow
-    Dfast(:,1) = 1;
-    Dslow(:,1) = 1;
+    Sg_Ex = zeros(sum(celltype.excit),1);
+    Sg_In = zeros(sum(celltype.inhib),1);
+    Dfast = ones(size(V)); %synaptic depression: fast
+    Dslow = ones(size(V)); %synaptic depression: slow
     %---spikes--------------------
     switch options.record_spiking
         case 'on'
@@ -143,39 +142,42 @@ for trialidx = 1:num_trials
     experiment_set2go = false; %when experiment is ready to go
     avail_noise.Estay = 1; avail_noise.Eswitch = 1;
     timepoint_counter = 1;
-    idx = 2; %keep indexing vars with idx fixed at 2
     
     while timepoint_counter < num_timepoints
         
         timepoint_counter = timepoint_counter+1;
         state.timeidx = timepoint_counter; %just so I don't have to pass a million things...
-        %loop equations
-        I = (Erev - V(:,idx-1)).*(W(:,celltype.excit)*Sg(celltype.excit,idx-1)).*Gg;
-        I = I + (Irev - V(:,idx-1)).*(W(:,celltype.inhib)*Sg(celltype.inhib,idx-1)).*Gg;
-        I = I + (Gext(:,idx-1,ext_inds.E).*(Erev-V(:,idx-1)));
-        I = I + (Gext(:,idx-1,ext_inds.I).*(Irev-V(:,idx-1)));
-        dVdt = ((El-V(:,idx-1)+(delta_th.*exp((V(:,idx-1)-Vth)./delta_th)))./Rm)...
-            + (Gsra(:,idx-1).*(Ek-V(:,idx-1))) + I;
         
-        V(:,idx) = ((dVdt./Cm) .* timestep) + V(:,idx-1);
+        WS_Ex = W_Ex*Sg_Ex;
+        WS_In = W_In*Sg_In;
         
-        tGext = squeeze(Gext(:,idx-1,:)); %flattened t-1 Gext
-        Gext(:,idx,:) = tGext - ((tGext./Tau_ext) .* timestep); %noisy conductance
-        Gsra(:,idx) = Gsra(:,idx-1) - ((Gsra(:,idx-1)./Tsra) .* timestep); %adaptation conductance
-        Dfast(:,idx) = Dfast(:,idx-1) + (((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast) .* timestep);%fast syn. depression
-        Dslow(:,idx) = Dslow(:,idx-1) + timestep .* ( ((1 - Dslow(:,idx-1))./Td.slow) ...
-            - fD.* ((Dslow(:,idx-1) - Dfast(:,idx-1))./Td.fast)  ); %slow vessicle replacement
-        Sg(:,idx) = Sg(:,idx-1) - ((Sg(:,idx-1)./Tsyn) .* timestep); %synaptic gating
-        
-        spiking_cells = V(:,idx) > spike_thresh;
+        E_diff = Erev-V;
+        I_diff = Irev-V;
+        I = E_diff.*WS_Ex.*Gg + I_diff.*WS_In.*Gg + Gext_Ex.*E_diff + Gext_In.*I_diff;
+        dVdt = ((El - V + (delta_th.*exp((V - Vth)./delta_th)))./Rm) + (Gsra.*(Ek - V)) + I;
+        V = ((dVdt./Cm) .* timestep) + V;
+                 
+        Gext_Ex = Gext_Ex - (Gext_Ex./Tau_ext) .* timestep;%noisy conductance
+        Gext_In = Gext_In - (Gext_In./Tau_ext) .* timestep;
+        Gsra = Gsra - (Gsra./Tsra) .* timestep;%adaptation conductance
+        Sg_Ex = Sg_Ex - (Sg_Ex./Tsyn_Ex) .* timestep;%synaptic gating
+        Sg_In = Sg_In - (Sg_In./Tsyn_In) .* timestep;
+        Ddiff = Dslow - Dfast;
+        Dfast = Dfast + ((Ddiff ./ Td.fast) .* timestep);%fast syn. depression
+        Dslow = Dslow + timestep .* ( ((1 - Dslow) ./ Td.slow) ...
+            - fD.* (Ddiff ./ Td.fast)  ); %slow vessicle replacement
+       
+        spiking_cells = V > spike_thresh;
         if sum(spiking_cells) > 0
-            Gsra(spiking_cells,idx) = Gsra(spiking_cells,idx) + detlaGsra; %adaptation conductance
+            Gsra(spiking_cells) = Gsra(spiking_cells) + detlaGsra; %adaptation conductance
             %synaptic gating, updates with Dfast vessicles
-            Sg(spiking_cells,idx) = Sg(spiking_cells,idx) + ...
-                (Pr.* Dfast(spiking_cells,idx).*(1-Sg(spiking_cells,idx)));
+            Espike = spiking_cells(celltype.excit);
+            Ispike = spiking_cells(celltype.inhib);
+            Sg_Ex(Espike) = Sg_Ex(Espike) + (Pr.* Dfast(spiking_cells & celltype.excit).*(1-Sg_Ex(Espike)));
+            Sg_In(Ispike) = Sg_In(Ispike) + (Pr.* Dfast(spiking_cells & celltype.inhib).*(1-Sg_In(Ispike)));
             %depression update (docked vessicles released)
-            Dfast(spiking_cells,idx) = Dfast(spiking_cells,idx) - (Pr.* Dfast(spiking_cells,idx));
-            V(spiking_cells,idx) = Vreset;
+            Dfast(spiking_cells) = Dfast(spiking_cells) - (Pr.* Dfast(spiking_cells));
+            V(spiking_cells) = Vreset;
             switch options.record_spiking
                 case 'on'
                     spikes(spiking_cells,timepoint_counter) = 1;
@@ -188,7 +190,7 @@ for trialidx = 1:num_trials
         
         %test for state transition & determine stim availability
         if experiment_set2go
-            [state,durations] = test4switch(Sg(:,idx),state,durations);
+            [state,durations] = test4switch(Sg_Ex,state,durations);
             [state,avail_noise] = check_noise_avail(stim_info,state);
         else
             state.count = state.count + 1; %if you don't run test4switch(), must update this counter outside
@@ -196,9 +198,9 @@ for trialidx = 1:num_trials
         
         %run the bistability check
         if ~experiment_set2go %during bistability check, check_bistability() handles pulse input spikes
-            [BScheck,Pspikes,state] = check_bistability(Sg(:,idx),state);
+            [BScheck,Pspikes,state] = check_bistability(Sg_Ex,state);
             %add pulse spikes (same as below)
-            Gext(:,idx,ext_inds.E) = Gext(:,idx,ext_inds.E) + (deltaGext.*Pspikes);
+            Gext_Ex(celltype.excit) = Gext_Ex(celltype.excit) + deltaGext.*Pspikes;
             switch BScheck.status
                 case 'fail'
                     update_logfile(':::Bistability check failure:::',options.output_log)
@@ -231,16 +233,9 @@ for trialidx = 1:num_trials
             ext_spikes(:,ext_inds.E) = ext_spikes(:,ext_inds.E) + stim_spikes;
         end
         
-        %update Gexternal. Don't have to index, they get an increase or zero
-        Gext(:,idx,:) = squeeze(Gext(:,idx,:)) + (deltaGext.*ext_spikes);
-        
-        %lag equation vars for next timepoint
-        V = next_timepoint(V);
-        Gsra = next_timepoint(Gsra);
-        Gext = next_timepoint(Gext);
-        Dfast = next_timepoint(Dfast);
-        Dslow = next_timepoint(Dslow);
-        Sg = next_timepoint(Sg);
+        %update Gexternal. Don't have to index, they get an increase or zero        
+        Gext_Ex = Gext_Ex + deltaGext.*ext_spikes(:,ext_inds.E);
+        Gext_In = Gext_In + deltaGext.*ext_spikes(:,ext_inds.I);
         
         switch options.fastslow_depression
             case 'off'
@@ -329,19 +324,3 @@ end
 update_logfile('---Simulation complete---',options.output_log)
 savename = fullfile(options.save_dir,options.sim_name);
 save(savename,'sim_results','options')
-
-
-function lagged_var = next_timepoint(input_var)
-%takes two column equation variable (T-1,T+0)
-%sets T-1 = T+0, blanks T+0 for next timepoint.
-%"time-lagging" the variable. Fixed for 3d array input
-
-sz = size(input_var);
-lagged_var = NaN(sz);
-
-if numel(sz) == 2
-    lagged_var(:,1) = input_var(:,2);
-elseif numel(sz) == 3
-    lagged_var(:,1,:) = input_var(:,2,:);
-end
-
