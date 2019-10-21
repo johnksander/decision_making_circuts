@@ -5,21 +5,21 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 2;
+jobID = 3;
 
 %---setup---------------------
-tmax = 10; %diagnostics_fullnoise
+tmax = 8;
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','test_Gnew','jobID',jobID,'tmax',tmax,'netpair_file','D2t');
+    'sim_name','test_Gnew','jobID',jobID,'tmax',tmax,'netpair_file','D2t',...
+    'timestep',.25e-3,'init_check_Rext',250);
 
 %------test with stim found for network #1 
 options = get_network_params(1,options);
-options.EtoE = .0405; %fixed
+options.EtoE = .2; %fixed
 Rstim = 0; %found in search 
 options.trial_stimuli = [Rstim,Rstim];
-options.ItoE = options.ItoE .* 2.5;
-options.EtoI = options.EtoI .* 2.5;
-
+options.ItoE = options.ItoE .* .12;
+options.EtoI = options.EtoI .* 1;
 %---run-----------------------
 exit_status = false;
 while ~exit_status
