@@ -6,10 +6,10 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 3;
-sname = 'test_Gnew';
-%jobID = str2num(getenv('JID'));
-%sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
+%jobID = 3;
+%sname = 'test_Gnew';
+jobID = str2num(getenv('JID'));
+sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
 %---setup---------------------
 options = set_options('modeltype','diagnostics','comp_location','woodstock','sim_name',sname,'jobID',jobID);

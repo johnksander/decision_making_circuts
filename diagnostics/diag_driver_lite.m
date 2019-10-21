@@ -5,7 +5,7 @@ hold off;close all
 %investigating model behavior
 
 addpath('../')
-jobID = 1;
+jobID = 2;
 
 %---setup---------------------
 tmax = 50;
@@ -19,7 +19,7 @@ options.EtoE = .0405; %fixed
 %---run-----------------------
 exit_status = false;
 while ~exit_status
-    [modelfile,exit_status] = diag_model(options);
+    [modelfile,exit_status] = diag_model_lite(options);
 end
 %---cleanup-------------------
 driverfile = mfilename;
