@@ -6,12 +6,11 @@ hold off;close all
 num_workers = 24; %for parfor loading results 
 rescale_plane = 'on'; 
 mask_trimming = 'on'; 
-outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
+outcome_stat = 'mu';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
 
 %result summaries
 fontsz = 20;
 stim_labels = {'stim A','stim B'};
-timestep = .25e-3; %this should really make it's way into set_options(), used for conv2secs here..
 limit_prange = 'yes'; %'yes' | 'no' if yes, set maximums for connection parameters
 
 EI_max = .75; IE_max = 12.5; %these set connection maximums
@@ -20,16 +19,21 @@ EI_max = .75; IE_max = 12.5; %these set connection maximums
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_D2t_baseline';
+sim_name = 'results_sofar';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
 addpath(fullfile(basedir,'helper_functions'))
-output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
+%output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
+output_fns = dir(fullfile(resdir,['*.mat'])); warning('loading all mat files in results directory')
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
+output_fns = output_fns(~endsWith(output_fns,'summary_file.mat'));
 %get results
 num_files = numel(output_fns);
 file_data = cell(num_files,3);
+gen_options = load(output_fns{1});
+gen_options = gen_options.options;
+timestep = gen_options.timestep;
 %parfor stuff
 output_log = fullfile(resdir,'output_log.txt');
 special_progress_tracker = fullfile(resdir,'SPT.txt');close
@@ -39,7 +43,7 @@ end
 c = parcluster('local');
 c.NumWorkers = num_workers;
 parpool(c,c.NumWorkers,'IdleTimeout',Inf)
-parfor idx = 1:num_files
+for idx = 1:num_files
     %if mod(idx,1000) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
     curr_file = load(output_fns{idx});
     %store parameters
@@ -222,9 +226,6 @@ switch mask_trimming
                 (Xmap - x).^2  <= rad2keep.^2  & ...
                 (Zmap - z).^2 <= rad2keep.^2;
             %good_voxels = ((Ymap - y).^2 + (Xmap - x).^2 + (Zmap - z).^2)<= rad2keep.^2;
-            if good_voxels(223,386) == 1
-                keyboard
-            end
             mesh2keep(good_voxels) = true;
 
         end
@@ -335,6 +336,47 @@ savefig(gcf,fullfile(figdir,'heatmap'),'compact')
 
 
 hold off; close all
+
+
+Ngrid = 100;
+P.ItoE = linspace(0.1,12.5,Ngrid);
+P.EtoI = linspace(0,.75,Ngrid);
+[G.ItoE,G.EtoI] = meshgrid(P.ItoE,P.EtoI);
+HM = NaN(Ngrid,Ngrid);
+for idx = 1:num_jobs
+    coords = G.ItoE == ItoE(idx) & G.EtoI == EtoI(idx);
+    [x,y] = find(coords);
+    HM(x,y) = outcome(idx);
+end
+HM = flipud(HM); %so y axis goes low EtoI to high 
+
+colormap(parula)
+imagesc(HM,'AlphaData',~isnan(HM))
+xlabel('I-to-E strength')
+ylabel('E-to-I strength')
+title('State durations')
+set(gca,'Fontsize',fontsz-4)
+colb = colorbar;
+colb.Label.String = Zlabel(end);
+colb.FontSize = 16;
+origXticks = get(gca,'Xtick');
+Xticks = P.ItoE(origXticks);
+Xlabs = cellfun(@(x) sprintf('%.1f',x),num2cell(Xticks),'UniformOutput', false);
+set(gca, 'XTickLabel', Xlabs)
+origYticks = get(gca,'Ytick');
+%reset these real quick
+origYticks = [1,origYticks(1:end-1)];
+set(gca,'Ytick',origYticks);
+Yticks = flip(P.EtoI);
+Yticks = Yticks(origYticks);
+Ylabs = cellfun(@(x) sprintf('%.2f',x),num2cell(Yticks),'UniformOutput', false);
+set(gca, 'YTickLabel', Ylabs')
+set(gca,'FontSize',fontsz-4)
+print(fullfile(figdir,'heatmap_nointerp'),'-djpeg')
+savefig(gcf,fullfile(figdir,'heatmap_nointerp'),'compact')
+hold off; close all
+
+
 
 % 
 % %try countour plot

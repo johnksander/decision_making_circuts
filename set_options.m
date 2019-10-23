@@ -9,9 +9,9 @@ options.jobID = 9999;
 options.GPU_mdl = 'off'; %'off' | 'on', set in the actual model code 
 options.netpair_file = NaN; %for loading network pair info file 
 options.timestep = .02e-3; %.1 milisecond timestep
-options.noswitch_timeout = 750; %timeout without a switch (s)
+options.noswitch_timeout = 500; %timeout without a switch (s)
 options.no_dominance_timeout = 1; %timeout if neither or both pools active > X seconds 
-options.tmax = 2500; %trial simulation time (s)
+options.tmax = 1e3; %trial simulation time (s)
 options.cut_leave_state = 100e-3; %after Xms in a leave state, half noise E-switch cells 
 options.state_def = 'active_states'; %'active_states' | 'include_undecided'; whether simulation aknowledges "undecided states" 
 options.state_test_time = 50e-3; %must be X time above threshold to declare a switch 
@@ -118,11 +118,13 @@ if strcmp(options.modeltype,'PS')
             %---grid search
             Ngrid = 100;
             ItoE = linspace(0.1,12.5,Ngrid);
-            EtoI = linspace(0,.75,Ngrid);keyboard
-            X = linspace(0.1,12.5,10);
-            Y = linspace(0,.75,10);
-            [X,Y] = meshgrid(X,Y);
-            
+            EtoI = linspace(0,.75,Ngrid);
+            [ItoE,EtoI] = meshgrid(ItoE,EtoI);
+            ItoE = ItoE(:); EtoI = EtoI(:);
+            %HPCC only lets indicies up to 10k!! 
+            Gidx = str2num(getenv('SLURM_ARRAY_TASK_ID')); 
+            options.ItoE = ItoE(Gidx);
+            options.EtoI = EtoI(Gidx);
             
         otherwise
             %range for fast-only depression sweep
