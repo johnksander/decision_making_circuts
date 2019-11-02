@@ -337,10 +337,10 @@ savefig(gcf,fullfile(figdir,'heatmap'),'compact')
 
 hold off; close all
 
-
+keyboard
 Ngrid = 100;
-P.ItoE = linspace(0.1,12.5,Ngrid);
-P.EtoI = linspace(0,.75,Ngrid);
+P.ItoE = linspace(min(ItoE),12.5,Ngrid);
+P.EtoI = linspace(min(EtoI),.75,Ngrid);
 [G.ItoE,G.EtoI] = meshgrid(P.ItoE,P.EtoI);
 HM = NaN(Ngrid,Ngrid);
 for idx = 1:num_jobs

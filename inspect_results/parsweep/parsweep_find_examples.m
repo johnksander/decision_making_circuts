@@ -177,6 +177,7 @@ for idx = 1:numel(p_types)
         curr_net = param_perc(curr_RV,param_range);
         curr_net = nearest_val(curr_net,param_range);
         curr_net = find(curr_Ps == curr_net & fast_nets);
+        if numel(curr_net) > 1,curr_net = randsample(curr_net,1);end
 
         net_pair{'fast','ItoE'} = ItoE(curr_net);
         net_pair{'fast','EtoI'} = EtoI(curr_net);
@@ -185,6 +186,7 @@ for idx = 1:numel(p_types)
         %find the matching slow one
         curr_net = nearest_val(net_pair{'fast',p_types{idx}},curr_Ps(slow_nets & this_arm.slow));
         curr_net = find(curr_Ps == curr_net & slow_nets);
+        if numel(curr_net) > 1,curr_net = randsample(curr_net,1);end
         
         net_pair{'slow','ItoE'} = ItoE(curr_net);
         net_pair{'slow','EtoI'} = EtoI(curr_net);
