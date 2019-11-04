@@ -4,7 +4,7 @@ function Terr = stim_search_wrapper(Tobj,Rstim,options)
 %---takes a target value for mean stimulus duration, stim rate, options
 %---returns the error for target duration  
 
-job_runtime = 2.5; %how long each job will run for, in hours 
+job_runtime = 2; %how long each job will run for, in hours 
 Njobs = 1250; %how many jobs to spawn per batch
 work = 'run'; %run | debug   just makes commenting/uncommenting stuff less annoying 
 

@@ -6,12 +6,13 @@ close all
 %this one matches by fast networks first 
 save_netfile = 'yes'; %yes/no
 save_figs = 'yes';
+HMtype = 'grid'; %'grid' | 'interp'
 
 %specify simulation
 %---sim setup-----------------
 Flabel = 'D2t'; %network pairs will be saved with this filename 
 sim_name = 'parsweep_D2t_baseline';
-basedir = '~/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
 helper_dir = fullfile(basedir,'helper_functions');
@@ -50,16 +51,26 @@ fprintf('---range = %.2f - %.2f\n',fast_range)
 fprintf('---total networks = %i\n',sum(fast_nets))
 
 
-
-HM = openfig(fullfile(figdir,'logmean_duration','heatmap.fig'));
+switch HMtype
+    case 'grid'
+        HM = openfig(fullfile(figdir,'logmean_duration','heatmap_nointerp.fig'));
+    case 'interp'
+        HM = openfig(fullfile(figdir,'logmean_duration','heatmap.fig'));
+end
 hold on
 HMdata = gca;
 
 HMdims = get(HMdata,'Children');
 HMdims = size(HMdims.CData);
 Nx = HMdims(1); Ny = HMdims(2);
-Yax = linspace(max(EtoI),min(EtoI),Ny);
-Xax = linspace(min(ItoE),max(ItoE),Nx);
+switch HMtype
+    case 'grid'
+        Yax = linspace(.75,0,Ny);
+        Xax = linspace(0.1,12.5,Nx);
+    case 'interp'
+        Yax = linspace(max(EtoI),min(EtoI),Ny);
+        Xax = linspace(min(ItoE),max(ItoE),Nx);
+end
 
 nearest_ind = @(x,y) find(abs(x-y) == min(abs(x-y)),1); %return index of closest value
 nearest_val = @(x,y) y(nearest_ind(x,y)); %return closest value
@@ -72,9 +83,12 @@ netY = cellfun(@(x) nearest_ind(x,Yax),netY);
 
 cand_nets = slow_nets | fast_nets;
 
-scatter(netX(cand_nets),netY(cand_nets),'black')
-hold off
+switch HMtype
+    case 'interp'
+        scatter(netX(cand_nets),netY(cand_nets),'black')
+end
 
+hold off
 
 pause(1)
 SP = openfig(fullfile(figdir,'logmean_duration','surface_plot.fig'));pause(1);gcf
@@ -83,14 +97,14 @@ hold on
 scatter3(ItoE(cand_nets),EtoI(cand_nets),state_dur(cand_nets),40,'black','filled',...
     'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em
 
-figure()
-subplot(2,2,[1:2])
-histogram(Sdurs(slow_nets))
-title('slow network candidates');xlabel('durations (s)')
-subplot(2,2,3)
-scatter(EtoI(slow_nets),Sdurs(slow_nets));ylabel('durations (s)');xlabel('EtoI')
-subplot(2,2,4)
-scatter(ItoE(slow_nets),Sdurs(slow_nets));ylabel('durations (s)');xlabel('ItoE')
+% figure()
+% subplot(2,2,[1:2])
+% histogram(Sdurs(slow_nets))
+% title('slow network candidates');xlabel('durations (s)')
+% subplot(2,2,3)
+% scatter(EtoI(slow_nets),Sdurs(slow_nets));ylabel('durations (s)');xlabel('EtoI')
+% subplot(2,2,4)
+% scatter(ItoE(slow_nets),Sdurs(slow_nets));ylabel('durations (s)');xlabel('ItoE')
 
 
 
@@ -177,8 +191,7 @@ for idx = 1:numel(p_types)
         curr_net = param_perc(curr_RV,param_range);
         curr_net = nearest_val(curr_net,param_range);
         curr_net = find(curr_Ps == curr_net & fast_nets);
-        if numel(curr_net) > 1,curr_net = randsample(curr_net,1);end
-
+        
         net_pair{'fast','ItoE'} = ItoE(curr_net);
         net_pair{'fast','EtoI'} = EtoI(curr_net);
         net_pair{'fast','duration'} = Sdurs(curr_net);
@@ -186,7 +199,16 @@ for idx = 1:numel(p_types)
         %find the matching slow one
         curr_net = nearest_val(net_pair{'fast',p_types{idx}},curr_Ps(slow_nets & this_arm.slow));
         curr_net = find(curr_Ps == curr_net & slow_nets);
-        if numel(curr_net) > 1,curr_net = randsample(curr_net,1);end
+        if numel(curr_net) > 1
+            switch p_types{idx}
+                case 'ItoE'
+                    %find the lowest EtoI
+                    [~,this_one] = min(EtoI(curr_net));
+                case 'EtoI'
+                    [~,this_one] = min(ItoE(curr_net));
+            end
+            curr_net = curr_net(this_one);
+        end
         
         net_pair{'slow','ItoE'} = ItoE(curr_net);
         net_pair{'slow','EtoI'} = EtoI(curr_net);
@@ -225,7 +247,12 @@ scatter(netX(HMcoords),netY(HMcoords),500,'red','p','filled','MarkerFaceAlpha',1
 hold off
 switch save_figs
     case 'yes'
-        print(fullfile(fig_out_dir,'heatmap_examples'),'-djpeg','-r400')%print high-res
+        switch HMtype
+            case 'grid'
+                print(fullfile(fig_out_dir,'heatmap_nointerp_examples'),'-djpeg','-r400')%print high-res
+            case 'interp'
+                print(fullfile(fig_out_dir,'heatmap_examples'),'-djpeg','-r400')%print high-res
+        end
 end
 
 
