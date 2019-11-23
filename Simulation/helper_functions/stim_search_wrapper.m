@@ -23,7 +23,7 @@ switch work
             badjobs = unique(cat(1,badjobs{:}));
             for idx = 1:numel(badjobs)
                 [~,cmd_out] = system(sprintf('scancel %i',badjobs(idx)));
-                update_logfile(sprintf('runaway job %i stoped with output: %s',badjobs{idx},cmd_out),options.output_log)
+                update_logfile(sprintf('runaway job %i stoped with output: %s',badjobs(idx),cmd_out),options.output_log)
             end
         end
         update_logfile('cleaning up files...',options.output_log)
