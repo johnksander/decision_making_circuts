@@ -2,16 +2,17 @@ clear
 clc
 format compact
 
+
 %NOTE: using longer dt for this search
 Tobj = 7.5; %target mean duration
 
 %target time tolerance (must pass check to save)
-targ_tol = .11 ^2; %110 ms tolerance
+targ_tol = .15 ^2; %110 ms tolerance
 
 %stopping criteria (both must be met)
-%fun_tol = .25 ^2; % 250 ms tolerance for changes in objective function
-%X_tol = .25; % .2 Hz tolerance for change in stimulus (per step)
-%search_opt = optimset('TolFun',fun_tol,'TolX',X_tol); fminbnd()
+fun_tol = .15 ^2; % 150 ms tolerance for changes in objective function
+X_tol = .25; % .25 Hz tolerance for change in stimulus (per step)
+search_opt = optimset('TolFun',fun_tol,'TolX',X_tol); %fminbnd()
 
 num_nets = 10; %number of network pairs
 
@@ -44,33 +45,33 @@ for idx = 1:num_nets %use this to index the different network types
             %[Req,~,exitflag] = ...
             %    fminsearch(@(x) stim_search_wrapper(Tobj,x,options)  ,R0_stim,search_opt);
             
-            %%or fminbnd()
-            %[Req,Terr,exitflag] = ...
-            %    fminbnd(@(x) stim_search_wrapper(Tobj,x,options),Rmin,Rmax,search_opt);
-            
-            %fmincon()
-            search_opt = optimoptions('fmincon','Display','iter','PlotFcn',[]);
+            %or fminbnd()
             [Req,Terr,exitflag] = ...
-                fmincon(@(x) stim_search_wrapper(Tobj,x,options),...
-                Rprev,[],[],[],[],Rmin,Rmax,[],search_opt);
-
+                fminbnd(@(x) stim_search_wrapper(Tobj,x,options),Rmin,Rmax,search_opt);
+            
+            %%fmincon()
+            %search_opt = optimoptions('fmincon','Display','iter','PlotFcn',[]);
+            %[Req,Terr,exitflag] = ...
+            %    fmincon(@(x) stim_search_wrapper(Tobj,x,options),...
+            %    Rprev,[],[],[],[],Rmin,Rmax,[],search_opt);
+            
             %%surrogateopt()
             %srgFN = fullfile(options.save_dir,sprintf('%s_checkpoint.mat',options.sim_name));
             %search_opt = optimoptions('surrogateopt','CheckpointFile',srgFN,...
-            %   'Display','iter','PlotFcn',[],'InitialPoints',Rprev);
+            %    'Display','iter','PlotFcn',[],'InitialPoints',Rprev);
             %if exist(search_opt.CheckpointFile) > 0
-            %   fprintf('\n RESUMING surrogate search from file:\n::: %s\n',search_opt.CheckpointFile)
-            %   start_new = false;
+            %    fprintf('\n RESUMING surrogate search from file:\n::: %s\n',search_opt.CheckpointFile)
+            %    start_new = false;
             %else,start_new = true; end
             %
             %if start_new
-            %
-            %   [Req,Terr,exitflag] = ...
-            %       surrogateopt(@(x) stim_search_wrapper(Tobj,x,options),Rmin,Rmax,search_opt);
-            %   
+            %    
+            %    [Req,Terr,exitflag] = ...
+            %        surrogateopt(@(x) stim_search_wrapper(Tobj,x,options),Rmin,Rmax,search_opt);
+            %    
             %else %resume from checkpoint file
-            %   [Req,Terr,exitflag] = surrogateopt(search_opt.CheckpointFile);
-            %   
+            %    [Req,Terr,exitflag] = surrogateopt(search_opt.CheckpointFile);
+            %    
             %end
             
             stop_search = exitflag == 1; %see if search alg is done

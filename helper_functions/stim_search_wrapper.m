@@ -4,8 +4,9 @@ function Terr = stim_search_wrapper(Tobj,Rstim,options)
 %---takes a target value for mean stimulus duration, stim rate, options
 %---returns the error for target duration  
 
-job_runtime = 2; %how long each job will run for, in hours 
+job_runtime = 2.5; %how long each job will run for, in hours 
 Njobs = 1250; %how many jobs to spawn per batch
+min_sample = 1e5; %make sure you get at least 100k seconds 
 work = 'run'; %run | debug   just makes commenting/uncommenting stuff less annoying 
 
 options.trial_stimuli = [Rstim,Rstim];%rate for stimulus input spikes
@@ -13,6 +14,18 @@ options.trial_stimuli = [Rstim,Rstim];%rate for stimulus input spikes
 %clear out previous results
 switch work
     case 'run'
+        update_logfile('stopping any runaway batch jobs...',options.output_log)
+        cmd = 'squeue -u jksander -n EQstim_batch -o %F, --noheader';
+        [~,badjobs] = system(cmd);
+        if ~isempty(badjobs)
+            badjobs = strsplit(badjobs,',');
+            badjobs = cellfun(@str2num,badjobs,'UniformOutput',false);
+            badjobs = unique(cat(1,badjobs{:}));
+            for idx = 1:numel(badjobs)
+                [~,cmd_out] = system(sprintf('scancel %i',badjobs(idx)));
+                update_logfile(sprintf('runaway job %i stoped with output: %s',badjobs{idx},cmd_out),options.output_log)
+            end
+        end
         update_logfile('cleaning up files...',options.output_log)
         system(sprintf('rm %s/*',options.batchdir));
 end
@@ -66,7 +79,23 @@ switch work
         wait_time = job_runtime * 3600; % in seconds
         wait_time = wait_time + (2.5 * 60);%add another 2.5 min for good measure
         pause(wait_time)
+        
+        %do a check
+        FNs = dir(fullfile(options.batchdir,'*mat'));
+        FNs = {FNs.name};
+        Nfiles = numel(FNs);
+        Tsamp = Nfiles .* options.tmax;
+        while Tsamp < min_sample
+            message = sprintf('---current data: %i files (%is)... waiting another 10m',Nfiles,Tsamp);
+            update_logfile(message,options.output_log)
+            pause(600)
+            FNs = dir(fullfile(options.batchdir,'*mat'));
+            FNs = {FNs.name};
+            Nfiles = numel(FNs);
+            Tsamp = Nfiles .* options.tmax;
+        end
 end
+
 
 %cancel task ID
 update_logfile('stoping remaining jobs...',options.output_log)
@@ -82,11 +111,6 @@ for idx = 1:Nparts
     update_logfile(sprintf('%s jobs stoped with output: %s',partitions{idx},cmd_out),options.output_log)
 end
 
-
-
-%error('It''s all good, stopping here')
-
-%submit the job
 update_logfile('\n',options.output_log)
 update_logfile('::::::: RESULTS :::::::',options.output_log)
 
