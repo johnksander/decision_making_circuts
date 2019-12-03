@@ -1,0 +1,8 @@
+#$ -q bigmem.q
+#$ -N JKswitching_bias
+#$ -pe orte 32
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2015a
+matlab -nodisplay -nodesktop -nosplash -r JK_switching_simulation_driver
+

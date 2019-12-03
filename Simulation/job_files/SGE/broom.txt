@@ -1,0 +1,13 @@
+#$ -t 12500-30000
+#$ -N sweep
+#$ -soft -q neuro.q
+#$ -pe orte 1
+#$ -l mem_token=1G
+#$ -l mem_free=1G
+#$ -ckpt reloc
+#$ -o /dev/null
+#$ -j y               
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2017b
+matlab -singleCompThread -nodisplay -nodesktop -nosplash -r parsweep_driver

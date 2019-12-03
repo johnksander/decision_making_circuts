@@ -1,0 +1,11 @@
+#$ -q all.q
+#$ -N Estay
+#$ -pe orte 12
+#$ -l mem_token=2G
+#$ -l mem_free=2G
+#$ -ckpt reloc
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2015a
+matlab -nodisplay -nodesktop -nosplash -r NFS_Estay_simulation_driver
+

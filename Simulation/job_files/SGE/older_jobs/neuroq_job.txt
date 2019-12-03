@@ -1,0 +1,10 @@
+#$ -q neuro.q
+#$ -N Nq16_noisy_background
+#$ -pe orte 16
+#$ -l mem_token=1G 
+#$ -l mem_free=1G
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2015a
+matlab -nodisplay -nodesktop -nosplash -r JK_neuroq_simulation_driver
+

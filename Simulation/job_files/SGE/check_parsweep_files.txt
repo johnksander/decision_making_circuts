@@ -1,0 +1,4 @@
+ls -altd */*mat | wc -l
+grep "N > 1" */*output*txt | wc -l
+grep "timeout at" */*output*txt | wc -l
+grep "domin" */*output*txt | wc -l

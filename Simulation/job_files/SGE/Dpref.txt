@@ -1,0 +1,13 @@
+#$ -t 100001-150000
+#$ -N Dpref
+#$ -pe orte 1
+#$ -l mem_token=2.75G
+#$ -l mem_free=2.75G
+#$ -soft -q pm.q,neuro.q
+#$ -ckpt reloc
+#$ -o /dev/null
+#$ -j y               
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2017b
+matlab -singleCompThread -nodisplay -nodesktop -nosplash -r network_spiking_driver

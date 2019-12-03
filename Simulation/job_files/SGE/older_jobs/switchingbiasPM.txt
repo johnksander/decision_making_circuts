@@ -1,0 +1,8 @@
+#$ -q bigmem.q
+#$ -N PMswitching_bias
+#$ -pe orte 32
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2015a
+matlab -nodisplay -nodesktop -nosplash -r PM_switching_simulation_driver
+

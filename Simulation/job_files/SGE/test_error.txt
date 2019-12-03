@@ -1,0 +1,11 @@
+#$ -t 1-1
+#$ -q pm.q
+#$ -N error_test
+#$ -pe orte 1
+#$ -l mem_token=2G
+#$ -l mem_free=2G
+#$ -ckpt reloc
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2017b
+matlab -singleCompThread -nodisplay -nodesktop -nosplash -r error_test

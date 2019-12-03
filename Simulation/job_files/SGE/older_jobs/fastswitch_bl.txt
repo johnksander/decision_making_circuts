@@ -1,0 +1,11 @@
+#$ -q neuro.q
+#$ -N fstSw_BL
+#$ -pe orte 12
+#$ -l mem_token=2G
+#$ -l mem_free=2G
+#$ -ckpt reloc
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2015a
+matlab -nodisplay -nodesktop -nosplash -r fastswitch_simulation_driver
+

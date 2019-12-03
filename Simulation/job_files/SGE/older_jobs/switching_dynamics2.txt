@@ -1,0 +1,11 @@
+#$ -q all.q
+#$ -N SD2
+#$ -pe orte 28
+#$ -l mem_token=2G
+#$ -l mem_free=2G
+#$ -ckpt reloc
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2015a
+matlab -nodisplay -nodesktop -nosplash -r NC2_simulation_driver
+

@@ -11,6 +11,6 @@ Thumbs.db
 # don't repo the results anymore, make this practical...
 /Results/
 #ignore cluster jobfiles
-/Simulation/job_files/
+#/Simulation/job_files/
 #ignore progress tracker file that sticks here sometimes
 SPT.txt

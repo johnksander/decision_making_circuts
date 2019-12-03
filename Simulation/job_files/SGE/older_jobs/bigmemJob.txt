@@ -1,0 +1,8 @@
+#$ -q bigmem.q
+#$ -N noisy_background
+#$ -pe orte 32
+
+cd /data/netapp/jksander/rotation/Simulation/
+module load MATLAB/R2015a
+matlab -nodisplay -nodesktop -nosplash -r JK_simulation_driver
+
