@@ -24,6 +24,9 @@ figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 basedir = '~/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
+opt.outcome_stat = 'mu';
+make_my_figs(basedir,Snames{1},figdir{1},opt)
+return
 
 opt.outcome_stat = 'logmu';
 make_my_figs(basedir,Snames{1},figdir{1},opt)
