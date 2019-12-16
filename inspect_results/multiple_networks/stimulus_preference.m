@@ -21,7 +21,7 @@ Snames = {'nets_D2t_pref'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '~/Desktop/work/ACClab/rotation/project';
+basedir = '~/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
 opt.outcome_stat = 'mu';
@@ -38,7 +38,7 @@ for idx = 1:numel(Snames)
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
     opt.outcome_stat = 'med';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
-    opt.outcome_stat = 'med';
+    opt.outcome_stat = 'logmed';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
 end
 return
