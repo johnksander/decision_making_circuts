@@ -21,12 +21,12 @@ Snames = {'nets_D2t_pref'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '~/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
 opt.outcome_stat = 'mu';
 make_my_figs(basedir,Snames{1},figdir{1},opt)
-return
+
 
 opt.outcome_stat = 'logmu';
 make_my_figs(basedir,Snames{1},figdir{1},opt)
@@ -35,6 +35,8 @@ for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
     opt.outcome_stat = 'logmu';
+    make_my_figs(basedir,Snames{idx},figdir{idx},opt)
+    opt.outcome_stat = 'med';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
     opt.outcome_stat = 'med';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
@@ -406,6 +408,9 @@ switch outcome_stat
     case 'logmu'
         Zlabel = sprintf('log_{10}(%s) sampling',unit_measure);
         fig_fn = [fig_fn,'_log'];
+    case 'logmed'
+        Zlabel = sprintf('med. log_{10}(%s) sampling',unit_measure);
+        fig_fn = [fig_fn,'_med_log'];
 end
 
 Ylab = 'p(x)';%Ylab = 'freq';
@@ -453,6 +458,8 @@ for idx = 1:num_pairs
             case 'logmu'
                 %protect against inf errors too
                 statfunc = @(x) mean(log10(x(x~=0)));
+            case 'logmed'
+                statfunc = @(x) median(log10(x(x~=0)));
         end
         
         curr_data = cellfun(@(x) varfun(statfunc,x,'InputVariables','data',...
@@ -506,7 +513,7 @@ end
 
 orient tall
 switch outcome_stat
-    case 'logmu'
+    case {'logmu','logmed'}
         linkaxes(h,'y')
     case {'mu','med'}
         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
