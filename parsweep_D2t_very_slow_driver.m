@@ -24,12 +24,12 @@ ItoE = ItoE(:); EtoI = EtoI(:);
 valid_range = ItoE >= 7.5 & EtoI >= .225;
 ItoE = ItoE(valid_range);
 EtoI = EtoI(valid_range);
-Gidx = str2num(getenv('SLURM_ARRAY_TASK_ID'));%HPCC only lets indicies up to 10k!!
-options.ItoE = ItoE(Gidx);
-options.EtoI = EtoI(Gidx);
+options.grid_index = str2num(getenv('SLURM_ARRAY_TASK_ID'));%HPCC only lets indicies up to 10k!!
+options.ItoE = ItoE(options.grid_index);
+options.EtoI = EtoI(options.grid_index);
 
 %---run-----------------------
-modelfile = spikeout_model(options);
+modelfile = spikeout_model_grid(options);
 %---cleanup-------------------
 if isempty(dir(fullfile(options.save_dir,'code4*zip')))
     driverfile = mfilename;
