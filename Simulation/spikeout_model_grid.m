@@ -1,7 +1,7 @@
 function modelfile = spikeout_model_grid(options)
 %this model func designed to save checkpoints during a grid search
 modelfile = mfilename; %for backup purposes
-options.checkpointFN = fullfile(options.save_dir,sprintf('checkpoint_%i.mat',options.grid_index));
+checkpointFN = fullfile(options.save_dir,sprintf('checkpoint_%i.mat',options.grid_index));
 
 %set up the circut
 %--------------------------------------------------------------------------
@@ -143,12 +143,12 @@ for trialidx = 1:num_trials
     avail_noise.Estay = 1; avail_noise.Eswitch = 1;
     timepoint_counter = 1;
     %---checkpoint load-----------
-    if exist(options.checkpointFN) > 0
-        last_save = dir(options.checkpointFN);
+    if exist(checkpointFN) > 0
+        last_save = dir(checkpointFN);
         last_save = last_save.date;
         last_save = datetime('now') - last_save; %how long since last checkpoint data saved
         if last_save > hours(4) 
-            load(options.checkpointFN) %if the checkpoint hasn't been updated in a while, job probably failed 
+            load(checkpointFN) %if the checkpoint hasn't been updated in a while, job probably failed 
             update_logfile('Resuming from checkpoint data',options.output_log)
         end
     end 
@@ -283,7 +283,7 @@ for trialidx = 1:num_trials
             progress = (timepoint_counter /  num_timepoints) * 100;
             message = sprintf('Simulation %.1f percent complete',progress);
             update_logfile(message,options.output_log)
-            save(options.checkpointFN,'-v7.3')
+            save(checkpointFN,'-v7.3')
             update_logfile('---checkpoint data saved',options.output_log)
         end
     end
