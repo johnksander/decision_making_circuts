@@ -1,7 +1,7 @@
 function modelfile = spikeout_model_grid(options)
 %this model func designed to save checkpoints during a grid search
 modelfile = mfilename; %for backup purposes
-checkpointFN = fullfile(options.save_dir,sprintf('checkpoint_%i.mat',options.grid_index));
+options.checkpointFN = fullfile(options.save_dir,sprintf('checkpoint_%i.mat',options.grid_index));
 
 %set up the circut
 %--------------------------------------------------------------------------
@@ -143,12 +143,12 @@ for trialidx = 1:num_trials
     avail_noise.Estay = 1; avail_noise.Eswitch = 1;
     timepoint_counter = 1;
     %---checkpoint load-----------
-    if exist(checkpointFN) > 0
-        last_save = dir(checkpointFN);
+    if exist(options.checkpointFN) > 0
+        last_save = dir(options.checkpointFN);
         last_save = last_save.date;
         last_save = datetime('now') - last_save; %how long since last checkpoint data saved
         if last_save > hours(4) 
-            load(checkpointFN) %if the checkpoint hasn't been updated in a while, job probably failed 
+            load(options.checkpointFN) %if the checkpoint hasn't been updated in a while, job probably failed 
             update_logfile('Resuming from checkpoint data',options.output_log)
         end
     end 
@@ -283,25 +283,17 @@ for trialidx = 1:num_trials
             progress = (timepoint_counter /  num_timepoints) * 100;
             message = sprintf('Simulation %.1f percent complete',progress);
             update_logfile(message,options.output_log)
-            save(checkpointFN,'-v7.3')
+            save(options.checkpointFN,'-v7.3')
             update_logfile('---checkpoint data saved',options.output_log)
         end
     end
     
     
     %remove the first artificially induced stay state & subsequent switch state
-    if isempty(durations)
-        delete(checkpointFN)
-        update_logfile('No data found',options.output_log)
-        return
-    end
+    if isempty(durations),update_logfile('No data found',options.output_log);return;end
     trim_Bcheck = find(startsWith(durations(:,end),'leave'), 1, 'first');
     durations = durations(trim_Bcheck+1:end,:); 
-    if isempty(durations)
-        delete(checkpointFN)
-        update_logfile('No data found',options.output_log)
-        return
-    end
+    if isempty(durations),update_logfile('No data found',options.output_log);return;end
     sim_results{trialidx,1} = durations;
     
     %record ratelim check's rough spikerate estimate
@@ -342,9 +334,7 @@ for trialidx = 1:num_trials
     end
 end
 
+%delete checkpoint file in driver, that handles all aborts due to bad model behavior
 update_logfile('---Simulation complete---',options.output_log)
 savename = fullfile(options.save_dir,options.sim_name);
 save(savename,'sim_results','options')
-%get rid of checkpoint file
-delete(checkpointFN)
-update_logfile('checkpoint data deleted',options.output_log)

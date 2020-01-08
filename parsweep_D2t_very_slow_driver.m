@@ -35,6 +35,8 @@ if isempty(dir(fullfile(options.save_dir,'code4*zip')))
     driverfile = mfilename;
     backup_jobcode(options,driverfile,modelfile)
 end
+delete(options.checkpointFN)
+update_logfile('checkpoint data deleted',options.output_log)
 %delete(options.output_log) %no need for these right now
 logdir = fullfile(options.save_dir,'logs'); %put them seperately
 if ~isdir(logdir),mkdir(logdir);end
