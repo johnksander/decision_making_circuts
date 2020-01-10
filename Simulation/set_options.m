@@ -90,6 +90,10 @@ switch options.comp_location
         basedir = '/work/jksander/rotation/Simulation';
         addpath(fullfile(basedir,'helper_functions')) %annoying...
         options.rand_info = get_rng_seed();
+    case 'hvard'
+        basedir = '/users/ksander/rotation/Simulation';
+        addpath(fullfile(basedir,'helper_functions')) %annoying... 
+        options.rand_info = get_rng_seed();
 end
 
 rng(options.rand_info)
