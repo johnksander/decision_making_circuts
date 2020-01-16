@@ -27,6 +27,12 @@ EtoI = EtoI(valid_range);
 options.grid_index = str2num(getenv('SLURM_ARRAY_TASK_ID'));%HPCC only lets indicies up to 10k!!
 options.ItoE = ItoE(options.grid_index);
 options.EtoI = EtoI(options.grid_index);
+%this will be the checkpoint file used in spikeout_model_grid() 
+checkpointFN = fullfile(options.save_dir,sprintf('checkpoint_%i.mat',options.grid_index));
+if exist(checkpointFN) == 0 %only run unfinished jobs 
+    delete(options.output_log);return
+end
+
 
 %---run-----------------------
 modelfile = spikeout_model_grid(options);
@@ -35,7 +41,6 @@ if isempty(dir(fullfile(options.save_dir,'code4*zip')))
     driverfile = mfilename;
     backup_jobcode(options,driverfile,modelfile)
 end
-checkpointFN = fullfile(options.save_dir,sprintf('checkpoint_%i.mat',options.grid_index));
 delete(checkpointFN)
 update_logfile('checkpoint data deleted',options.output_log)
 %delete(options.output_log) %no need for these right now
