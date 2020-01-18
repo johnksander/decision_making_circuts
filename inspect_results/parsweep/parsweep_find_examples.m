@@ -6,13 +6,13 @@ close all
 %this one matches by fast networks first 
 save_netfile = 'yes'; %yes/no
 save_figs = 'yes';
-HMtype = 'grid'; %'grid' | 'interp'
+HMtype = 'interp'; %'grid' | 'interp'
 
 %specify simulation
 %---sim setup-----------------
-Flabel = 'D2t'; %network pairs will be saved with this filename 
-sim_name = 'parsweep_D2t_baseline';
-basedir = '~/Desktop/work/ACClab/rotation/project';
+Flabel = 'D2t-slower'; %network pairs will be saved with this filename 
+sim_name = 'parsweep_D2t_very_slow_baseline';
+basedir = '~/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
 helper_dir = fullfile(basedir,'helper_functions');
@@ -33,7 +33,8 @@ EtoI = cellfun(@(x)  x.EtoI,result_data(:,2));
 state_dur = cellfun(@(x) mean(log10(x+eps)),result_data(:,1));
 Sdurs = 10.^state_dur; %in seconds
 
-slow_range = log10([50,70]); %seconds
+%slow_range = log10([50,70]); %seconds
+slow_range = log10([200,300]); %seconds
 fast_range = log10([1, 1.5]);
 %many more slow, than fast. So start with the slow networks
 in_range = @(x,y) x >= y(1) & x <= y(2);     %find durations X within target range Y (two element vec)
@@ -186,6 +187,11 @@ for idx = 1:numel(p_types)
         
         %find the fast network 
         curr_RV = range_vals(RVidx); %where in the parameter space 
+        if pair_ind == 2
+            warning('hardcoded thing for D2t-slower right here...')
+            curr_RV = .65;
+        end
+        
         param_range = curr_Ps(fast_nets & this_arm.fast); %find the range for this "arm"
         
         curr_net = param_perc(curr_RV,param_range);
@@ -261,6 +267,15 @@ switch save_netfile
     case 'yes'
         save(FN,'network_pairs')
 end
+
+
+% %make sure you got the same fast ones as last time \
+% lol = load('D2t.mat');
+% lol = lol.network_pairs;
+% for i = 1:5
+% disp(network_pairs{i}('fast',:));disp(lol{i}('fast',:))
+% fprintf('\n\n')
+% end
 
 % net_pair = array2table(NaN(2,3),'VariableNames',{'ItoE','EtoI','duration'},'RowNames',{'slow','fast'});
 %

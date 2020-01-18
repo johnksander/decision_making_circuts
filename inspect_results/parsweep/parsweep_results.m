@@ -19,7 +19,7 @@ EI_max = .75; IE_max = 12.5; %these set connection maximums
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_D2t_baseline';
+sim_name = 'parsweep_D2t_very_slow_baseline';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
@@ -92,9 +92,11 @@ for idx = 1:num_jobs
     result_data{idx,2} = file_data{find(curr_file,1),2};
     %rate estimates
     Rcheck_data = file_data(curr_file,3);
-    curr_rate.Erate = mean(cellfun(@(x) x.Erate,Rcheck_data));
-    curr_rate.Irate = mean(cellfun(@(x) x.Irate,Rcheck_data));
-    result_data{idx,3} = curr_rate;
+    if sum(~cellfun(@isempty,Rcheck_data)) > 0
+        curr_rate.Erate = mean(cellfun(@(x) x.Erate,Rcheck_data));
+        curr_rate.Irate = mean(cellfun(@(x) x.Irate,Rcheck_data));
+        result_data{idx,3} = curr_rate;
+    end
 end
 
 
@@ -104,6 +106,9 @@ fprintf('\n---jobs without data = %i\n',sum(num_states == 0))
 
 Tmax = 300; %set a maximum duration for these plots 
 Tmin = 1; %minimum duration 
+
+warning('Tmax set to 500')
+Tmax = 500;
 
 overmax = mu_time > Tmax;
 undermin = mu_time < Tmin;
@@ -289,7 +294,7 @@ end
 %mask = tril(ones(size(Z)),100);
 %mask = logical(mask);
 %Z(~mask) = NaN;
-colormap(parula)
+% colormap(parula)
 imagesc(Z,'AlphaData',~isnan(Z))
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
