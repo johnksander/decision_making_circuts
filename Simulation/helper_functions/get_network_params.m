@@ -31,6 +31,34 @@ switch options.netpair_file
         end
         
         
+    case 'D2t-slower'    
+        
+        switch do_config
+            case 1
+                options.ItoE = 12.3747; options.EtoI = 0.2955; Rstim = 74; options.stim_targs = 'Eswitch';
+            case 2
+                options.ItoE = 12.3747; options.EtoI = 0.0833; Rstim = 396.4; options.stim_targs = 'Estay';
+            case 3
+                options.ItoE = 9.4939; options.EtoI = 0.4242; Rstim = 46.4; options.stim_targs = 'Eswitch';
+            case 4
+                options.ItoE = 9.6192; options.EtoI = 0.0909; Rstim = 370; options.stim_targs = 'Estay';
+            case 5
+                options.ItoE = 8.4919; options.EtoI = 0.7500; Rstim = 69.3; options.stim_targs = 'Eswitch';
+            case 6
+                options.ItoE = 3.6071; options.EtoI = 0.7500; Rstim = 624.5; options.stim_targs = 'Estay';
+            case 7
+                options.ItoE = 9.4939; options.EtoI = 0.4773; Rstim = 49.7; options.stim_targs = 'Eswitch';
+            case 8
+                options.ItoE = 3.6071; options.EtoI = 0.4621; Rstim = 488.1; options.stim_targs = 'Estay';
+            case 9
+                options.ItoE = 8.8677; options.EtoI = 0.4697; Rstim = 34; options.stim_targs = 'Eswitch';
+            case 10
+                options.ItoE = 4.2333; options.EtoI = 0.1742; Rstim = 313.9; options.stim_targs = 'Estay';
+            otherwise
+                error('config disaser')
+        end
+        
+        
     case 'D2t_20s'
         
         switch do_config

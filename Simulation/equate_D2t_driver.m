@@ -15,14 +15,19 @@ X_tol = .25; % .25 Hz tolerance for change in stimulus (per step)
 search_opt = optimset('TolFun',fun_tol,'TolX',X_tol); %fminbnd()
 
 num_nets = 10; %number of network pairs
+nets2run = [1:2:9,4];
 
 %---setup---------------------
 for idx = 1:num_nets %use this to index the different network types
     
+    if ~ismember(idx,nets2run)
+        continue
+    end
+    
     %:::start:::
     t = 200; %trial simulation time (s)
     options = set_options('modeltype','equate_stim','comp_location','hpc',...
-        'sim_name','equate_D2t_stims','netpair_file','D2t','jobID',idx,'tmax',t);
+        'sim_name','equate_D2t-slower_stims','netpair_file','D2t-slower','jobID',idx,'tmax',t);
     %:::end:::
     
     %check if network has been optimized yet
@@ -35,8 +40,14 @@ for idx = 1:num_nets %use this to index the different network types
         
         %set bounds based on previous search results
         Rprev = unique(options.trial_stimuli);
-        Rmax = Rprev + .5*Rprev;
-        Rmin = Rprev - .5*Rprev;
+        switch options.stim_targs
+            case 'Estay'
+                Rmax = Rprev + .75*Rprev;
+                Rmin = Rprev - .75*Rprev;
+            case 'Eswitch'
+                Rmax = Rprev + 1*Rprev;
+                Rmin = Rprev - .25*Rprev; 
+        end
         
         while ~stop_search
             %---run-----------------------

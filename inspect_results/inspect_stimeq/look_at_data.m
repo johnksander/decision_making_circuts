@@ -4,7 +4,7 @@ format compact
 hold off;close all
 
 %This plots results from the stimulus equating jobs. 
-basedir = '~/Desktop/ksander/rotation/project/';
+basedir = '~/Desktop/work/ACClab/rotation/project/';
 curr_dir = fullfile(basedir,'inspect_results/inspect_stimeq');
 resdir = fullfile(basedir,'Results/equate_D2t_stims');
 RFN = dir(fullfile(resdir,'output_log_*.txt'));
