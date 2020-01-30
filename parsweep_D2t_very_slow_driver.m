@@ -7,7 +7,7 @@ format compact
 
 %my model 
 %---setup---------------------
-jID = str2num([getenv('SLURM_JOBID'), getenv('SLURM_ARRAY_TASK_ID')]);
+jID = str2double([getenv('SLURM_JOBID'), getenv('SLURM_ARRAY_TASK_ID')]);
 t = 1500; %trial simulation time (s) 
 options = set_options('modeltype','PS','comp_location','hpc',...
     'sim_name','parsweep_D2t_very_slow_baseline','jobID',jID,'tmax',t,...
@@ -24,7 +24,7 @@ ItoE = ItoE(:); EtoI = EtoI(:);
 valid_range = ItoE >= 7.5 & EtoI >= .225;
 ItoE = ItoE(valid_range);
 EtoI = EtoI(valid_range);
-options.grid_index = str2num(getenv('SLURM_ARRAY_TASK_ID'));%HPCC only lets indicies up to 10k!!
+options.grid_index = str2double(getenv('SLURM_ARRAY_TASK_ID'));%HPCC only lets indicies up to 10k!!
 options.ItoE = ItoE(options.grid_index);
 options.EtoI = EtoI(options.grid_index);
 %this will be the checkpoint file used in spikeout_model_grid() 

@@ -126,7 +126,7 @@ if strcmp(options.modeltype,'PS')
             [ItoE,EtoI] = meshgrid(ItoE,EtoI);
             ItoE = ItoE(:); EtoI = EtoI(:);
             %HPCC only lets indicies up to 10k!! 
-            Gidx = str2num(getenv('SLURM_ARRAY_TASK_ID')); 
+            Gidx = str2double(getenv('SLURM_ARRAY_TASK_ID')); 
             options.ItoE = ItoE(Gidx);
             options.EtoI = EtoI(Gidx);
             
