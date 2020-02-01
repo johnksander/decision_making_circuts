@@ -11,14 +11,20 @@ jID = str2double([getenv('SLURM_JOBID'), getenv('SLURM_ARRAY_TASK_ID')]);
 t = 1500; %trial simulation time (s) 
 options = set_options('modeltype','NETS','comp_location','hpc',...
     'sim_name','nets_D2t-slower_pref','jobID',jID,'tmax',t,...
-    'netpair_file','D2t-slower');
+    'netpair_file','D2t-slower','noswitch_timeout',t);
 
 
 %adjust stimulus B strength
-stim_mod = [0,exp(-.5:.5:4)]; %just randomly sample mod weight, do enough it'll even out 
+stim_mod = [0:.25:2.5,exp(-.5:.5:4)]; %just randomly sample mod weight, do enough it'll even out 
+switch options.stim_targs
+    case 'Estay' %fast networks will never switch at B > A * 2.5
+        stim_mod = stim_mod(stim_mod <= 2.5);
+end
 stim_mod = randsample(stim_mod,1);
 options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
 
+update_logfile(sprintf('---stim B set to %.2f Hz (scaled by %.1f)',...
+    options.trial_stimuli(2),stim_mod),options.output_log)
 
 %you have to checkpoint these b/c the sims are so long 
 options.grid_index = str2double(getenv('SLURM_ARRAY_TASK_ID'));%HPCC only lets indicies up to 10k!!

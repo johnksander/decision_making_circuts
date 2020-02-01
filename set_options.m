@@ -197,6 +197,9 @@ if sum(strcmp(options.modeltype,{'JK','diagnostics','equate_stim'})) == 0 %don't
     if isfield(options,'trial_stimuli')
         update_logfile(sprintf('---trial stimuli = %.1f Hz, %.1f Hz',options.trial_stimuli),options.output_log)
     end
+    if isfield(options,'stim_targs')
+        update_logfile(sprintf('---target cells = %s',options.stim_targs),options.output_log)
+    end
     update_logfile('--------------------------',options.output_log)
     
 end

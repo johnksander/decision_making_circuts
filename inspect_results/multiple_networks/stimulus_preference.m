@@ -17,19 +17,13 @@ opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are mat
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
-Snames = {'nets_D2t_pref'};
+Snames = {'nets_D2t-slower_pref'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '~/Desktop/ksander/rotation/project';
+%basedir = '~/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
-
-opt.outcome_stat = 'mu';
-make_my_figs(basedir,Snames{1},figdir{1},opt)
-
-
-opt.outcome_stat = 'logmu';
-make_my_figs(basedir,Snames{1},figdir{1},opt)
 
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
@@ -256,7 +250,8 @@ if ~load_summary
         case 'off'
             fprintf('\nparfor disabled\n')
         case 'on'
-            num_workers = 24;
+            warning('parfor set for bender: # workers = 4') 
+            num_workers = 4; %24;
             c = parcluster('local');
             c.NumWorkers = num_workers;
             parpool(c,c.NumWorkers,'IdleTimeout',Inf,'AttachedFiles',{which('find_stay_durations')})
@@ -642,6 +637,8 @@ for idx = 1:num_pairs
             end
             fprintf('\n------------------------\n')
         end
+        
+        
         
         
     end
