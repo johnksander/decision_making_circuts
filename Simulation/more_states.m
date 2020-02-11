@@ -1,4 +1,4 @@
- clear 
+clear 
 clc
 format compact 
 
@@ -17,8 +17,12 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
 %adjust stimulus B strength
 stim_mod = [0:.25:2.5,exp(-.5:.5:4)]; %just randomly sample mod weight, do enough it'll even out 
 switch options.stim_targs
-    case 'Estay' %fast networks will never switch at B > A * 2.5
+    case 'Estay' %fast networks need more B > A * 1.25
+        stim_mod = stim_mod(stim_mod >= 1.25);
+        %but fast networks will never switch at B > A * 2.5
         stim_mod = stim_mod(stim_mod <= 2.5);
+    case 'Eswitch' %slow networks need more B < A * .5
+        stim_mod = stim_mod(stim_mod <= .5);
 end
 stim_mod = randsample(stim_mod,1);
 options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B

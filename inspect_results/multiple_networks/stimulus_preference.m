@@ -28,6 +28,7 @@ addpath(fullfile(basedir,'helper_functions'))
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
+    return
     opt.outcome_stat = 'logmu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
     opt.outcome_stat = 'med';
