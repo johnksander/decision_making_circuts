@@ -8,6 +8,7 @@ hold off;close all
 %Put this same function in network_spiking_results, etc. Also use cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets)
 
 opt = struct();
+opt.min_obs = 0; %min # of observations (states)
 opt.print_anything = 'yes'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
 opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
@@ -21,14 +22,12 @@ Snames = {'nets_D2t-slower_pref'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-%basedir = '~/Desktop/ksander/rotation/project';
-basedir = '~/Desktop/work/ACClab/rotation/project';
+basedir = '~/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
-    return
     opt.outcome_stat = 'logmu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
     opt.outcome_stat = 'med';
@@ -251,8 +250,7 @@ if ~load_summary
         case 'off'
             fprintf('\nparfor disabled\n')
         case 'on'
-            warning('parfor set for bender: # workers = 4') 
-            num_workers = 4; %24;
+            num_workers = 24;
             c = parcluster('local');
             c.NumWorkers = num_workers;
             parpool(c,c.NumWorkers,'IdleTimeout',Inf,'AttachedFiles',{which('find_stay_durations')})
@@ -376,10 +374,23 @@ for idx = 1:num_jobs
     result_data{idx,2} = file_data{find(curr_file,1),2};
 end
 
+
+Nobs = cellfun(@(x) numel(x(:,1)),result_data(:,1));
+fprintf('\n\n:::: excluding sets wtih < %i observations\n',opt.min_obs)
+min_obs = Nobs >= opt.min_obs;
+fprintf('\n      %i sets excluded (out of %i total)\n\n',sum(~min_obs),numel(min_obs))
+result_data = result_data(min_obs,:);
+net_type = net_type(min_obs,:);
+
 %this is stupid & obviously a hold-over from something I didn't implement well in the first place...
 net_type.targ_cells = cellfun(@(x) stimtarg_labels{x},...
     num2cell(net_type.targ_cells),'UniformOutput',false);
 
+
+wtf = result_data(:,2);
+wtf = cellfun(@(x) abs(x.trial_stimuli(2) - 1092.9) < .05 && strcmp(x.stim_targs,'Estay'),wtf);
+result_data = result_data(~wtf,:);
+net_type = net_type(~wtf,:);
 
 fig_fn = [sim_name '_%s'];
 
@@ -511,9 +522,10 @@ orient tall
 switch outcome_stat
     case {'logmu','logmed'}
         linkaxes(h,'y')
+        linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
     case {'mu','med'}
         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
-        axis tight
+        %axis tight
 end
 
 switch print_anything
@@ -561,12 +573,24 @@ for idx = 1:numel(SPcells)
         ylabel(sprintf(['A - constant [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
     end
 end
-make_lg = 'left';
+
+lg_pos = legend(' ');
+if contains(lg_pos.Location,'east')
+    make_lg = 'right';
+else
+    make_lg = 'left';
+end
+if contains(lg_pos.Location,'north')
+    Y0 = .95;
+else
+    Y0 = .2;
+end
+delete(lg_pos)
 switch make_lg
     case 'left'
-        Y0 = .2; X0 = .025; move_pt = .02;
+        X0 = .025; move_pt = .02;
     case 'right'
-        Y0 = .2; X0 = .975; move_pt = -.02;%was   Y0 = .5
+        X0 = .975; move_pt = -.02;%was   Y0 = .5
 end
 lg_fz = 16; get_ax_val = @(p,x) p*range(x)+min(x);
 xlim(xlim + [-(range(xlim)*.015),(range(xlim)*.015)]); %extra room
