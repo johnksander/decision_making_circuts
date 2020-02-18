@@ -14,16 +14,14 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
     'netpair_file','D2t-slower','noswitch_timeout',t);
 
 
-%adjust stimulus B strength
-stim_mod = [0:.25:2.5,exp(-.5:.5:4)]; %just randomly sample mod weight, do enough it'll even out 
-switch options.stim_targs
-    case 'Estay' %fast networks need more B > A * 1.25
-        stim_mod = stim_mod(stim_mod >= 1.25);
-        %but fast networks will never switch at B > A * 2.5
-        stim_mod = stim_mod(stim_mod <= 2.5);
-    case 'Eswitch' %slow networks need more B < A * .5
-        stim_mod = stim_mod(stim_mod <= .5);
-end
+%I need data for slow net #3 specifically 
+options = get_network_params(6,options);
+
+stim_mod = [1.55,1.6]; %new strengths, try to fill in behavioral gap 
+
+%stim_mod = [0:.25:2.5,exp(-.5:.5:4)]; %adjust stimulus B strength
+%stim_mod = stim_mod(stim_mod >= 1.5 & stim_mod <=2); %I need this range, specifically 
+
 stim_mod = randsample(stim_mod,1);
 options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
 
@@ -52,6 +50,7 @@ if ~isdir(logdir),mkdir(logdir);end
 movefile(options.output_log,logdir)
 
 % %if you need more states for specific things, use code here:
+%
 % %---need to get more states for slow nets here, new stim range---
 % switch options.stim_targs
 %     case 'Estay' %set to random slow network instead
@@ -63,4 +62,19 @@ movefile(options.output_log,logdir)
 % stim_mod = randsample(stim_mod,1);
 % options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
 % %-----------------------------
+%
+% %or here:
+%
+% %adjust stimulus B strength
+% stim_mod = [0:.25:2.5,exp(-.5:.5:4)]; %just randomly sample mod weight, do enough it'll even out 
+% switch options.stim_targs
+%     case 'Estay' %fast networks need more B > A * 1.25
+%         stim_mod = stim_mod(stim_mod >= 1.25);
+%         %but fast networks will never switch at B > A * 2.5
+%         stim_mod = stim_mod(stim_mod <= 2.5);
+%     case 'Eswitch' %slow networks need more B < A * .5
+%         stim_mod = stim_mod(stim_mod <= .5);
+% end
+% stim_mod = randsample(stim_mod,1);
+% options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
 
