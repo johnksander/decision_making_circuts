@@ -14,13 +14,13 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
     'netpair_file','D2t-slower','noswitch_timeout',t);
 
 
-%I need data for slow net #3 specifically 
-options = get_network_params(6,options);
+%I need data for slow nets #4 & #5 specifically 
+do_nets = [8,10];
+do_nets = randsample(do_nets,1);
+options = get_network_params(do_nets,options);
 
-stim_mod = [1.55,1.6]; %new strengths, try to fill in behavioral gap 
-
-%stim_mod = [0:.25:2.5,exp(-.5:.5:4)]; %adjust stimulus B strength
-%stim_mod = stim_mod(stim_mod >= 1.5 & stim_mod <=2); %I need this range, specifically 
+stim_mod = [0:.25:2.5,exp(-.5:.5:4),1.3750]; %adjust stimulus B strength
+stim_mod = stim_mod(stim_mod >= 1.5 & stim_mod < 1.7); %I need this range, specifically 
 
 stim_mod = randsample(stim_mod,1);
 options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
@@ -66,7 +66,7 @@ movefile(options.output_log,logdir)
 % %or here:
 %
 % %adjust stimulus B strength
-% stim_mod = [0:.25:2.5,exp(-.5:.5:4)]; %just randomly sample mod weight, do enough it'll even out 
+% stim_mod = [0:.25:2.5,exp(-.5:.5:4),1.3750]; %just randomly sample mod weight, do enough it'll even out 
 % switch options.stim_targs
 %     case 'Estay' %fast networks need more B > A * 1.25
 %         stim_mod = stim_mod(stim_mod >= 1.25);

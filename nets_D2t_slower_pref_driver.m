@@ -15,7 +15,7 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
 
 
 %adjust stimulus B strength
-stim_mod = [0:.25:2.5,exp(-.5:.5:4)]; %just randomly sample mod weight, do enough it'll even out 
+stim_mod = [0:.25:2.5,exp(-.5:.5:4),1.3750]; %just randomly sample mod weight, do enough it'll even out 
 switch options.stim_targs
     case 'Estay' %fast networks will never switch at B > A * 2.5
         stim_mod = stim_mod(stim_mod <= 2.5);

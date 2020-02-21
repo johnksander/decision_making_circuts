@@ -8,7 +8,7 @@ hold off;close all
 %Put this same function in network_spiking_results, etc. Also use cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets)
 
 opt = struct();
-opt.min_obs = 1e3; %min # of observations (states)
+opt.min_obs = 50; %min # of observations (states)
 opt.print_anything = 'yes'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
 opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
@@ -25,6 +25,7 @@ figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 basedir = '~/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
+
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt);
@@ -36,41 +37,6 @@ for idx = 1:numel(Snames)
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
 end
 return
-
-% num_workers = numel(Snames);
-% c = parcluster('local');
-% c.NumWorkers = num_workers;
-% parpool(c,c.NumWorkers,'IdleTimeout',Inf)
-%
-% parfor i = 1:numel(Snames)
-%     opt = struct();
-%     %sample duration
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'yes';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %duration after stim onset
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'rem';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %log duration after onset
-%     opt.outcome_stat = 'logmu'; opt.pulse_stim = 'rem';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %total time
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'total_time';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %log total time
-%     opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-% end
-%
-% delete(gcp('nocreate'))
-
-% %control, log total time @ 150 pulse
-% opt.outcome_stat = 'mu'; opt.pulse_stim = 'off';
-% make_my_figs(basedir,Snames{1},figdir,opt)
-%
-% %control, log total time @ 10 pulse
-% opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
-% make_my_figs(basedir,Snames{1},figdir,opt)
-
 
 %equate X axes for all figs of the same type
 %Snames = Snames(1:end-1);
@@ -141,18 +107,6 @@ for idx = 1:numel(ftypes)
     end
     
 end
-
-% %for summary statistics
-% fprintf('network_spiking_P150_1 log(s) decision-timing\n')
-% %control, log total time @ 150 pulse
-% opt.outcome_stat = 'logmu'; opt.pulse_stim = 'rem'; opt.summary_stats = 'yes';
-% make_my_figs(basedir,'network_spiking_P150_1',figdir,opt)
-%
-% fprintf('network_spiking_P101 log(s) decision-timing\n')
-% %control, log total time @ 10 pulse
-% opt.outcome_stat = 'logmu'; opt.pulse_stim = 'rem';  opt.summary_stats = 'yes';
-% make_my_figs(basedir,'network_spiking_P10_1',figdir,opt)
-
 
 function make_my_figs(basedir,sim_name,figdir,opt)
 hold off;close all
@@ -436,9 +390,9 @@ for idx = 1:num_pairs
     curr_net_info = network_pair_info{idx};
     for j = 1:2
         
-        plt_idx = plt_idx + 1;
-        h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
-        hold on
+         plt_idx = plt_idx + 1;
+%         h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
+%         hold on
                 
         %find the right results for network set-up
         net_ind = curr_net_info{j,IDvars};
@@ -482,35 +436,35 @@ for idx = 1:num_pairs
         base_stim = curr_net_info.stim_A(j);
         Xvals = curr_data.stim_B ./ base_stim;
         
-        plot(Xvals,curr_data.data_A,'LineWidth',3)
-        hold on
-        plot(Xvals,curr_data.data_B,'LineWidth',3)
-        %xlim([min(Xvals),max(Xvals)])
-        legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
-            sprintf('%s: varied','B')};
+%         plot(Xvals,curr_data.data_A,'LineWidth',3)
+%         hold on
+%         plot(Xvals,curr_data.data_B,'LineWidth',3)
+%         %xlim([min(Xvals),max(Xvals)])
+%         legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
+%             sprintf('%s: varied','B')};
                 
         sampling_change = curr_data{[1,size(curr_data,1)],{'data_A','data_B'}}; %beginning & end
         sampling_change = diff(sampling_change);
-        %legend_labs = cellfun(@(x,y) [x '\newline\Deltay = ' sprintf('%.2f',y)],...
-        %    legend_labs,num2cell(sampling_change),'UniformOutput',false);
-        legend_labs = cellfun(@(x,y) [x ' (\Deltay = ' sprintf('%.2f)',y)],...
-            legend_labs,num2cell(sampling_change),'UniformOutput',false);
-        legend(legend_labs,'Location','best','Box','off')
-        
-        
-        hold off
-        axis tight
-        %legend(sprintf('\\mu = %.1f',mean(curr_data)),'location','best')
-        
-        if plt_idx == 9 || plt_idx == 10
-            xlabel('B Hz / A Hz','FontWeight','bold')
-        end
-        if plt_idx == 1 || plt_idx == 2
-            title(sprintf('%s networks',curr_net_info.Row{j}),'FontWeight','bold','Fontsize',14)
-        end
-        if mod(plt_idx,2) == 1
-            ylabel(sprintf('network #%i\n%s',idx,Zlabel),'FontWeight','bold')
-        end
+%         %legend_labs = cellfun(@(x,y) [x '\newline\Deltay = ' sprintf('%.2f',y)],...
+%         %    legend_labs,num2cell(sampling_change),'UniformOutput',false);
+%         legend_labs = cellfun(@(x,y) [x ' (\Deltay = ' sprintf('%.2f)',y)],...
+%             legend_labs,num2cell(sampling_change),'UniformOutput',false);
+%         legend(legend_labs,'Location','best','Box','off')
+%         
+%         
+%         hold off
+%         axis tight
+%         %legend(sprintf('\\mu = %.1f',mean(curr_data)),'location','best')
+%         
+%         if plt_idx == 9 || plt_idx == 10
+%             xlabel('B Hz / A Hz','FontWeight','bold')
+%         end
+%         if plt_idx == 1 || plt_idx == 2
+%             title(sprintf('%s networks',curr_net_info.Row{j}),'FontWeight','bold','Fontsize',14)
+%         end
+%         if mod(plt_idx,2) == 1
+%             ylabel(sprintf('network #%i\n%s',idx,Zlabel),'FontWeight','bold')
+%         end
         
         %organize data for scatter plot
         curr_data.net_index = repmat(plt_idx,size(curr_data,1),1); %index ID for scatter plot
@@ -518,21 +472,25 @@ for idx = 1:num_pairs
     end
 end
 
-orient tall
-switch outcome_stat
-    case {'logmu','logmed'}
-        linkaxes(h,'y')
-        linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
-    case {'mu','med'}
-        linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
-        %axis tight
-end
+% orient tall
+% switch outcome_stat
+%     case {'logmu','logmed'}
+%         linkaxes(h,'y')
+%         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
+%     case {'mu','med'}
+%         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
+%         %axis tight
+% end
 
-switch print_anything
-    case 'yes'
-        print(fullfile(figdir,fig_fn),'-djpeg')
-        savefig(fullfile(figdir,fig_fn))
-end
+% switch print_anything
+%     case 'yes'
+%         print(fullfile(figdir,fig_fn),'-djpeg')
+%         savefig(fullfile(figdir,fig_fn))
+% end
+
+
+
+
 close all;figure;orient portrait
 %scatter plot 
 alph = .75;Msz = 75;
@@ -558,10 +516,8 @@ for idx = 1:numel(SPcells)
                 col = Rcol(col_idx,:);
         end
         
-        %scatter(this_net.X,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
-        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
-        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph,'Marker',markers{plt_idx})
-        scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx})
+        plot(this_net.data_B,this_net.data_A,'Color',col,'Marker',markers{plt_idx},'MarkerSize',5)
+        %plot(this_net.data_B,this_net.data_A,'Color',col)
         axis tight
         title(sprintf('Implicit Competition'),...
             'FontWeight','bold','Fontsize',14)
@@ -617,105 +573,15 @@ for plt_idx = 1:numel(curr_nets)
     scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'Marker',markers{plt_idx})
 end
 
+lnfig_dir = fullfile(figdir,'with_lines',sprintf('Nlim_%i',opt.min_obs));
+if ~isdir(lnfig_dir),mkdir(lnfig_dir);end
 set(gca,'FontSize',18)
 switch print_anything
     case 'yes'
-        print(fullfile(figdir,[fig_fn '-scatter']),'-djpeg')
-        savefig(fullfile(figdir,[fig_fn '-scatter']))
+        print(fullfile(lnfig_dir,[fig_fn '-scln']),'-djpeg')
+        savefig(fullfile(lnfig_dir,[fig_fn '-scln']))
 end
 
-
-%info about simulation
-num_states = cellfun(@(x) size(x{1},1),num2cell(result_data,2));
-need_more = num_states < 10000;
-need_more = net_type(need_more,:);
-current_count = num_states(num_states < 10000);
-for idx = 1:num_pairs
-    curr_net_info = network_pair_info{idx};
-    for j = 1:2
-        
-        curr_data = table2cell(curr_net_info(j,IDvars));
-        curr_data = cellfun(@(x) isequal(x,curr_data),... %ugly indexing & transform here..
-            num2cell(table2cell(need_more(:,IDvars)),2));
-        if sum(curr_data) > 0
-            curr_data = find(curr_data);
-            fprintf('\nnetwork #%i %s has < 10k states',idx,curr_net_info.targ_cells{j})
-            fprintf('\n---parameter sets:\n')
-            for h = 1:numel(curr_data)
-                disp(need_more(curr_data(h),:))
-                fprintf('--- n = %i\n',current_count(curr_data(h)))
-            end
-            fprintf('\n------------------------\n')
-        end
-        
-        BLinfo = curr_net_info(j,IDvars);
-        BLinfo{:,startsWith(param_varnams,'stim')} = 0; BLinfo.targ_cells = 'baseline';
-        curr_data = cellfun(@(x) isequal(x,table2cell(BLinfo)),... %ugly indexing & transform here..
-            num2cell(table2cell(need_more),2));
-        if sum(curr_data) > 0
-            curr_data = find(curr_data);
-            fprintf('\nnetwork #%i %s has < 10k states',idx,curr_net_info.targ_cells{j})
-            fprintf('\n---parameter sets:\n')
-            for h = 1:numel(curr_data)
-                disp(need_more(curr_data(h),:))
-                fprintf('--- n = %i\n',current_count(curr_data(h)))
-            end
-            fprintf('\n------------------------\n')
-        end
-        
-        
-        
-        
-    end
-    
-end
-
-switch summary_stats
-    case 'yes'
-        %summary stats
-        fprintf('\n------------------------\n')
-        fprintf('Summary statistics\n')
-        fprintf('%s:\n',Zlabel)
-        fprintf('------------------------\n\n')
-        for idx = 1:num_types
-            fprintf('\n------------------------\nNetwork #%i\n',idx)
-            curr_net_info = network_pair_info{idx};
-            Xstim = cell(2,1); %for testing difference between stim distributions
-            for j = 1:2
-                fprintf('---type: %s\n',curr_net_info{j,end})
-                %find the right results for network set-up
-                curr_data = cellfun(@(x) isequal(x,curr_net_info(j,:)),net_type,'UniformOutput',false);
-                curr_data = cat(1,curr_data{:});
-                curr_data = result_data{curr_data,1};
-                switch outcome_stat
-                    case 'logmu'
-                        curr_data = log10(curr_data(curr_data~=0));
-                end
-                Xstim{j} = curr_data;
-                
-                fprintf('            stimulus = %.2f\n',curr_net_info{j,3})
-                fprintf('            ---mean = %.2f\n',mean(curr_data))
-                
-                
-                %                 %take control data
-                %                 BLinfo = [curr_net_info(j,1:2), {0,'baseline'}];
-                %                 curr_data = cellfun(@(x) isequal(x,BLinfo),net_type,'UniformOutput',false);
-                %                 curr_data = cat(1,curr_data{:});
-                %                 fprintf('            baseline = %.2f\n',outcome(curr_data))
-            end
-            
-            fprintf('\n---hyp. test: mu stim durrations\n')
-            switch outcome_stat
-                case 'logmu'
-                    Xstim = cellfun(@(x) log10(x(x~=0)),Xstim,'UniformOutput',false);
-            end
-            [~,pval] = ttest2(Xstim{1},Xstim{2}); %regular old t-test
-            fprintf('t-test p = %.3f\n',pval)
-            [CI,H] = boot_mean_diffs(Xstim{1},Xstim{2},10000);
-            fprintf('bootstrap test: %s\n',H)
-            fprintf('bootstrap CI: %.2f, %.2f\n',CI)
-        end
-end
 end
 
 
