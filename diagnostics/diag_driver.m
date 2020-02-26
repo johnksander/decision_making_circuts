@@ -8,10 +8,10 @@ addpath('../')
 jobID = 1;
 
 %---setup---------------------
-tmax = 50;
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','test_profile','jobID',jobID,'tmax',tmax,'netpair_file','D2t',...
-    'timestep',.25e-3);
+tmax = 20;
+options = set_options('modeltype','diagnostics','comp_location','bender',...
+    'sim_name','pulse_test','jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
+    'stim_pulse',[1,3]);
 
 %------test with stim found for network #1 
 options = get_network_params(1,options);

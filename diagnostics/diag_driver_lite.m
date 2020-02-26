@@ -6,13 +6,14 @@ hold off;close all
 
 
 addpath('../')
-jobID = 2;
+jobID = 1;
+Sname = 'pulse_test';
 
 %---setup---------------------
-tmax = 50;
+tmax = 10;
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','test_profile','jobID',jobID,'tmax',tmax,'netpair_file','D2t',...
-    'timestep',.25e-3);
+    'sim_name','pulse_test','jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
+    'stim_pulse',[1,3],'state_def','include_undecided','no_dominance_timeout',3.5);
 
 %------test with stim found for network #1 
 options = get_network_params(1,options);
@@ -28,7 +29,7 @@ backup_jobcode(options,driverfile,modelfile)
 delete(options.output_log) %no need for these right now
 
 setenv('JID',num2str(jobID))
-setenv('SIM_NAME',options.sim_name); %'diag_EtoIfixed'
+setenv('SIM_NAME',Sname); %'diag_EtoIfixed'
 inspect
 
 %when you want this code again 

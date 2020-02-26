@@ -262,6 +262,7 @@ for trialidx = 1:num_trials
         
         %check timeout for non-switching or non-dominance 
         if state.count >= state.noswitch_timeout || state.no_dom_counter >= state.no_dominance_timeout
+            keyboard
             update_logfile(':::Bistability check failure:::',options.output_log)
             TOF = timepoint_counter*timestep;
             update_logfile(sprintf('---no switch/dominance timeout at t=%.2f(s)',TOF),options.output_log)

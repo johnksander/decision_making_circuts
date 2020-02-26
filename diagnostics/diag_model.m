@@ -4,7 +4,7 @@ MF = mfilename; %for backup purposes
 
 oflag = false;
 %enable recording for... D,Vm,Spikes,(Sg?)  spikes was already good-to-go
-
+warning('either this is depreciated, or incompatible with some helper functions')
 %set up the circut
 %--------------------------------------------------------------------------
 %----circit parameters--------
