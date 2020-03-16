@@ -306,8 +306,8 @@ for trialidx = 1:num_trials
             
             %now get these spike timecourses and save them
             num_switches = numel(switch_record(:,1)); %cannot believe this var name is still free
-            num_preswitch_samples = options.record_preswitch/timestep; %window samples
-            num_postswitch_samples = options.record_postswitch/timestep;
+            num_preswitch_samples = round(options.record_preswitch/timestep); %window samples
+            num_postswitch_samples = round(options.record_postswitch/timestep);
             num_switch_samples = num_preswitch_samples + num_postswitch_samples;
             spiking_output = NaN(pool_options.num_cells,num_switch_samples,num_switches);
             for tc_idx = 1:num_switches

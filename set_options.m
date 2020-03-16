@@ -17,7 +17,7 @@ options.state_def = 'active_states'; %'active_states' | 'include_undecided'; whe
 options.state_test_time = 50e-3; %must be X time above threshold to declare a switch 
 options.state_test_thresh = .02; %difference in mean Sg between E-cell pools 
 options.record_spiking = 'off'; % 'on' saves spiking data, 'off' gives low-memory sim without spiking data 
-options.record_preswitch = 250e-3; %transition data recording: 250ms before switch, 150ms after
+options.record_preswitch = 450e-3; %transition data recording: 250ms before switch, 150ms after
 options.record_postswitch = 150e-3; 
 %----pulse stimulus delivery (more realistic licking)
 options.stim_pulse = [NaN, NaN]; %default will be none, NaNs specifies constant stim
@@ -39,6 +39,12 @@ options.ratelim_stop = 21; %stop check (s) into sim
 %----depression
 options.fastslow_depression = 'on'; %'on' | 'off' if off, keep Dslow constant at 1 
 %if this is off: Dslow should be held constant at 1, tau slow should equal tau fast, and fD = 0. 
+
+
+%for getting the pulsing stimulus simulations like before, you must specifiy
+%('stim_pulse',[4,1],'state_def','include_undecided','no_dominance_timeout',3)
+%pulse timing, including undecideds, and setting dominiance timeout > pulse ISI 
+
 
 %parse inputs 
 if mod(numel(varargin),2) ~= 0

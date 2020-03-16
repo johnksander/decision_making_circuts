@@ -6,18 +6,20 @@ hold off;close all
 
 
 addpath('../')
-jobID = 1;
+jobID = 9;
 Sname = 'pulse_test';
 
 %---setup---------------------
-tmax = 10;
+tmax = 28;
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name','pulse_test','jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
-    'stim_pulse',[1,3],'state_def','include_undecided','no_dominance_timeout',3.5);
+    'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
+    'stim_pulse',[7,7],'state_def','active_states','no_dominance_timeout',8);
 
-%------test with stim found for network #1 
-options = get_network_params(1,options);
+%------test with stim found for network #X
+do_net = 2;
+options = get_network_params(do_net,options);
 options.EtoE = .0405; %fixed
+%options.trial_stimuli = [0,0];
 %---run-----------------------
 exit_status = false;
 while ~exit_status

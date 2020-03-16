@@ -376,6 +376,7 @@ end
 
 Ylab = 'p(x)';%Ylab = 'freq';
 
+figdir = fullfile(figdir,sprintf('Nmin_%i',opt.min_obs)); %include the min observation cutoff 
 if ~isdir(figdir),mkdir(figdir);end
 
 matblue = [0,0.4470,0.7410];
@@ -573,7 +574,7 @@ for plt_idx = 1:numel(curr_nets)
     scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'Marker',markers{plt_idx})
 end
 
-lnfig_dir = fullfile(figdir,'with_lines',sprintf('Nlim_%i',opt.min_obs));
+lnfig_dir = fullfile(figdir,'with_lines');
 if ~isdir(lnfig_dir),mkdir(lnfig_dir);end
 set(gca,'FontSize',18)
 switch print_anything

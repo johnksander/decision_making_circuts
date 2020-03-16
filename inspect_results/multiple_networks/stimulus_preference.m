@@ -8,7 +8,7 @@ hold off;close all
 %Put this same function in network_spiking_results, etc. Also use cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets)
 
 opt = struct();
-opt.min_obs = 1e3; %min # of observations (states)
+opt.min_obs = 175; %min # of observations (states)
 opt.print_anything = 'yes'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
 opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
@@ -24,6 +24,7 @@ figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 basedir = '~/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
+
 
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
@@ -422,6 +423,7 @@ end
 
 Ylab = 'p(x)';%Ylab = 'freq';
 
+figdir = fullfile(figdir,sprintf('Nmin_%i',opt.min_obs)); %include the min observation cutoff 
 if ~isdir(figdir),mkdir(figdir);end
 
 matblue = [0,0.4470,0.7410];
@@ -561,7 +563,7 @@ for idx = 1:numel(SPcells)
         %scatter(this_net.X,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
         %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
         %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph,'Marker',markers{plt_idx})
-        scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx})
+        scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx},'Linewidth',1.25)
         axis tight
         title(sprintf('Implicit Competition'),...
             'FontWeight','bold','Fontsize',14)
