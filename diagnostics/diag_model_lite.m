@@ -84,7 +84,7 @@ num_trials = numel(options.trial_stimuli(:,1));
 sim_results = cell(num_trials,4);
 
 
-for trialidx = 1:num_trials
+for trialidx = 1:num_trials 
     
     %preallocate variables
     %-------------------------------------------------------------------------
@@ -92,27 +92,8 @@ for trialidx = 1:num_trials
     V = zeros(pool_options.num_cells,1);
     V = V + El;%inital value of membrane potential is leak potential
     %---stimuli info--------------
-    stim_info = struct();
-    switch options.stim_targs
-        case 'Eswitch'
-            stim_info.targ_cells = celltype.excit & celltype.pool_switch; %Eswitch cells
-        case 'Estay'
-            stim_info.targ_cells = celltype.pool_stay & celltype.excit; %Estay
-        case 'baseline'
-            stim_info.targ_cells = logical(zeros(pool_options.num_cells,1)); %no targets
-    end
-    stimA = options.trial_stimuli(trialidx,1);
-    stimB = options.trial_stimuli(trialidx,2);
-    stim_info.stimA_lambda = stimA * timestep; %poisson lambda for stimulus conductance
-    stim_info.stimB_lambda = stimB * timestep;
-    stim_info.num_cells = pool_options.num_cells; %just so I don't have to pass pool_options as well
-    if all(~isnan(options.stim_pulse))
-        stim_info.delivery = 'pulse';
-        stim_info.pulse = options.stim_pulse ./ timestep;
-        stim_info.sample_schedule = options.stim_schedule;
-    else
-        stim_info.delivery = 'constant';
-    end
+    stim_info = init_stimvar(celltype,pool_options,options);
+    %for trials, work out passing trial_stimuli indexed by trialidx to init_statevar()
     %---noisy conductance---------
     ext_inds.I = 1;
     ext_inds.E = 2;
@@ -262,7 +243,6 @@ for trialidx = 1:num_trials
         
         %check timeout for non-switching or non-dominance 
         if state.count >= state.noswitch_timeout || state.no_dom_counter >= state.no_dominance_timeout
-            keyboard
             update_logfile(':::Bistability check failure:::',options.output_log)
             TOF = timepoint_counter*timestep;
             update_logfile(sprintf('---no switch/dominance timeout at t=%.2f(s)',TOF),options.output_log)

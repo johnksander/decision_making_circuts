@@ -15,7 +15,7 @@ options = set_options('modeltype','PS_stim','comp_location','hpc',...
 %adjust stimulus B strength
 stim_mod = .85:.03:1.15; %just randomly sample mod weight, do enough it'll even out 
 stim_mod = randsample(stim_mod,1);
-options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
+options.trial_stimuli{1}(2) = options.trial_stimuli{1}(2) * stim_mod; %adjust stim B
 %---run-----------------------
 modelfile = spikeout_model(options);
 %---cleanup-------------------

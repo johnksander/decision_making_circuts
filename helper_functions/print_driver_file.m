@@ -1,6 +1,7 @@
 function print_driver_file(options)
 %creates a driver file for stim optimization
 
+if numel(options.trial_stimuli) ~= 1,error('not configured correctly for mixed stimuli');end
 
 basedir = fileparts(options.master_driver); %project basedir 
 
@@ -28,9 +29,9 @@ fprintf(f,'options.save_dir = options.batchdir;\n'); %set savedir to batchdir
 fprintf(f,'options.sim_name =sprintf(''ES_batch%%i_%%i'',idx,jID);\n'); %reset simname for output files 
 fprintf(f,'options.output_log = fullfile(options.save_dir,sprintf(''output_log_%%i.txt'',jID));\n'); %set output log
 %add the stimulus intensity 
-Rstim = unique(options.trial_stimuli);
+Rstim = unique(options.trial_stimuli{1});
 fprintf(f,'Rstim = %.4f;\n',Rstim); 
-fprintf(f,'options.trial_stimuli = [Rstim,Rstim];\n'); 
+fprintf(f,'options.trial_stimuli{1} = [Rstim,Rstim];\n'); 
 fprintf(f,'\n\n');
 
 %code for running model 

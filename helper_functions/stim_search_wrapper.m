@@ -9,7 +9,9 @@ Njobs = 1250; %how many jobs to spawn per batch
 min_sample = 1e5; %make sure you get at least 100k seconds 
 work = 'run'; %run | debug   just makes commenting/uncommenting stuff less annoying 
 
-options.trial_stimuli = [Rstim,Rstim];%rate for stimulus input spikes
+options.trial_stimuli{1} = [Rstim,Rstim];%rate for stimulus input spikes
+
+if numel(options.trial_stimuli) ~= 1,error('not configured correctly for mixed stimuli');end
 
 %clear out previous results
 switch work

@@ -16,15 +16,15 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
 
 %adjust stimulus B strength
 stim_mod = [0:.25:2.5,exp(-.5:.5:4),1.3750]; %just randomly sample mod weight, do enough it'll even out 
-switch options.stim_targs
+switch options.stim_targs{1}
     case 'Estay' %fast networks will never switch at B > A * 2.5
         stim_mod = stim_mod(stim_mod <= 2.5);
 end
 stim_mod = randsample(stim_mod,1);
-options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
+options.trial_stimuli{1}(2) = options.trial_stimuli{1}(2) * stim_mod; %adjust stim B
 
 update_logfile(sprintf('---stim B set to %.2f Hz (scaled by %.1f)',...
-    options.trial_stimuli(2),stim_mod),options.output_log)
+    options.trial_stimuli{1}(2),stim_mod),options.output_log)
 
 %you have to checkpoint these b/c the sims are so long 
 options.grid_index = str2double(getenv('SLURM_ARRAY_TASK_ID'));%HPCC only lets indicies up to 10k!!
@@ -49,7 +49,7 @@ movefile(options.output_log,logdir)
 
 % %if you need more states for specific things, use code here:
 % %---need to get more states for slow nets here, new stim range---
-% switch options.stim_targs
+% switch options.stim_targs{1}
 %     case 'Estay' %set to random slow network instead
 %         slow_nets = 1:2:9;
 %         do_config = slow_nets(randi(numel(slow_nets)));
@@ -57,6 +57,6 @@ movefile(options.output_log,logdir)
 % end
 % stim_mod = exp(1:.5:3); %new range for stim B
 % stim_mod = randsample(stim_mod,1);
-% options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
+% options.trial_stimuli{1}(2) = options.trial_stimuli{1}(2) * stim_mod; %adjust stim B
 % %-----------------------------
 

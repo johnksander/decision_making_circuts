@@ -143,9 +143,9 @@ if strcmp(options.modeltype,'PS')
     end
     
     %this mode should always be for baseline/no stimulus
-    options.stim_targs = 'baseline'; %'baseline' | 'Estay' |'baseline'
+    options.stim_targs = {'baseline'}; %'baseline' | 'Estay' |'baseline'
     Rstim = 0; %rate for stimulus input spikes
-    options.trial_stimuli = [Rstim,Rstim];
+    options.trial_stimuli{1} = [Rstim,Rstim];
 end
 
 %for stimulus search jobs (e.g. equating network behaviors)
@@ -201,10 +201,14 @@ if sum(strcmp(options.modeltype,{'JK','diagnostics','equate_stim'})) == 0 %don't
     update_logfile(sprintf('---ItoE = %.3f',options.ItoE),options.output_log)
     update_logfile(sprintf('---EtoI = %.3f',options.EtoI),options.output_log)
     if isfield(options,'trial_stimuli')
-        update_logfile(sprintf('---trial stimuli = %.1f Hz, %.1f Hz',options.trial_stimuli),options.output_log)
+        for idx = 1:numel(options.trial_stimuli)
+            update_logfile(sprintf('---trial stimuli = %.1f Hz, %.1f Hz',options.trial_stimuli{idx}),options.output_log)
+        end
     end
     if isfield(options,'stim_targs')
-        update_logfile(sprintf('---target cells = %s',options.stim_targs),options.output_log)
+        for idx = 1:numel(options.stim_targs)
+            update_logfile(sprintf('---target cells = %s',options.stim_targs{idx}),options.output_log)
+        end
     end
     update_logfile('--------------------------',options.output_log)
     

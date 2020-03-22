@@ -17,7 +17,7 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
 %adjust stimulus B strength
 stim_mod = 0:.25:2; % 0:.25:2; %just randomly sample mod weight, do enough it'll even out 
 stim_mod = randsample(stim_mod,1);
-options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
+options.trial_stimuli{1}(2) = options.trial_stimuli{1}(2) * stim_mod; %adjust stim B
 
 
 %---run-----------------------
@@ -32,7 +32,7 @@ delete(options.output_log) %no need for these right now
 
 % %if you need more states for specific things, use code here:
 % %---need to get more states for slow nets here, new stim range---
-% switch options.stim_targs
+% switch options.stim_targs{1}
 %     case 'Estay' %set to random slow network instead
 %         slow_nets = 1:2:9;
 %         do_config = slow_nets(randi(numel(slow_nets)));
@@ -40,6 +40,6 @@ delete(options.output_log) %no need for these right now
 % end
 % stim_mod = exp(1:.5:3); %new range for stim B
 % stim_mod = randsample(stim_mod,1);
-% options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
+% options.trial_stimuli{1}(2) = options.trial_stimuli{1}(2) * stim_mod; %adjust stim B
 % %-----------------------------
 

@@ -39,8 +39,8 @@ for idx = 1:num_nets %use this to index the different network types
         solution = false;
         
         %set bounds based on previous search results
-        Rprev = unique(options.trial_stimuli);
-        switch options.stim_targs
+        Rprev = unique(options.trial_stimuli{1});
+        switch options.stim_targs{:}
             case 'Estay'
                 Rmax = Rprev + .75*Rprev;
                 Rmin = Rprev - .75*Rprev;
