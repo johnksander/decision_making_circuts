@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J very_slow # A single job name for the array
+#SBATCH -J mix_stim # A single job name for the array
 #SBATCH --time=3-00:00:00 # Running time 
 #SBATCH --cpus-per-task 1
 #SBATCH --mem-per-cpu 750 # Memory request (in Mb)
@@ -13,4 +13,4 @@
 cd /work/jksander/rotation/Simulation/
 module load share_modules/MATLAB/R2019a
 
-matlab -singleCompThread -nodisplay -nodesktop -nosplash -r "nets_D2t_slower_pref_driver"
+matlab -singleCompThread -nodisplay -nodesktop -nosplash -r "nets_mixstim_driver"

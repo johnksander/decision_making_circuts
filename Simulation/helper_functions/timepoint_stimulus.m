@@ -30,11 +30,14 @@ end
 
 
 if apply_stimulus
-    %add stimulus-specific spiketrain
-    if strcmp(state.stim_labels{state.current_stimulus},'stim_A')
-        stim_spikes(stim_info.targ_cells) =  poissrnd(stim_info.stimA_lambda,sum(stim_info.targ_cells),1);
-    elseif strcmp(state.stim_labels{state.current_stimulus},'stim_B')
-        stim_spikes(stim_info.targ_cells) =  poissrnd(stim_info.stimB_lambda,sum(stim_info.targ_cells),1);
+    
+    curr_stim = state.stim_labels{state.current_stimulus};
+    lambda = stim_info.(curr_stim); %1 x Ntarg vector 
+    
+    for idx = 1:stim_info.num_targs    
+        targs = stim_info.targ_cells(:,idx); %Ncell x Ntarg matrix 
+        %add stimulus-specific spiketrain
+        stim_spikes(targs) = poissrnd(lambda(idx),sum(targs),1);     
     end
 end
 
