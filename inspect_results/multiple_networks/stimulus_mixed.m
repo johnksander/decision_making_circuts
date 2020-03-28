@@ -9,16 +9,16 @@ hold off;close all
 
 opt = struct();
 opt.min_obs = 175; %min # of observations (states)
-opt.print_anything = 'no'; %'yes' | 'no';
+opt.print_anything = 'yes'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
 opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
 opt.parfor_load = 'on'; %on/off, must also (un)comment the actual for... line
-opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are matched to network types
+opt.params2match = {'conn'}; %!!!IMPORTANT!!! specify how results are matched to network types
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
-Snames = {'nets_D2t-slower_pref'};
+Snames = {'nets_mixstim'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
@@ -222,7 +222,6 @@ num_pairs = 5;
 pair_inds = num2cell(reshape(1:num_net_types,[],num_pairs)); %just gives a cell array for pair indicies
 network_pair_info = cell(num_pairs,1);
 for idx = 1:num_pairs
-
     curr_params = cellfun(@(x) get_network_params(x,gen_options),pair_inds(:,idx),'UniformOutput',false);
     switch opt.multiple_stimuli
         case 'yes'
@@ -231,7 +230,7 @@ for idx = 1:num_pairs
                 curr_params,'UniformOutput',false); %matching "network_pair_info" format
         otherwise
             curr_params = cellfun(@(x)...
-                {x.ItoE, x.EtoI,unique(x.trial_stimuli{:}), x.stim_targs},...
+                {x.ItoE, x.EtoI,unique(x.trial_stimuli), x.stim_targs},...
                 curr_params,'UniformOutput',false); %matching "network_pair_info" format
     end
     curr_params = cat(1,curr_params{:});
@@ -340,8 +339,18 @@ end
 
 switch opt.multiple_stimuli
     case 'yes'
+        %         job_params = cellfun(@(x)...
+        %             [x.ItoE, x.EtoI,x.trial_stimuli,find(strcmpi(x.stim_targs, stimtarg_vals))],...
+        %             file_data(:,2),'UniformOutput',false); %matching "network_pair_info" format
+        
+        %         job_params = cellfun(@(x)...
+        %             [x.ItoE, x.EtoI,cat(2,x.trial_stimuli{:}),...
+        %             cellfun(@(xx) find(strcmp(xx,stimtarg_vals)),x.stim_targs)],...
+        %             file_data(:,2),'UniformOutput',false); %matching "network_pair_info" format
+        
         job_params = cellfun(@(x)...
-            [x.ItoE, x.EtoI,x.trial_stimuli,find(strcmpi(x.stim_targs, stimtarg_vals))],...
+            [x.ItoE, x.EtoI,cat(2,x.trial_stimuli{:}),...
+            cellfun(@(xx) find(strcmp(xx,stimtarg_vals)),x.stim_targs)],...
             file_data(:,2),'UniformOutput',false); %matching "network_pair_info" format
     otherwise
         job_params = cellfun(@(x)...
@@ -349,13 +358,10 @@ switch opt.multiple_stimuli
             file_data(:,2),'UniformOutput',false); %matching "network_pair_info" format
 end
 
-
-
-
 job_params = vertcat(job_params{:});
 uniq_params = unique(job_params,'rows');
-net_type = array2table(uniq_params,'VariableNames',param_varnams);
-num_jobs = size(net_type,1);
+%net_type = array2table(uniq_params,'VariableNames',param_varnams);
+num_jobs = size(uniq_params,1);
 fprintf('----------------------\n')
 fprintf('num jobs = %i\nunique parameter sets = %i\nduplicates = %i\n',num_files,num_jobs,num_files - num_jobs)
 
@@ -364,11 +370,11 @@ result_data = cell(num_jobs,2);
 Nruns = NaN(num_jobs,1); %record the number of successful jobs..
 for idx = 1:num_jobs
     %find all matching
-    curr_file = ismember(job_params,table2array(net_type(idx,:)),'rows');
+    curr_file = ismember(job_params,uniq_params(idx,:),'rows');
     Nruns(idx) = sum(curr_file);
-    explain_params = net_type(idx,:);
-    explain_params.targ_cells = stimtarg_vals{explain_params.targ_cells};
-    fprintf('\n---parameter set\n');disp(explain_params);fprintf('n files = %i\n',Nruns(idx))
+    %explain_params = net_type(idx,:);
+    %explain_params.targ_cells = stimtarg_vals{explain_params.targ_cells};
+    %fprintf('\n---parameter set\n');disp(explain_params);fprintf('n files = %i\n',Nruns(idx))
     %collapse & reallocate
     this_data = file_data(curr_file,1); %so annoying...
     result_data{idx,1} = cat(1,this_data{:});
@@ -383,18 +389,34 @@ fprintf('\n\n:::: excluding sets wtih < %i observations\n',opt.min_obs)
 min_obs = Nobs >= opt.min_obs;
 fprintf('\n      %i sets excluded (out of %i total)\n\n',sum(~min_obs),numel(min_obs))
 result_data = result_data(min_obs,:);
-net_type = net_type(min_obs,:);
+uniq_params = uniq_params(min_obs,:);
 
+
+%find how job_params matrix maps to param_varnames... now this is mega dumb
+%and super confusing. You should've thought this out way better in the first place 
+Pmap = file_data{1,2};
+Pmap.ItoE = {'ItoE'};
+Pmap.EtoI = {'EtoI'};
+%trial stimuli is a 1 x Ntargs cell. This cell contains 1 x Nstim vector
+Pmap.trial_stimuli = repmat({'stim_A','stim_B'}, 1, numel(Pmap.stim_targs));
+%stim targs is a 1 x Ntargs cell 
+Pmap.stim_targs = repmat({'targ_cells'}, 1, numel(Pmap.stim_targs));
+Pmap = [Pmap.ItoE, Pmap.EtoI,Pmap.trial_stimuli,Pmap.stim_targs]; %matching "network_pair_info" format
+net_type = cell(size(uniq_params,1),numel(param_varnams));
+net_type = cell2table(net_type,'VariableNames',param_varnams);
+for idx = 1:numel(param_varnams)
+    p = param_varnams{idx};
+    net_type.(p) = num2cell(uniq_params(:,ismember(Pmap,p)),2);    
+end
+
+%net_type is supposed to match network_pair_info format 
 %this is stupid & obviously a hold-over from something I didn't implement well in the first place...
-net_type.targ_cells = cellfun(@(x) stimtarg_labels{x},...
-    num2cell(net_type.targ_cells),'UniformOutput',false);
+net_type.targ_cells = cellfun(@(x) stimtarg_labels(x),...
+    net_type.targ_cells,'UniformOutput',false);
 
 
-wtf = result_data(:,2);
-wtf = cellfun(@(x) abs(x.trial_stimuli(2) - 1092.9) < .05 && strcmp(x.stim_targs,'Estay'),wtf);
-if sum(wtf) > 0,error('I forget why this is in here-- probably dataset specific');end
-result_data = result_data(~wtf,:);
-net_type = net_type(~wtf,:);
+net_compare = net_type{:,IDvars}; %for comapring with network_pair_info
+net_compare = cellfun(@(x) x(1),net_compare); %first one should be from get_network_params()
 
 fig_fn = [sim_name '_%s'];
 
@@ -436,6 +458,7 @@ BLcol = [103 115 122] ./ 255;
 SPdata = []; %for scatter plot data
 h = [];
 plt_idx = 0;
+figure;%set(gcf,'units','normalized','outerposition',[0 0 .4 1])
 for idx = 1:num_pairs
     
     curr_net_info = network_pair_info{idx};
@@ -444,23 +467,6 @@ for idx = 1:num_pairs
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
         hold on
-                
-        %find the right results for network set-up
-        net_ind = curr_net_info{j,IDvars};
-        net_ind = ismember(net_type{:,IDvars},net_ind,'rows');
-        curr_data = result_data(net_ind,1);
-        
-        %         %this is just to save data for inspection...
-        %         data_table = cell(size(curr_data));
-        %         for CC = 1:numel(curr_data)
-        %             CCC = curr_data{CC};
-        %             CCC = cell2table(cellfun(@(x) CCC.data(ismember(CCC.state,x)) ,unique(CCC.state),'UniformOutput',false)',...
-        %                 'VariableNames',strrep(unique(CCC.state)','stim','data'));
-        %             data_table{CC} = CCC;
-        %         end
-        %         data_table = [net_type(net_ind,:),cat(1,data_table{:})];
-        %         save(fullfile(svdir,sprintf('%s_net%i',curr_net_info.Row{j},idx)),'data_table')
-        %         %end inspection saving code...
         
         switch outcome_stat
             case 'mu'
@@ -474,41 +480,78 @@ for idx = 1:num_pairs
                 statfunc = @(x) median(log10(x(x~=0)));
         end
         
+        %find the right results for network set-up
+        net_ind = curr_net_info{j,IDvars};
+        net_ind = ismember(net_compare,net_ind,'rows');
+        if isempty(result_data(net_ind,1)),continue;end
+        curr_data = result_data(net_ind,1);
         curr_data = cellfun(@(x) varfun(statfunc,x,'InputVariables','data',...
-            'GroupingVariables','state') ,curr_data,'UniformOutput',false);
-        curr_data = cellfun(@(x) x(:,[1,size(x,2)]),curr_data,'UniformOutput',false);
+            'GroupingVariables','state') ,curr_data,'UniformOutput',false);%summary statistic
+        curr_data = cellfun(@(x) x(:,[1,size(x,2)]),curr_data,'UniformOutput',false); %remove count variable
         curr_data = cellfun(@(x) array2table(x{:,size(x,2)}','Variablenames',strrep(x.state,'stim','data')),...
             curr_data,'UniformOutput',false); %turn into 1 x 2 table w/ stim A/B as varnames
         curr_data = cat(1,curr_data{:});
         %now take the net info as well, so it's easy
         curr_data = [net_type(net_ind,:),curr_data];
-        curr_data = sortrows(curr_data,'stim_B'); %sort by alternate stim strength
-        
+        %base_stim = curr_net_info.stim_A(j);
+        %base_targ = curr_net_info.targ_cells{j};
+        base_targ = 'Eswitch'; %base everything off this 
+        base_targ = stimtarg_labels(strcmp(stimtarg_vals,base_targ));
+        stim_ratios = curr_data(:,{'stim_A','stim_B','targ_cells'});
+        %if there's a 0hz stim, replace value with 1 so you can plot it.. 
+        stim_ratios.stim_A = cellfun(@(x) x + (x == 0), stim_ratios.stim_A,'UniformOutput',false);
+        stim_ratios.stim_B = cellfun(@(x) x + (x == 0), stim_ratios.stim_B,'UniformOutput',false);
+        %okay now get ratios
+        Si = cellfun(@(x) strcmp(x,base_targ),stim_ratios.targ_cells,'UniformOutput',false); 
+        stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ x(~y),stim_ratios.stim_A,Si);
+        stim_ratios.stim_B = cellfun(@(x,y) x(y) ./ x(~y),stim_ratios.stim_B,Si);
+        stim_ratios(:,'targ_cells') = [];
+        stim_ratios.Properties.VariableNames = strrep(stim_ratios.Properties.VariableNames,'stim','ratio');
+         curr_data = result_data(net_ind,1);
+        curr_data = cellfun(@(x) varfun(statfunc,x,'InputVariables','data',...
+            'GroupingVariables','state') ,curr_data,'UniformOutput',false);%summary statistic
+        curr_data = cellfun(@(x) x(:,[1,size(x,2)]),curr_data,'UniformOutput',false); %remove count variable
+        curr_data = cellfun(@(x) array2table(x{:,size(x,2)}','Variablenames',strrep(x.state,'stim','data')),...
+            curr_data,'UniformOutput',false); %turn into 1 x 2 table w/ stim A/B as varnames
+        curr_data = cat(1,curr_data{:});
+        %now take the net info as well, so it's easy
+        curr_data = [net_type(net_ind,:),curr_data];
         base_stim = curr_net_info.stim_A(j);
-        Xvals = curr_data.stim_B ./ base_stim;
-        
-        plot(Xvals,curr_data.data_A,'LineWidth',3)
-        hold on
-        plot(Xvals,curr_data.data_B,'LineWidth',3)
-        %xlim([min(Xvals),max(Xvals)])
-        legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
-            sprintf('%s: varied','B')};
+        %base_targ = curr_net_info.targ_cells{j};
+        base_targ = 'Eswitch'; %base everything off this 
+        base_targ = stimtarg_labels(strcmp(stimtarg_vals,base_targ));
+        stim_ratios = curr_data(:,{'stim_A','stim_B','targ_cells'});
+        Si = cellfun(@(x) strcmp(x,base_targ),stim_ratios.targ_cells,'UniformOutput',false);
+        %         %if there's a 0hz stim, replace value with 1 so you can plot it..
+        %         stim_ratios.stim_A = cellfun(@(x) x + (x == 0), stim_ratios.stim_A,'UniformOutput',false);
+        %         stim_ratios.stim_B = cellfun(@(x) x + (x == 0), stim_ratios.stim_B,'UniformOutput',false);
+        %         %okay now get ratios
+        %         stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ x(~y),stim_ratios.stim_A,Si);
+        %         stim_ratios.stim_B = cellfun(@(x,y) x(y) ./ x(~y),stim_ratios.stim_B,Si);
+        stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_A,Si);
+        stim_ratios.stim_B = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_B,Si);
+        stim_ratios(:,'targ_cells') = [];
+        stim_ratios.Properties.VariableNames = strrep(stim_ratios.Properties.VariableNames,'stim','ratio');
+        curr_data = [curr_data,stim_ratios];
+        curr_data = sortrows(curr_data,'ratio_A'); %sort by ratio A
                 
-        sampling_change = curr_data{[1,size(curr_data,1)],{'data_A','data_B'}}; %beginning & end
-        sampling_change = diff(sampling_change);
-        %legend_labs = cellfun(@(x,y) [x '\newline\Deltay = ' sprintf('%.2f',y)],...
-        %    legend_labs,num2cell(sampling_change),'UniformOutput',false);
-        legend_labs = cellfun(@(x,y) [x ' (\Deltay = ' sprintf('%.2f)',y)],...
-            legend_labs,num2cell(sampling_change),'UniformOutput',false);
-        legend(legend_labs,'Location','best','Box','off')
-        
-        
+        plot(curr_data.ratio_A,curr_data.data_A,'LineWidth',3)
+        plot(curr_data.ratio_B,curr_data.data_B,'LineWidth',3)
+        axis tight;xlim([0:1])
+        legend_labs = sprintf(' (%.0f Hz)',base_stim);
+        legend_labs = {['mix A' legend_labs],['mix B' legend_labs]};
+        pause(1);legend(legend_labs,'Location','best','Box','off');pause(1)
+        curr_data = sortrows(curr_data,'ratio_A'); %sort by ratio A
         hold off
-        axis tight
-        %legend(sprintf('\\mu = %.1f',mean(curr_data)),'location','best')
         
         if plt_idx == 9 || plt_idx == 10
-            xlabel('B Hz / A Hz','FontWeight','bold')
+            base_targ = stimtarg_vals(strcmp(stimtarg_labels,base_targ)); %need this again... stupid 
+            mix_info = {'Estay','Eswitch'};
+            %mix_info = sprintf('%s / %s',mix_info{strcmp(mix_info,base_targ)},...
+            %    mix_info{~strcmp(mix_info,base_targ)});
+            mix_info = sprintf('%s / total',mix_info{strcmp(mix_info,base_targ)});
+            mix_info = strrep(mix_info,'E','E-');
+            xlabel(mix_info,'FontWeight','bold')
         end
         if plt_idx == 1 || plt_idx == 2
             title(sprintf('%s networks',curr_net_info.Row{j}),'FontWeight','bold','Fontsize',14)
@@ -529,12 +572,13 @@ switch outcome_stat
         linkaxes(h,'y')
         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
     case {'mu','med'}
-        linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
+       % linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
         %axis tight
 end
 
 switch print_anything
     case 'yes'
+        set(gcf, 'Renderer', 'painters')
         print(fullfile(figdir,fig_fn),'-djpeg')
         savefig(fullfile(figdir,fig_fn))
 end
@@ -542,7 +586,7 @@ close all;figure;orient portrait
 %scatter plot 
 alph = .75;Msz = 75;
 Bcol = colormap('winter');Rcol = colormap('autumn');
-SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
+%SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
 SPcells = {'slow','fast'};
 %markers = {'o','square','diamond','pentagram','hexagram'};
 markers = {'x','+','^','v','d'};

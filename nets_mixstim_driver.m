@@ -14,12 +14,12 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
     'sim_name','nets_mixstim','jobID',jID,'tmax',t,...
     'netpair_file','D2t-slower','noswitch_timeout',t);
 
-%start with this network pair first...
-do_nets = [3,4];
-options = get_network_params(randsample(do_nets,1),options);
+%%start with this network pair first...
+%do_nets = [3,4];
+%options = get_network_params(randsample(do_nets,1),options);
 
 %set stimulus to mixed ratio 
-mix_vals = .05:.05:1;
+mix_vals = 0:.05:1;
 stim_mix = {'Estay','Eswitch'}; %both targets 
 p_new = randsample(mix_vals,1); %proportion alternate (new) stimulus
 add_targ = ~strcmp(stim_mix,options.stim_targs{1});
