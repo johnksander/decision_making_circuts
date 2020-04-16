@@ -15,8 +15,9 @@ options = set_options('modeltype','NETS','comp_location','hpc',...
     'netpair_file','D2t-slower','noswitch_timeout',t);
 
 %%start with this network pair first...
-%do_nets = [3,4];
-%options = get_network_params(randsample(do_nets,1),options);
+do_nets = [3,4];
+options = get_network_params(randsample(do_nets,1),options);
+stim_mod = .5; %set total intensity to (stim_mod * Rstim)
 
 %set stimulus to mixed ratio 
 mix_vals = 0:.05:1;
@@ -25,6 +26,7 @@ p_new = randsample(mix_vals,1); %proportion alternate (new) stimulus
 add_targ = ~strcmp(stim_mix,options.stim_targs{1});
 options.stim_targs{2} = stim_mix{add_targ};
 total_strength = options.trial_stimuli{1};
+total_strength = total_strength .* stim_mod;
 options.trial_stimuli{1} = total_strength .* (1-p_new);
 options.trial_stimuli{2} = total_strength .* p_new;
 
