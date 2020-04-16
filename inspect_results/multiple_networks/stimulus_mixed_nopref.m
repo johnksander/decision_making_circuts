@@ -484,7 +484,10 @@ for idx = 1:num_pairs
         net_ind = curr_net_info{j,IDvars};
         net_ind = ismember(net_compare,net_ind,'rows');
         if isempty(result_data(net_ind,1)),continue;end
-        curr_data = result_data(net_ind,1);        
+        curr_data = result_data(net_ind,1);
+        for kidx = 1:numel(curr_data)
+            curr_data{kidx}.state = strrep(curr_data{kidx}.state,'stim_B','stim_A');
+        end
         curr_data = cellfun(@(x) varfun(statfunc,x,'InputVariables','data',...
             'GroupingVariables','state') ,curr_data,'UniformOutput',false);%summary statistic
         curr_data = cellfun(@(x) x(:,[1,size(x,2)]),curr_data,'UniformOutput',false); %remove count variable
@@ -497,7 +500,8 @@ for idx = 1:num_pairs
         %base_targ = curr_net_info.targ_cells{j};
         base_targ = 'Eswitch'; %base everything off this 
         base_targ = stimtarg_labels(strcmp(stimtarg_vals,base_targ));
-        stim_ratios = curr_data(:,{'stim_A','stim_B','targ_cells'});
+        %stim_ratios = curr_data(:,{'stim_A','stim_B','targ_cells'});
+        stim_ratios = curr_data(:,{'stim_A','targ_cells'});
         Si = cellfun(@(x) strcmp(x,base_targ),stim_ratios.targ_cells,'UniformOutput',false);
 %         %if there's a 0hz stim, replace value with 1 so you can plot it.. 
 %         stim_ratios.stim_A = cellfun(@(x) x + (x == 0), stim_ratios.stim_A,'UniformOutput',false);
@@ -507,28 +511,36 @@ for idx = 1:num_pairs
 %         stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ x(~y),stim_ratios.stim_A,Si);
 %         stim_ratios.stim_B = cellfun(@(x,y) x(y) ./ x(~y),stim_ratios.stim_B,Si);
         stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_A,Si);
-        stim_ratios.stim_B = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_B,Si);
+        %stim_ratios.stim_B = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_B,Si);
         stim_ratios(:,'targ_cells') = [];
         stim_ratios.Properties.VariableNames = strrep(stim_ratios.Properties.VariableNames,'stim','ratio');
         curr_data = [curr_data,stim_ratios];
         curr_data = sortrows(curr_data,'ratio_A'); %sort by ratio A
 
         plot(curr_data.ratio_A,curr_data.data_A,'LineWidth',3)
-        plot(curr_data.ratio_B,curr_data.data_B,'LineWidth',3)
+       %plot(curr_data.ratio_B,curr_data.data_B,'LineWidth',3)
         axis tight;xlim([0:1])
-        legend_labs = sprintf(' (%.0f Hz)',base_stim);
-        legend_labs = {['mix A' legend_labs],['mix B' legend_labs]};
+        legend_labs = sprintf('%.0f Hz total',base_stim);
+        %legend_labs = sprintf(' (%.0f Hz)',base_stim);
+        %legend_labs = {['mix A' legend_labs],['mix B' legend_labs]};
         pause(1);legend(legend_labs,'Location','best','Box','off');pause(1)
+        xtick = num2cell(get(gca,'XTick'));
+        xtick = cellfun(@(x) sprintf('%1.1f/%.1f',x,1-x),xtick,'UniformOutput',false);
+        xtick = strrep(xtick,'0.','.');
+        xtick = strrep(xtick,'1.0','1');
+        xtick = strrep(xtick,'.0','0');
+        set(gca,'XTickLabel',xtick) 
         hold off
         
         if plt_idx == 9 || plt_idx == 10
             base_targ = stimtarg_vals(strcmp(stimtarg_labels,base_targ)); %need this again... stupid 
             mix_info = {'Estay','Eswitch'};
-            %mix_info = sprintf('%s / %s',mix_info{strcmp(mix_info,base_targ)},...
-            %    mix_info{~strcmp(mix_info,base_targ)});
-            mix_info = sprintf('%s / total',mix_info{strcmp(mix_info,base_targ)});
+            %mix_info = sprintf('%s / total',mix_info{strcmp(mix_info,base_targ)});
+            mix_info = sprintf('%s / %s',mix_info{strcmp(mix_info,base_targ)},...
+                mix_info{~strcmp(mix_info,base_targ)});
             mix_info = strrep(mix_info,'E','E-');
             xlabel(mix_info,'FontWeight','bold')
+            
         end
         if plt_idx == 1 || plt_idx == 2
             title(sprintf('%s networks',curr_net_info.Row{j}),'FontWeight','bold','Fontsize',14)
