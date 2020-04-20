@@ -18,7 +18,7 @@ opt.params2match = {'conn'}; %!!!IMPORTANT!!! specify how results are matched to
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
-Snames = {'nets_mixstim'};
+Snames = {'nets_mixstim_netpair-2'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
@@ -165,7 +165,9 @@ summary_stats = 'no'; %summary_stats = opt.summary_stats;
 params2match = opt.params2match;
 figdir = fullfile(basedir,'Results',figdir,'durations');
 resdir = fullfile(basedir,'Results',sim_name);
-output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+%output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat'])); %use this for unrestricted loading
+warning('LOADING ALL MAT FILES IN RESULTS DIR')
+output_fns = dir(fullfile(resdir,'*.mat')); %use this for unrestricted loading
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
 BL_fns = dir(fullfile([resdir '_baseline'],['*',sim_name,'*.mat']));
 BL_fns = cellfun(@(x,y) fullfile(x,y),{BL_fns.folder},{BL_fns.name},'UniformOutput',false);
@@ -414,6 +416,11 @@ end
 net_type.targ_cells = cellfun(@(x) stimtarg_labels(x),...
     net_type.targ_cells,'UniformOutput',false);
 
+%add total magnitudes here 
+net_type.total_A = round(cellfun(@sum,net_type.stim_A),3);
+net_type.total_B = round(cellfun(@sum,net_type.stim_A),3);
+
+
 
 net_compare = net_type{:,IDvars}; %for comapring with network_pair_info
 net_compare = cellfun(@(x) x(1),net_compare); %first one should be from get_network_params()
@@ -455,10 +462,18 @@ matblue = [0,0.4470,0.7410];
 matorange = [0.8500,0.3250,0.0980];
 BLcol = [103 115 122] ./ 255;
 
+base_targ_cells = 'Eswitch'; %base everything off this
+base_targ_labels = stimtarg_labels(strcmp(stimtarg_vals,base_targ_cells));
+
 SPdata = []; %for scatter plot data
 h = [];
 plt_idx = 0;
 figure;%set(gcf,'units','normalized','outerposition',[0 0 .4 1])
+
+warning('hardcoded bits')
+num_pairs = 1;num_net_types = 2;
+network_pair_info = network_pair_info(2);
+
 for idx = 1:num_pairs
     
     curr_net_info = network_pair_info{idx};
@@ -467,7 +482,7 @@ for idx = 1:num_pairs
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
         hold on
-        
+                
         switch outcome_stat
             case 'mu'
                 statfunc = @mean;
@@ -485,6 +500,7 @@ for idx = 1:num_pairs
         net_ind = ismember(net_compare,net_ind,'rows');
         if isempty(result_data(net_ind,1)),continue;end
         curr_data = result_data(net_ind,1);
+        %there's no preference.. both stimuli are the same so relabel these
         for kidx = 1:numel(curr_data)
             curr_data{kidx}.state = strrep(curr_data{kidx}.state,'stim_B','stim_A');
         end
@@ -496,33 +512,23 @@ for idx = 1:num_pairs
         curr_data = cat(1,curr_data{:});
         %now take the net info as well, so it's easy
         curr_data = [net_type(net_ind,:),curr_data];
-        base_stim = curr_net_info.stim_A(j);
-        %base_targ = curr_net_info.targ_cells{j};
-        base_targ = 'Eswitch'; %base everything off this 
-        base_targ = stimtarg_labels(strcmp(stimtarg_vals,base_targ));
-        %stim_ratios = curr_data(:,{'stim_A','stim_B','targ_cells'});
+        
+        %get ratios 
         stim_ratios = curr_data(:,{'stim_A','targ_cells'});
-        Si = cellfun(@(x) strcmp(x,base_targ),stim_ratios.targ_cells,'UniformOutput',false);
-%         %if there's a 0hz stim, replace value with 1 so you can plot it.. 
-%         stim_ratios.stim_A = cellfun(@(x) x + (x == 0), stim_ratios.stim_A,'UniformOutput',false);
-%         stim_ratios.stim_B = cellfun(@(x) x + (x == 0), stim_ratios.stim_B,'UniformOutput',false);
-%         %okay now get ratios
-%         Si = cellfun(@(x) strcmp(x,base_targ),stim_ratios.targ_cells,'UniformOutput',false); 
-%         stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ x(~y),stim_ratios.stim_A,Si);
-%         stim_ratios.stim_B = cellfun(@(x,y) x(y) ./ x(~y),stim_ratios.stim_B,Si);
+        Si = cellfun(@(x) strcmp(x,base_targ_labels),stim_ratios.targ_cells,'UniformOutput',false);
         stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_A,Si);
-        %stim_ratios.stim_B = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_B,Si);
         stim_ratios(:,'targ_cells') = [];
         stim_ratios.Properties.VariableNames = strrep(stim_ratios.Properties.VariableNames,'stim','ratio');
         curr_data = [curr_data,stim_ratios];
         curr_data = sortrows(curr_data,'ratio_A'); %sort by ratio A
-
-        plot(curr_data.ratio_A,curr_data.data_A,'LineWidth',3)
-       %plot(curr_data.ratio_B,curr_data.data_B,'LineWidth',3)
+        
+        Smags = unique(curr_data.total_A); %intensities
+        for kidx = 1:numel(Smags)
+            sm = curr_data.total_A == Smags(kidx);
+            plot(curr_data.ratio_A(sm),curr_data.data_A(sm),'LineWidth',3)
+        end
         axis tight;xlim([0:1])
-        legend_labs = sprintf('%.0f Hz total',base_stim);
-        %legend_labs = sprintf(' (%.0f Hz)',base_stim);
-        %legend_labs = {['mix A' legend_labs],['mix B' legend_labs]};
+        legend_labs = cellfun(@(x) sprintf('%.0f Hz total',x),num2cell(Smags),'UniformOutput',false);
         pause(1);legend(legend_labs,'Location','best','Box','off');pause(1)
         xtick = num2cell(get(gca,'XTick'));
         xtick = cellfun(@(x) sprintf('%1.1f/%.1f',x,1-x),xtick,'UniformOutput',false);
@@ -532,12 +538,11 @@ for idx = 1:num_pairs
         set(gca,'XTickLabel',xtick) 
         hold off
         
-        if plt_idx == 9 || plt_idx == 10
-            base_targ = stimtarg_vals(strcmp(stimtarg_labels,base_targ)); %need this again... stupid 
+        if plt_idx == num_net_types-1 || plt_idx == num_net_types
             mix_info = {'Estay','Eswitch'};
             %mix_info = sprintf('%s / total',mix_info{strcmp(mix_info,base_targ)});
-            mix_info = sprintf('%s / %s',mix_info{strcmp(mix_info,base_targ)},...
-                mix_info{~strcmp(mix_info,base_targ)});
+            mix_info = sprintf('%s / %s',mix_info{strcmp(mix_info,base_targ_cells)},...
+                mix_info{~strcmp(mix_info,base_targ_cells)});
             mix_info = strrep(mix_info,'E','E-');
             xlabel(mix_info,'FontWeight','bold')
             
@@ -555,7 +560,9 @@ for idx = 1:num_pairs
     end
 end
 
-orient tall
+%orient tall
+warning('CHANGE THIS ORIENTATION BACK TO TALL')
+orient landscape
 switch outcome_stat
     case {'logmu','logmed'}
         linkaxes(h,'y')
