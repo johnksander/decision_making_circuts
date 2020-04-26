@@ -22,7 +22,7 @@ Snames = {'nets_mixstim_netpair-2'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '~/Desktop/work/ACClab/rotation/project/';%'~/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/ksander/rotation/project'; %'~/Desktop/work/ACClab/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
 
 
