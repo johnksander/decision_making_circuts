@@ -8,13 +8,14 @@ hold off;close all
 %Put this same function in network_spiking_results, etc. Also use cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets)
 
 opt = struct();
-opt.min_obs = 175; %min # of observations (states)
+opt.min_obs = 250; %min # of observations (states)
 opt.print_anything = 'yes'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
 opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
 opt.parfor_load = 'on'; %on/off, must also (un)comment the actual for... line
 opt.params2match = {'conn'}; %!!!IMPORTANT!!! specify how results are matched to network types
+opt.Xax = 'ratio'; %'diff' or 'ratio'
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
@@ -22,10 +23,12 @@ Snames = {'nets_mixstim_netpair-2'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '~/Desktop/ksander/rotation/project'; %'~/Desktop/work/ACClab/rotation/project/';
+basedir = '~/Desktop/work/ACClab/rotation/project'; %'~/Desktop/work/ACClab/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
 
-
+opt.outcome_stat = 'logmu';
+make_my_figs(basedir,Snames{1},figdir{1},opt)
+return
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt);
@@ -395,28 +398,28 @@ uniq_params = uniq_params(min_obs,:);
 
 
 %find how job_params matrix maps to param_varnames... now this is mega dumb
-%and super confusing. You should've thought this out way better in the first place 
+%and super confusing. You should've thought this out way better in the first place
 Pmap = file_data{1,2};
 Pmap.ItoE = {'ItoE'};
 Pmap.EtoI = {'EtoI'};
 %trial stimuli is a 1 x Ntargs cell. This cell contains 1 x Nstim vector
 Pmap.trial_stimuli = repmat({'stim_A','stim_B'}, 1, numel(Pmap.stim_targs));
-%stim targs is a 1 x Ntargs cell 
+%stim targs is a 1 x Ntargs cell
 Pmap.stim_targs = repmat({'targ_cells'}, 1, numel(Pmap.stim_targs));
 Pmap = [Pmap.ItoE, Pmap.EtoI,Pmap.trial_stimuli,Pmap.stim_targs]; %matching "network_pair_info" format
 net_type = cell(size(uniq_params,1),numel(param_varnams));
 net_type = cell2table(net_type,'VariableNames',param_varnams);
 for idx = 1:numel(param_varnams)
     p = param_varnams{idx};
-    net_type.(p) = num2cell(uniq_params(:,ismember(Pmap,p)),2);    
+    net_type.(p) = num2cell(uniq_params(:,ismember(Pmap,p)),2);
 end
 
-%net_type is supposed to match network_pair_info format 
+%net_type is supposed to match network_pair_info format
 %this is stupid & obviously a hold-over from something I didn't implement well in the first place...
 net_type.targ_cells = cellfun(@(x) stimtarg_labels(x),...
     net_type.targ_cells,'UniformOutput',false);
 
-%add total magnitudes here 
+%add total magnitudes here
 net_type.total_A = round(cellfun(@sum,net_type.stim_A),3);
 net_type.total_B = round(cellfun(@sum,net_type.stim_A),3);
 
@@ -452,10 +455,14 @@ switch outcome_stat
         Zlabel = sprintf('med. log_{10}(%s) sampling',unit_measure);
         fig_fn = [fig_fn,'_med_log'];
 end
+switch opt.Xax
+    case 'diff'
+        fig_fn = [fig_fn '_diff'];
+end
 
 Ylab = 'p(x)';%Ylab = 'freq';
 
-figdir = fullfile(figdir,sprintf('Nmin_%i',opt.min_obs)); %include the min observation cutoff 
+figdir = fullfile(figdir,sprintf('Nmin_%i',opt.min_obs)); %include the min observation cutoff
 if ~isdir(figdir),mkdir(figdir);end
 
 matblue = [0,0.4470,0.7410];
@@ -482,7 +489,7 @@ for idx = 1:num_pairs
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
         hold on
-                
+        
         switch outcome_stat
             case 'mu'
                 statfunc = @mean;
@@ -513,29 +520,45 @@ for idx = 1:num_pairs
         %now take the net info as well, so it's easy
         curr_data = [net_type(net_ind,:),curr_data];
         
-        %get ratios 
-        stim_ratios = curr_data(:,{'stim_A','targ_cells'});
-        Si = cellfun(@(x) strcmp(x,base_targ_labels),stim_ratios.targ_cells,'UniformOutput',false);
-        stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_A,Si);
-        stim_ratios(:,'targ_cells') = [];
+        
+        Si = cellfun(@(x) strcmp(x,base_targ_labels),curr_data.targ_cells,'UniformOutput',false);
+        %get ratios
+        stim_ratios = curr_data(:,{'stim_A'});
+        stim_ratios.stim_A = cellfun(@(x,y) x(y) ./ sum(x),stim_ratios.stim_A,Si); %Eswitch/Estay
         stim_ratios.Properties.VariableNames = strrep(stim_ratios.Properties.VariableNames,'stim','ratio');
         curr_data = [curr_data,stim_ratios];
         curr_data = sortrows(curr_data,'ratio_A'); %sort by ratio A
         
+        %get differences
+        curr_data.diff_A = cellfun(@(x,y) x(y) - x(~y),curr_data.stim_A,Si); %Eswitch - Estay
+        
         Smags = unique(curr_data.total_A); %intensities
         for kidx = 1:numel(Smags)
             sm = curr_data.total_A == Smags(kidx);
-            plot(curr_data.ratio_A(sm),curr_data.data_A(sm),'LineWidth',3)
+            switch opt.Xax
+                case 'ratio'
+                    plot(curr_data.ratio_A(sm),curr_data.data_A(sm),'LineWidth',3)
+                case 'diff'
+                    plot(curr_data.diff_A(sm),curr_data.data_A(sm),'LineWidth',3)
+            end
         end
-        axis tight;xlim([0:1])
-        legend_labs = cellfun(@(x) sprintf('%.0f Hz total',x),num2cell(Smags),'UniformOutput',false);
-        pause(1);legend(legend_labs,'Location','best','Box','off');pause(1)
-        xtick = num2cell(get(gca,'XTick'));
-        xtick = cellfun(@(x) sprintf('%1.1f/%.1f',x,1-x),xtick,'UniformOutput',false);
-        xtick = strrep(xtick,'0.','.');
-        xtick = strrep(xtick,'1.0','1');
-        xtick = strrep(xtick,'.0','0');
-        set(gca,'XTickLabel',xtick) 
+        switch opt.Xax
+            case 'ratio'
+                axis tight;xlim([0:1])
+                legend_labs = cellfun(@(x) sprintf('%.0f Hz total',x),num2cell(Smags),'UniformOutput',false);
+                pause(1);legend(legend_labs,'Location','best','Box','off');pause(1)
+                xtick = num2cell(get(gca,'XTick'));
+                xtick = cellfun(@(x) sprintf('%1.1f/%.1f',x,1-x),xtick,'UniformOutput',false);
+                xtick = strrep(xtick,'0.','.');
+                xtick = strrep(xtick,'1.0','1');
+                xtick = strrep(xtick,'.0','0');
+                set(gca,'XTickLabel',xtick)
+            case 'diff'
+                axis tight;
+                legend_labs = cellfun(@(x) sprintf('%.0f Hz total',x),num2cell(Smags),'UniformOutput',false);
+                pause(1);legend(legend_labs,'Location','best','Box','off');pause(1)
+        end
+        
         hold off
         
         if plt_idx == num_net_types-1 || plt_idx == num_net_types
@@ -544,6 +567,11 @@ for idx = 1:num_pairs
             mix_info = sprintf('%s / %s',mix_info{strcmp(mix_info,base_targ_cells)},...
                 mix_info{~strcmp(mix_info,base_targ_cells)});
             mix_info = strrep(mix_info,'E','E-');
+            switch opt.Xax
+                case 'diff'
+                    mix_info = strrep(mix_info,' / ',' - ');
+                    mix_info = [mix_info ' (Hz)'];
+            end
             xlabel(mix_info,'FontWeight','bold')
             
         end
@@ -560,6 +588,31 @@ for idx = 1:num_pairs
     end
 end
 
+Mvars = {'data_A','targ_cells','total_A','ratio_A','diff_A'};
+Mdata = SPdata(:,Mvars);
+Mdata.Properties.VariableNames{'data_A'} = 'duration';
+Mdata.Properties.VariableNames{'targ_cells'} = 'type';
+Mdata.Properties.VariableNames{'total_A'} = 'total';
+Mdata.Properties.VariableNames{'ratio_A'} = 'ratio';
+Mdata.Properties.VariableNames{'diff_A'} = 'diff';
+Mdata.type = cat(1,Mdata.type{:});
+Mdata.type = Mdata.type(:,1);
+Mdir = fullfile(figdir,sprintf('analysis-%s',outcome_stat));
+if ~isdir(Mdir),mkdir(Mdir);end
+save(fullfile(Mdir,'model_data'),'Mdata')
+%Mspec = 'duration ~ total + ratio + total:ratio';
+%Mspec = 'duration ~ total^2*ratio^2';
+%for idx = 1:numel(Mtypes)
+%do seperately
+%this_type = Mtypes{idx};
+if ~isdir(Mdir),mkdir(Mdir);end
+%net_data = Mdata(ismember(Mdata.type,this_type),:);
+%save(fullfile(Mdir,sprintf('model_data-%s',this_type)),'net_data')
+%stepwiselm(Mdata(ismember(Mdata.type,this_type),:),'ResponseVar','duration','upper','quadratic')
+%m1 = fitlm(Mdata(ismember(Mdata.type,this_type),:),'duration ~ total*ratio');
+%mdl = fitlm(Mdata(ismember(Mdata.type,this_type),:),Mspec);
+%end
+
 %orient tall
 warning('CHANGE THIS ORIENTATION BACK TO TALL')
 orient landscape
@@ -568,7 +621,7 @@ switch outcome_stat
         linkaxes(h,'y')
         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
     case {'mu','med'}
-       % linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
+        % linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
         %axis tight
 end
 
@@ -579,7 +632,7 @@ switch print_anything
         savefig(fullfile(figdir,fig_fn))
 end
 close all;figure;orient portrait
-%scatter plot 
+%scatter plot
 alph = .75;Msz = 75;
 Bcol = colormap('winter');Rcol = colormap('autumn');
 %SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
@@ -590,6 +643,9 @@ for idx = 1:numel(SPcells)
     %subplot(numel(SPcells),1,idx);hold on
     hold on
     curr_data = strcmp(SPdata.targ_cells,SPcells{idx});
+    %types = cat(1,SPdata.targ_cells{:});
+    %types = types(:,1);
+    %curr_data = strcmp(types,SPcells{idx});
     curr_data = SPdata(curr_data,:);
     curr_nets = unique(curr_data.net_index);
     for plt_idx = 1:numel(curr_nets)
@@ -641,11 +697,11 @@ lg_fz = 16; get_ax_val = @(p,x) p*range(x)+min(x);
 xlim(xlim + [-(range(xlim)*.015),(range(xlim)*.015)]); %extra room
 ylim(ylim + [-(range(ylim)*.015),(range(ylim)*.015)]);
 X = get_ax_val(X0,xlim);
-text(X,get_ax_val(Y0,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg) 
-text(X,get_ax_val(Y0-.1,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg) 
+text(X,get_ax_val(Y0,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg)
+text(X,get_ax_val(Y0-.1,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg)
 %X = get_ax_val(.975,xlim);
-%text(X,get_ax_val(.5,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right') 
-%text(X,get_ax_val(.4,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right') 
+%text(X,get_ax_val(.5,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
+%text(X,get_ax_val(.4,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
 for plt_idx = 1:numel(curr_nets)
     col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
     %X = get_ax_val(.975-(plt_idx*.02),xlim);
@@ -653,9 +709,9 @@ for plt_idx = 1:numel(curr_nets)
     %scatter(X,get_ax_val(.35,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
     X = get_ax_val(X0+(plt_idx*move_pt),xlim);
     
-   % %regular w/ colors
-   % scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
-   % scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    % %regular w/ colors
+    % scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    % scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
     
     %for symbols
     scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'Marker',markers{plt_idx})

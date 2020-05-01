@@ -19,6 +19,7 @@ options.state_test_thresh = .02; %difference in mean Sg between E-cell pools
 options.record_spiking = 'off'; % 'on' saves spiking data, 'off' gives low-memory sim without spiking data 
 options.record_preswitch = 450e-3; %transition data recording: 250ms before switch, 150ms after
 options.record_postswitch = 150e-3; 
+options.checkpoint_delay = 4; %assume job dead if last checkpoint save is > X (hrs) ago 
 %----pulse stimulus delivery (more realistic licking)
 options.stim_pulse = [NaN, NaN]; %default will be none, NaNs specifies constant stim
 %format is [on, off] in seconds. options.stim_pulse = [1, 10] gives 1 second pulse w/ 10 second ISI

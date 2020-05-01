@@ -128,7 +128,7 @@ for trialidx = 1:num_trials
         last_save = dir(checkpointFN);
         last_save = last_save.date;
         last_save = datetime('now') - last_save; %how long since last checkpoint data saved
-        if last_save > hours(4) 
+        if last_save > hours(options.checkpoint_delay) 
             load(checkpointFN) %if the checkpoint hasn't been updated in a while, job probably failed 
             update_logfile('Resuming from checkpoint data',options.output_log)
         end
