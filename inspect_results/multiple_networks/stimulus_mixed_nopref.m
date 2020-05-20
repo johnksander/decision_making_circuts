@@ -335,7 +335,7 @@ if ~load_summary
     data_sz = whos('file_data');
     data_sz = data_sz.bytes / 1e9; %in GB
     if data_sz > 5
-        fprintf('\nWARNING: summary file size = %.0f GB\n... summary file will not be saved\n',data_sz)
+        fprintf('\nWARNING: summary file size = %.2f GB\n... summary file will not be saved\n',data_sz)
     else
         fprintf('\nsaving data...\n')
         save(fullfile(svdir,svFN),'file_data','-v7.3')
