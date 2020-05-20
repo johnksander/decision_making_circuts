@@ -15,7 +15,7 @@ opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
 opt.parfor_load = 'on'; %on/off, must also (un)comment the actual for... line
 opt.params2match = {'conn'}; %!!!IMPORTANT!!! specify how results are matched to network types
-opt.Xax = 'ratio'; %'diff' or 'ratio'
+opt.Xax = 'diff'; %'diff' or 'ratio'
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
@@ -645,99 +645,103 @@ switch print_anything
         print(fullfile(figdir,fig_fn),'-djpeg')
         savefig(fullfile(figdir,fig_fn))
 end
-close all;figure;orient portrait
-%scatter plot
-alph = .75;Msz = 75;
-Bcol = colormap('winter');Rcol = colormap('autumn');
-%SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
-SPcells = {'slow','fast'};
-%markers = {'o','square','diamond','pentagram','hexagram'};
-markers = {'x','+','^','v','d'};
-for idx = 1:numel(SPcells)
-    %subplot(numel(SPcells),1,idx);hold on
-    hold on
-    curr_data = strcmp(SPdata.targ_cells,SPcells{idx});
-    %types = cat(1,SPdata.targ_cells{:});
-    %types = types(:,1);
-    %curr_data = strcmp(types,SPcells{idx});
-    curr_data = SPdata(curr_data,:);
-    curr_nets = unique(curr_data.net_index);
-    for plt_idx = 1:numel(curr_nets)
-        this_net = curr_data.net_index == curr_nets(plt_idx);
-        this_net = curr_data(this_net,:);
-        col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
-        switch SPcells{idx}
-            case 'slow'
-                col = Bcol(col_idx,:);
-            case 'fast'
-                col = Rcol(col_idx,:);
-        end
-        
-        %scatter(this_net.X,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
-        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
-        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph,'Marker',markers{plt_idx})
-        scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx},'Linewidth',1.25)
-        axis tight
-        title(sprintf('Implicit Competition'),...
-            'FontWeight','bold','Fontsize',14)
-        %ylabel(Zlabel,'FontWeight','bold')
-        
-        %xlabel('proportion of alternative stimulus','FontWeight','bold')
-        
-        xlabel(sprintf(['B - varied [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
-        ylabel(sprintf(['A - constant [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
-    end
-end
 
-lg_pos = legend(' ');
-if contains(lg_pos.Location,'east')
-    make_lg = 'right';
-else
-    make_lg = 'left';
-end
-if contains(lg_pos.Location,'north')
-    Y0 = .95;
-else
-    Y0 = .2;
-end
-delete(lg_pos)
-switch make_lg
-    case 'left'
-        X0 = .025; move_pt = .02;
-    case 'right'
-        X0 = .975; move_pt = -.02;%was   Y0 = .5
-end
-lg_fz = 16; get_ax_val = @(p,x) p*range(x)+min(x);
-xlim(xlim + [-(range(xlim)*.015),(range(xlim)*.015)]); %extra room
-ylim(ylim + [-(range(ylim)*.015),(range(ylim)*.015)]);
-X = get_ax_val(X0,xlim);
-text(X,get_ax_val(Y0,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg)
-text(X,get_ax_val(Y0-.1,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg)
-%X = get_ax_val(.975,xlim);
-%text(X,get_ax_val(.5,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
-%text(X,get_ax_val(.4,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
-for plt_idx = 1:numel(curr_nets)
-    col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
-    %X = get_ax_val(.975-(plt_idx*.02),xlim);
-    %scatter(X,get_ax_val(.45,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
-    %scatter(X,get_ax_val(.35,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
-    X = get_ax_val(X0+(plt_idx*move_pt),xlim);
-    
-    % %regular w/ colors
-    % scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
-    % scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
-    
-    %for symbols
-    scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'Marker',markers{plt_idx})
-    scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'Marker',markers{plt_idx})
-end
+%scatter plot not needed
 
-set(gca,'FontSize',18)
-switch print_anything
-    case 'yes'
-        print(fullfile(figdir,[fig_fn '-scatter']),'-djpeg')
-        savefig(fullfile(figdir,[fig_fn '-scatter']))
-end
+% 
+% close all;figure;orient portrait
+% %scatter plot
+% alph = .75;Msz = 75;
+% Bcol = colormap('winter');Rcol = colormap('autumn');
+% %SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
+% SPcells = {'slow','fast'};
+% %markers = {'o','square','diamond','pentagram','hexagram'};
+% markers = {'x','+','^','v','d'};
+% for idx = 1:numel(SPcells)
+%     %subplot(numel(SPcells),1,idx);hold on
+%     hold on
+%     curr_data = strcmp(SPdata.targ_cells,SPcells{idx});
+%     %types = cat(1,SPdata.targ_cells{:});
+%     %types = types(:,1);
+%     %curr_data = strcmp(types,SPcells{idx});
+%     curr_data = SPdata(curr_data,:);
+%     curr_nets = unique(curr_data.net_index);
+%     for plt_idx = 1:numel(curr_nets)
+%         this_net = curr_data.net_index == curr_nets(plt_idx);
+%         this_net = curr_data(this_net,:);
+%         col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
+%         switch SPcells{idx}
+%             case 'slow'
+%                 col = Bcol(col_idx,:);
+%             case 'fast'
+%                 col = Rcol(col_idx,:);
+%         end
+%         
+%         %scatter(this_net.X,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
+%         %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
+%         %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph,'Marker',markers{plt_idx})
+%         scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx},'Linewidth',1.25)
+%         axis tight
+%         title(sprintf('Implicit Competition'),...
+%             'FontWeight','bold','Fontsize',14)
+%         %ylabel(Zlabel,'FontWeight','bold')
+%         
+%         %xlabel('proportion of alternative stimulus','FontWeight','bold')
+%         
+%         xlabel(sprintf(['B - varied [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
+%         ylabel(sprintf(['A - constant [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
+%     end
+% end
+% 
+% lg_pos = legend(' ');
+% if contains(lg_pos.Location,'east')
+%     make_lg = 'right';
+% else
+%     make_lg = 'left';
+% end
+% if contains(lg_pos.Location,'north')
+%     Y0 = .95;
+% else
+%     Y0 = .2;
+% end
+% delete(lg_pos)
+% switch make_lg
+%     case 'left'
+%         X0 = .025; move_pt = .02;
+%     case 'right'
+%         X0 = .975; move_pt = -.02;%was   Y0 = .5
+% end
+% lg_fz = 16; get_ax_val = @(p,x) p*range(x)+min(x);
+% xlim(xlim + [-(range(xlim)*.015),(range(xlim)*.015)]); %extra room
+% ylim(ylim + [-(range(ylim)*.015),(range(ylim)*.015)]);
+% X = get_ax_val(X0,xlim);
+% text(X,get_ax_val(Y0,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg)
+% text(X,get_ax_val(Y0-.1,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg)
+% %X = get_ax_val(.975,xlim);
+% %text(X,get_ax_val(.5,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
+% %text(X,get_ax_val(.4,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
+% for plt_idx = 1:numel(curr_nets)
+%     col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
+%     %X = get_ax_val(.975-(plt_idx*.02),xlim);
+%     %scatter(X,get_ax_val(.45,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+%     %scatter(X,get_ax_val(.35,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+%     X = get_ax_val(X0+(plt_idx*move_pt),xlim);
+%     
+%     % %regular w/ colors
+%     % scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+%     % scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+%     
+%     %for symbols
+%     scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'Marker',markers{plt_idx})
+%     scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'Marker',markers{plt_idx})
+% end
+% 
+% set(gca,'FontSize',18)
+% switch print_anything
+%     case 'yes'
+%         print(fullfile(figdir,[fig_fn '-scatter']),'-djpeg')
+%         savefig(fullfile(figdir,[fig_fn '-scatter']))
+% end
 
 
 %info about simulation

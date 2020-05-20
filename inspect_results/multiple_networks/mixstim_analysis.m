@@ -6,7 +6,8 @@ hold off;close all
 
 basedir = '~/Desktop/work/ACClab/rotation/project'; %'~/Desktop/work/ACClab/rotation/project/';
 datadir = fullfile(basedir,['Results/' ...
-'figures_nets_mixstim_netpair-2/durations/Nmin_250/analysis-logmu']);
+    'figures_nets_mixstim/durations/Nmin_250/analysis-logmu']);
+%'figures_nets_mixstim_netpair-2/durations/Nmin_250/analysis-logmu']);
 
 fz = 16;
 

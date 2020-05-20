@@ -6,7 +6,7 @@ hold off;close all
 %investigating model behavior
 
 
-addpath('../')
+addpath('../helper_functions/')
 options = struct();
 options.netpair_file = 'D2t-slower';
 
