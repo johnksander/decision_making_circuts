@@ -19,16 +19,15 @@ opt.Xax = 'ratio'; %'diff' or 'ratio'
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
-Snames = {'nets_mixstim_netpair-2'};
+Snames = {'nets_mixstim'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '~/Desktop/work/ACClab/rotation/project'; %'~/Desktop/work/ACClab/rotation/project/';
+basedir = '~/Desktop/work/ACClab/rotation/project/'; %'~/Desktop/work/ACClab/rotation/project'; 
 addpath(fullfile(basedir,'helper_functions'))
 
-opt.outcome_stat = 'logmu';
-make_my_figs(basedir,Snames{1},figdir{1},opt)
-return
+
+
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt);
