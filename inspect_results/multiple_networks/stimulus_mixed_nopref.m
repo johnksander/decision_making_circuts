@@ -23,7 +23,8 @@ Snames = {'nets_mixstim'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '~/Desktop/work/ACClab/rotation/project/'; %'~/Desktop/work/ACClab/rotation/project'; 
+basedir = '~/Desktop/ksander/rotation/project/';
+%basedir = '~/Desktop/work/ACClab/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
 
@@ -330,8 +331,18 @@ if ~load_summary
             delete(special_progress_tracker)
     end
     
-    fprintf('\nsaving data...\n')
-    save(fullfile(svdir,svFN),'file_data')
+    %save a big results file
+    data_sz = whos('file_data');
+    data_sz = data_sz.bytes / 1e9; %in GB
+    if data_sz > 5
+        fprintf('\nWARNING: summary file size = %.0f GB\n... summary file will not be saved\n',data_sz)
+    else
+        fprintf('\nsaving data...\n')
+        save(fullfile(svdir,svFN),'file_data','-v7.3')
+        fprintf('complete\n')
+    end
+    
+    
 elseif load_summary
     fprintf('\nloading saved summary data...\n')
     file_data = load(fullfile(svdir,svFN));
@@ -398,7 +409,7 @@ uniq_params = uniq_params(min_obs,:);
 
 %find how job_params matrix maps to param_varnames... now this is mega dumb
 %and super confusing. You should've thought this out way better in the first place
-Pmap = file_data{1,2};
+Pmap = result_data{1,2};
 Pmap.ItoE = {'ItoE'};
 Pmap.EtoI = {'EtoI'};
 %trial stimuli is a 1 x Ntargs cell. This cell contains 1 x Nstim vector
@@ -423,9 +434,9 @@ net_type.total_A = round(cellfun(@sum,net_type.stim_A),3);
 net_type.total_B = round(cellfun(@sum,net_type.stim_A),3);
 
 
-
 net_compare = net_type{:,IDvars}; %for comapring with network_pair_info
 net_compare = cellfun(@(x) x(1),net_compare); %first one should be from get_network_params()
+
 
 fig_fn = [sim_name '_%s'];
 
@@ -476,9 +487,11 @@ h = [];
 plt_idx = 0;
 figure;%set(gcf,'units','normalized','outerposition',[0 0 .4 1])
 
-warning('hardcoded bits')
-num_pairs = 1;num_net_types = 2;
-network_pair_info = network_pair_info(2);
+
+%this was for looking at a single network pair 
+%warning('hardcoded bits for single network pair')
+%num_pairs = 1;num_net_types = 2;
+%network_pair_info = network_pair_info(2);
 
 for idx = 1:num_pairs
     
@@ -599,12 +612,12 @@ Mdata.type = Mdata.type(:,1);
 Mdir = fullfile(figdir,sprintf('analysis-%s',outcome_stat));
 if ~isdir(Mdir),mkdir(Mdir);end
 save(fullfile(Mdir,'model_data'),'Mdata')
+
 %Mspec = 'duration ~ total + ratio + total:ratio';
 %Mspec = 'duration ~ total^2*ratio^2';
 %for idx = 1:numel(Mtypes)
 %do seperately
 %this_type = Mtypes{idx};
-if ~isdir(Mdir),mkdir(Mdir);end
 %net_data = Mdata(ismember(Mdata.type,this_type),:);
 %save(fullfile(Mdir,sprintf('model_data-%s',this_type)),'net_data')
 %stepwiselm(Mdata(ismember(Mdata.type,this_type),:),'ResponseVar','duration','upper','quadratic')
@@ -612,9 +625,11 @@ if ~isdir(Mdir),mkdir(Mdir);end
 %mdl = fitlm(Mdata(ismember(Mdata.type,this_type),:),Mspec);
 %end
 
-%orient tall
-warning('CHANGE THIS ORIENTATION BACK TO TALL')
-orient landscape
+if num_pairs == 1
+    orient landscape %this was for looking at a single network pair
+else
+    orient tall
+end
 switch outcome_stat
     case {'logmu','logmed'}
         linkaxes(h,'y')
