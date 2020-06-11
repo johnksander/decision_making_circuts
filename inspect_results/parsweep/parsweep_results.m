@@ -19,7 +19,7 @@ EI_max = .75; IE_max = 12.5; %these set connection maximums
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_D2t_very_slow_baseline';
+sim_name = 'parsweep_D2t-slower_spikerates';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);

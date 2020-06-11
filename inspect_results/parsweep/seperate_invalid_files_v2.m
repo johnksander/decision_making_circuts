@@ -68,7 +68,7 @@ for idx = 1:num_files
     elseif makefile
         save(fullfile(resdir,FN),'options')
         
-    else
+    elseif has_rates && ~makefile
         error('what do I do here')
     end
 end
