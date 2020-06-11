@@ -34,11 +34,26 @@ t = 25; %trial simulation time (s)
 
 
 
+
 num_files = numel(jobs(:,1));
 for idx = 1:num_files
     curr_file = jobs(idx,:);
     has_rates = ~cellfun(@isempty,curr_file(3));
     FN = sprintf('PS_parsweep_D2t-slower_spikerates_%i.mat',idx);
+    makefile = true;
+    if exist(fullfile(resdir,FN)) > 0
+        Fdata = load(fullfile(resdir,FN));
+        if isfield(Fdata,'sim_results')
+            Fdata = Fdata.sim_results;
+            Fdata = Fdata(4); %should be where ratelim ris
+            if ~isempty(Fdata)
+                 movefile(fullfile(resdir,FN),finished_dir)
+                 makefile = false;
+                 disp('found one')
+            end
+        end
+    end
+    
     sim_results = cell(1,4);
     options = curr_file{2};
     options.jobID = idx;
@@ -50,8 +65,11 @@ for idx = 1:num_files
     if has_rates
         sim_results{4} = curr_file{3};
         save(fullfile(finished_dir,FN),'options','sim_results')
-    else
+    elseif makefile
         save(fullfile(resdir,FN),'options')
+        
+    else
+        error('what do I do here')
     end
 end
 

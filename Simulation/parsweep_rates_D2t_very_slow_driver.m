@@ -4,14 +4,15 @@ format compact
 
 %get the rates for these networks
 
+sim_name = 'parsweep_D2t-slower_spikerates'; %annoying but needed...
 
 %my model 
 %---setup---------------------
 jID = str2double(getenv('SLURM_ARRAY_TASK_ID'));
 t = 25; %trial simulation time (s) 
 options = set_options('modeltype','PS','comp_location','hpc',...
-    'sim_name','parsweep_D2t-slower_spikerates','jobID',jID,'tmax',t,...
-    'ratelim_check','on','cut_leave_state',t,'noswitch_timeout',t);
+    'sim_name',sim_name,'jobID',jID,'tmax',t,...
+    'ratelim_check','on','cut_leave_state',t,'noswitch_timeout',t+1);
 
 %files should already be here
 FN = dir(fullfile(options.save_dir,'*mat'));
@@ -23,12 +24,14 @@ conn_params = load(FN);
 conn_params = conn_params.options;
 options.EtoI = conn_params.EtoI;
 options.ItoE = conn_params.ItoE;
+options.jobID = conn_params.jobID; %VERY IMPORTANT
+options.sim_name = sprintf('PS_%s_%i',sim_name,options.jobID);
 
 %---run-----------------------
 run_job = true;
 while run_job
-    
-    modelfile = spikeout_model(options);
+
+    modelfile = special_ratejob_model(options);
     results = load(FN);
     if isfield(results,'sim_results')
         results = results.sim_results;
