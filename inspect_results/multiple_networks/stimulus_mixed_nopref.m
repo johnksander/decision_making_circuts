@@ -28,6 +28,10 @@ basedir = '~/Desktop/ksander/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
 
 
+%just get better summary data 
+opt.outcome_stat = 'logmu';
+make_my_figs(basedir,Snames{1},figdir{1},opt)
+return
 
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
@@ -596,11 +600,12 @@ for idx = 1:num_pairs
         
         %organize data for scatter plot
         curr_data.net_index = repmat(plt_idx,size(curr_data,1),1); %index ID for scatter plot
+        curr_data.pair_index = repmat(idx,size(curr_data,1),1); %index ID for scatter plot
         SPdata = [SPdata;curr_data];
     end
 end
 
-Mvars = {'data_A','targ_cells','total_A','ratio_A','diff_A'};
+Mvars = {'net_index','pair_index','data_A','targ_cells','total_A','ratio_A','diff_A'};
 Mdata = SPdata(:,Mvars);
 Mdata.Properties.VariableNames{'data_A'} = 'duration';
 Mdata.Properties.VariableNames{'targ_cells'} = 'type';

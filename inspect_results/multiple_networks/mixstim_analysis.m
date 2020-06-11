@@ -39,7 +39,8 @@ for idx = 1:num_types
     set(gca,'FontSize',fz)
 end
 ax = findobj(gcf,'Type','axes');
-linkaxes(ax(1:2),'y');linkaxes(ax(3:4),'y')
+%linkaxes(ax(1:2),'y');linkaxes(ax(3:4),'y')
+linkaxes(ax,'y')
 axP = get(gca,'Position');
 [lp,l] = legend(sc,net_types,'FontWeight','b',...
     'Location','northoutside','Box','off','Orientation','horizontal','FontSize',fz+4);
@@ -47,6 +48,61 @@ set(gca, 'Position', axP)
 lp.Position = [((1-lp.Position(3))/2),1-lp.Position(4),lp.Position(3:4)];
 
 print(fullfile(datadir,'scatters'),'-djpeg')
+
+
+
+figure; 
+lnsz = 1;
+lntype = '-.';
+markers = {'x','+','^','v','d'};
+sc = [];
+legend_labs = {};
+pidx = 0;
+for idx = 1:num_types
+    subplot(num_types,2,idx);hold on
+    curr_type = net_types{idx};
+    if idx == 1
+        col = matblue;
+    elseif idx == 2
+        col = matorange;
+    end
+    curr_data = data(ismember(data.type,curr_type),:);
+    sc(idx) = plot(NaN,NaN,lntype,'Color',col,'Linewidth',lnsz);
+    
+    Smags = unique(curr_data.total); %intensities
+    for kidx = 1:numel(Smags)
+        curr_mag = Smags(kidx);
+        sm = curr_data.total == curr_mag;
+        pidx = pidx + 1;
+         plot(curr_data.ratio(sm),curr_data.duration(sm),lntype,'Color',col,'Linewidth',lnsz) 
+    end
+    xlabel('ratio','FontWeight','b')
+    if idx == 1,ylabel('log_{10}(s) sampling','FontWeight','b');end
+    set(gca,'FontSize',fz)
+    subplot(num_types,2,idx+2) ;hold on
+    for kidx = 1:numel(Smags)
+        sm = curr_data.total == Smags(kidx);
+        pidx = pidx + 1;
+        plot(curr_data.diff(sm),curr_data.duration(sm),lntype,'Color',col,'Linewidth',lnsz) 
+    end
+    xlabel('difference','FontWeight','b')
+    if idx == 1,ylabel('log_{10}(s) sampling','FontWeight','b');end
+    set(gca,'FontSize',fz)
+end
+
+ax = findobj(gcf,'Type','axes');
+%linkaxes(ax(1:2),'y');linkaxes(ax(3:4),'y')
+linkaxes(ax,'y')
+axP = get(gca,'Position');
+[lp,l] = legend(sc,net_types,'FontWeight','b',...
+    'Location','northoutside','Box','off','Orientation','horizontal','FontSize',fz+4);
+set(gca, 'Position', axP)
+lp.Position = [((1-lp.Position(3))/2),1-lp.Position(4),lp.Position(3:4)];
+
+
+print(fullfile(datadir,'lines'),'-djpeg')
+
+return
 
 
 figure; 
