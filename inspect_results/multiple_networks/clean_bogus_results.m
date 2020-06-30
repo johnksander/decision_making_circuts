@@ -4,7 +4,7 @@ format compact
 
 %this must be parfored... too many files 
 
-Snames = {'nets_D2t_20s_pref'}; %Snames = {'nets_fastD','nets_slowD'};
+Snames = {'nets_D2t-slower_spikedata'}; %Snames = {'nets_fastD','nets_slowD'};
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))

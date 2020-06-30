@@ -16,10 +16,16 @@ limit_prange = 'yes'; %'yes' | 'no' if yes, set maximums for connection paramete
 EI_max = .75; IE_max = 12.5; %these set connection maximums
 %for the fastD
 %EI_max = .35; IE_max = 3.75; %these set connection maximums
+Tmax = 300; %set a maximum duration for these plots 
+Tmin = 1; %minimum duration 
+min_states = 1; %must have at least 1 state duration... 
+
+%Tmax = inf;Tmin = -inf;min_states = 0; 
+%warning('duration filers off for spike plots')
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_D2t-slower_spikerates';
+sim_name = 'parsweep_D2t_very_slow_baseline';
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
@@ -51,13 +57,17 @@ for idx = 1:num_files
     %get state durations
     state_durations = curr_file.sim_results;
     state_durations = state_durations{1};
-    %just get all of them, baseline test. Everything that's not undecided
-    valid_states = ~strcmpi(state_durations(:,end),'undecided');
-    %state.count recorded in second col 
-    state_durations = state_durations(valid_states,2);
-    state_durations = cat(1,state_durations{:});
-    %convert to time
-    state_durations = state_durations * timestep;
+    if ~isempty(state_durations) %this was for running a job with spikerate data only... 
+        %just get all of them, baseline test. Everything that's not undecided
+        valid_states = ~strcmpi(state_durations(:,end),'undecided');
+        %state.count recorded in second col
+        state_durations = state_durations(valid_states,2);
+        state_durations = cat(1,state_durations{:});
+        %convert to time
+        state_durations = state_durations * timestep;
+    else
+        state_durations = []; %empty cell breaks stuff downstream
+    end
     %ratecheck estimates
     Rcheck = curr_file.sim_results{4};
     %store durations, parameters, rate estimates
@@ -104,20 +114,15 @@ num_states = cellfun(@(x) numel(x),result_data(:,1));
 mu_time = cellfun(@(x) mean(x),result_data(:,1));
 fprintf('\n---jobs without data = %i\n',sum(num_states == 0))
 
-Tmax = 300; %set a maximum duration for these plots 
-Tmin = 1; %minimum duration 
-
-warning('Tmax set to 500')
-Tmax = 500;
 
 overmax = mu_time > Tmax;
 undermin = mu_time < Tmin;
-Tinvalid = num_states == 0;
+Tinvalid = num_states < min_states;
 fprintf('\n---Tmax cutoff = %i\n',Tmax) %before log transform... 
-fprintf('---%i / %i jobs above cutuff\n',sum(overmax),num_jobs)
+fprintf('---%i / %i jobs above cutoff\n',sum(overmax),num_jobs)
 fprintf('\n---Tmin cutoff = %i\n',Tmin)
-fprintf('---%i / %i jobs under cutuff\n',sum(undermin),num_jobs)
-fprintf('\n---%i / %i jobs without data\n',sum(Tinvalid),num_jobs)
+fprintf('---%i / %i jobs under cutoff\n',sum(undermin),num_jobs)
+fprintf('\n---%i / %i jobs without data (< %i states)\n',sum(Tinvalid),num_jobs,min_states)
 
 Tinvalid = Tinvalid | overmax | undermin;
 
@@ -130,9 +135,9 @@ switch limit_prange
         EI_valid = param_OOB('EtoI',EI_max);
         IE_valid = param_OOB('ItoE',IE_max);
         fprintf('\n---E-to-I cutoff = %.2f\n',EI_max)
-        fprintf('---%i / %i jobs under cutuff\n',sum(EI_valid),num_jobs)
+        fprintf('---%i / %i jobs under cutoff\n',sum(EI_valid),num_jobs)
         fprintf('\n---I-to-E cutoff = %.2f\n',IE_max)
-        fprintf('---%i / %i jobs under cutuff\n',sum(IE_valid),num_jobs)
+        fprintf('---%i / %i jobs under cutoff\n',sum(IE_valid),num_jobs)
         
         Tinvalid = Tinvalid | ~EI_valid | ~IE_valid;
 end

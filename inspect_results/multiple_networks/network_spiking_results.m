@@ -28,9 +28,11 @@ opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat d
 basedir = '~/Desktop/ksander/rotation/project/';
 addpath(fullfile(basedir,'helper_functions'))
 
-Snames = dir(fullfile(basedir,'Results','nets_D2t_pref_spikedata_preference-*'));
-Snames = {Snames.name};
-Snames = Snames(~ismember(Snames,'nets_D2t_pref_spikedata_preference-200')); %no data
+%Snames = dir(fullfile(basedir,'Results','nets_D2t_pref_spikedata_preference-*'));
+%Snames = {Snames.name};
+%Snames = Snames(~ismember(Snames,'nets_D2t_pref_spikedata_preference-200')); %no data
+
+Snames = {'nets_D2t-slower_spikedata'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
@@ -79,7 +81,6 @@ data_fn = sprintf('summary_data_%s.mat',sim_name);
 if exist(fullfile(mainfig_dir,data_fn)) > 0,load_summary = true;else,load_summary = false;end
 if contains(sim_name,'baseline'),BLdata = true;else,BLdata = false;end
 
-recorded_switchtime =  250e-3; %actual switchtime in recorded switch
 rate_binsz = 2e-3; %binsize for spikerate calculations
 
 switch opt.pulse_stim
@@ -154,7 +155,10 @@ celltype = celltype_logicals(pool_options);
 %get general options file from the first file
 gen_options = load(output_fns{1});
 gen_options = gen_options.options;
+gen_options = rmfield(gen_options,{'stim_targs','trial_stimuli'});
 timestep = gen_options.timestep;
+recorded_switchtime = gen_options.record_preswitch; %actual switchtime in recorded switch
+%recorded_switchtime =  250e-3; %actual switchtime in recorded switch
 
 switch opt.multiple_stimuli
     case 'yes'
@@ -181,11 +185,11 @@ for idx = 1:num_pairs
     switch opt.multiple_stimuli
         case 'yes'
             curr_params = cellfun(@(x)...
-                {x.ItoE, x.EtoI,x.trial_stimuli,x.stim_targs},...
+                [x.ItoE, x.EtoI,num2cell(x.trial_stimuli{:}),x.stim_targs],...
                 curr_params,'UniformOutput',false); %matching "network_pair_info" format
         otherwise
             curr_params = cellfun(@(x)...
-                {x.ItoE, x.EtoI,unique(x.trial_stimuli), x.stim_targs},...
+                [x.ItoE, x.EtoI,unique(x.trial_stimuli{:}), x.stim_targs],...
                 curr_params,'UniformOutput',false); %matching "network_pair_info" format
     end
     curr_params = cat(1,curr_params{:});
