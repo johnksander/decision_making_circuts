@@ -37,9 +37,10 @@ figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
 %loop over these
-timewins = {'preswitch', 'all', 'presw250to5', 'presw150to25'};
+timewins = {'preswitch', 'all', 'presw200to5', 'presw200to25','presw400to100'};
 treatments = {'none','zscore', 'base0', 'minmax'};
 zooming = {'yes', 'no'};
+
 
 for Sidx = 1:numel(Snames)
     
@@ -83,6 +84,16 @@ if contains(sim_name,'baseline'),BLdata = true;else,BLdata = false;end
 
 rate_binsz = 2e-3; %binsize for spikerate calculations
 
+%get general options file from the first file
+gen_options = load(output_fns{1});
+gen_options = gen_options.options;
+gen_options = rmfield(gen_options,{'stim_targs','trial_stimuli'});
+timestep = gen_options.timestep;
+recorded_switchtime = gen_options.record_preswitch; %actual switchtime in recorded switch
+%recorded_switchtime =  250e-3; %actual switchtime in recorded switch
+recorded_postswitch = gen_options.record_postswitch;
+thresh_delay = gen_options.state_test_time; %recorded switch time delayed by this much 
+
 switch opt.pulse_stim
     case 'off'
         %skip this business
@@ -94,23 +105,27 @@ end
 switch opt.Tcourse
     case 'preswitch'
         fig_fn = 'preswitch_timecourse';
-        preswitch_plottime = 105e-3; %preswitch duration to plot (T0-X)
-        postswitch_plottime = -5e-3; %postwitch duration to plot (T+X)
+        preswitch_plottime = 105e-3 + thresh_delay; %preswitch duration to plot (T0-X)
+        postswitch_plottime = -5e-3 - thresh_delay; %postwitch duration to plot (T+X)
     case 'all'
         fig_fn = 'switching_timecourse';
-        preswitch_plottime = 250e-3; %preswitch duration to plot (T0-X)
-        postswitch_plottime = 150e-3; %postwitch duration to plot (T+X)
-    case 'presw250to5'
-        fig_fn = 'presw250to5';
-        preswitch_plottime = 250e-3; %preswitch duration to plot (T0-X)
-        postswitch_plottime = -5e-3; %postwitch duration to plot (T+X)
-    case 'presw150to25'
-        fig_fn = 'presw150to25';
-        preswitch_plottime = 150e-3; %preswitch duration to plot (T0-X)
-        postswitch_plottime = 25e-3; %postwitch duration to plot (T+X)
+        preswitch_plottime = recorded_switchtime;%250e-3; %preswitch duration to plot (T0-X)
+        postswitch_plottime = recorded_postswitch; %postwitch duration to plot (T+X)
+    case 'presw200to5'
+        fig_fn = 'presw200to5';
+        preswitch_plottime = 200e-3 + thresh_delay; %preswitch duration to plot (T0-X)
+        postswitch_plottime = -5e-3 - thresh_delay; %postwitch duration to plot (T+X)
+    case 'presw200to25'
+        fig_fn = 'presw200to25';
+        preswitch_plottime = 200e-3 + thresh_delay; %preswitch duration to plot (T0-X)
+        postswitch_plottime = 25e-3 - thresh_delay; %postwitch duration to plot (T+X)
+    case 'presw400to100'
+        fig_fn = 'presw400to100';
+        preswitch_plottime = 400e-3 + thresh_delay; %preswitch duration to plot (T0-X)
+        postswitch_plottime = 100e-3 - thresh_delay; %postwitch duration to plot (T+X)
 end
 
-fig_fn = sprintf('%s_%s',sim_name,fig_fn);
+fig_fn = sprintf('%s_%s',sim_name,fig_fn);  
 
 switch opt.treat_data
     case 'zscore'
@@ -151,14 +166,6 @@ pool_options.sz_pools = [.5 .5]; %proportion stay & switch
 pool_options.sz_EI = [.8 .2]; %proportion excitable % inhibitory
 pool_options.p_conn = .5; %connection probability 50%
 celltype = celltype_logicals(pool_options);
-
-%get general options file from the first file
-gen_options = load(output_fns{1});
-gen_options = gen_options.options;
-gen_options = rmfield(gen_options,{'stim_targs','trial_stimuli'});
-timestep = gen_options.timestep;
-recorded_switchtime = gen_options.record_preswitch; %actual switchtime in recorded switch
-%recorded_switchtime =  250e-3; %actual switchtime in recorded switch
 
 switch opt.multiple_stimuli
     case 'yes'
@@ -278,6 +285,7 @@ preswitch_plottime = round(preswitch_plottime/timestep,4);
 %record_duration = size(cat(1,result_data{:}),2); %get the duration of recorded timecourses
 plotting_window = 1 + recorded_switchtime - preswitch_plottime:recorded_switchtime + postswitch_plottime;
 onset_switch = 1 + recorded_switchtime - min(plotting_window); %adjusted to the new plotting window
+onset_switch = onset_switch - round(thresh_delay/timestep,4);
 %cut down the data matrix to this window
 result_data = cellfun(@(x) x(:,plotting_window,:),result_data,'UniformOutput',false);
 
