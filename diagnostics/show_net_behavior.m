@@ -16,21 +16,13 @@ options = set_options('modeltype','diagnostics','comp_location','woodstock',...
     'noswitch_timeout',tmax);
 
 
-% %------test with stim found for network #X
-% do_net = 2;
-% options = get_network_params(do_net,options);
-% options.EtoE = .0405; %fixed
-% %both stims are now mixed ratio 
-% stim_mix = {'Estay','Eswitch'}; %both targets 
-% p_new = .2; %proportion alternate (new) stimulus
-% add_targ = ~strcmp(stim_mix,options.stim_targs{1});
-% options.stim_targs{2} = stim_mix{add_targ};
-% total_strength = options.trial_stimuli{1};
-% options.trial_stimuli{1} = total_strength .* (1-p_new);
-% options.trial_stimuli{2} = total_strength .* p_new;
+do_net = mod(options.jobID,10);
+options = get_network_params(do_net,options);
+options.EtoE = .0405; %fixed
 
 
-%options.trial_stimuli{1} = [0,0];
+
+
 %---run-----------------------
 exit_status = false;
 while ~exit_status
