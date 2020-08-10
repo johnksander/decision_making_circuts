@@ -13,7 +13,7 @@ Sname = 'test_nodata';
 tmax = 25;
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
     'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
-    'noswitch_timeout',tmax);
+    'noswitch_timeout',tmax+1);
 
 %------test with stim found for network #X
 do_net = 10; %fast net 5
