@@ -6,7 +6,7 @@ hold off;close all
 
 
 addpath('../')
-jobID = 2;
+jobID = 10;
 Sname = 'test_nodata';
 
 %---setup---------------------

@@ -6,24 +6,36 @@ hold off;close all
 
 
 addpath('../')
-jobID = 2;
-Sname = 'example_behavior';
+jobID = 13;
+Sname = 'test_nodata';
 
 %---setup---------------------
-tmax = 15;
+tmax = 25;
 options = set_options('modeltype','diagnostics','comp_location','woodstock',...
     'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
-    'noswitch_timeout',tmax,'cut_leave_state',tmax);
+    'noswitch_timeout',tmax);
 
-
-do_net = mod(options.jobID,10);
-do_net(do_net == 0) = 10;
+%------test with stim found for network #X
+do_net = 10; %fast net 5
 options = get_network_params(do_net,options);
 options.EtoE = .0405; %fixed
-options.trial_stimuli{1} = [0,0]; %no stimulus
+
+do_totals = 2; %[.5,1,2]; %do 50%, 100%, 200% total stimulus intensity 
+%stim_mod = randsample(do_totals,1); %set total intensity to (stim_mod * Rstim)
+stim_mod = do_totals;
+
+%both stims are now mixed ratio 
+stim_mix = {'Estay','Eswitch'}; %both targets 
+p_new = 0; %proportion alternate (new) stimulus
+add_targ = ~strcmp(stim_mix,options.stim_targs{1});
+options.stim_targs{2} = stim_mix{add_targ};
+total_strength = options.trial_stimuli{1};
+total_strength = total_strength .* stim_mod;
+options.trial_stimuli{1} = total_strength .* (1-p_new);
+options.trial_stimuli{2} = total_strength .* p_new;
 
 
-
+%options.trial_stimuli{1} = [0,0];
 %---run-----------------------
 exit_status = false;
 while ~exit_status
@@ -37,8 +49,6 @@ delete(options.output_log) %no need for these right now
 setenv('JID',num2str(jobID))
 setenv('SIM_NAME',Sname); %'diag_EtoIfixed'
 inspect
-
-fprintf('job finished\n');exit 
 
 %when you want this code again 
 % do_config = mod(options.jobID,10);

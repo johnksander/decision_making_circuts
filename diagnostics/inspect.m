@@ -12,7 +12,7 @@ jobID = str2num(getenv('JID'));
 sname = getenv('SIM_NAME'); %'diag_EtoIfixed'
 %my model
 %---setup---------------------
-options = set_options('modeltype','diagnostics','comp_location','woodstock','sim_name',sname,'jobID',jobID);
+options = set_options('modeltype','diagnostics','comp_location','bender','sim_name',sname,'jobID',jobID);
 
 
 fig_dir = fullfile(options.save_dir,options.sim_name);
