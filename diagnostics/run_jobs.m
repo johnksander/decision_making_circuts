@@ -1,11 +1,13 @@
 clear;clc
 format compact
 
+fprintf('%s:: starting...\n',datestr(now,31))
+
 test_nodata_a
-fprintf('finished job a\n')
+fprintf('%s:: finished job a\n',datestr(now,31))
 test_nodata_b
-fprintf('finished job b\n')
+fprintf('%s:: finished job b\n',datestr(now,31))
 test_nodata_c
-fprintf('finished job c\n')
+fprintf('%s:: finished job c\n',datestr(now,31))
 test_nodata_d
-fprintf('finished job d\n')
+fprintf('%s:: finished job d\n',datestr(now,31))
