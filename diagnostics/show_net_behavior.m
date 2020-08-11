@@ -2,52 +2,45 @@ clear
 clc
 format compact
 hold off;close all
-%investigating model behavior
+%show network characteristics
 
 
 addpath('../')
-jobID = 2;
 Sname = 'example_behavior';
 
-%---setup---------------------
-tmax = 15;
-options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
-    'noswitch_timeout',tmax,'cut_leave_state',tmax);
+jobs = 4:10:44; %do a few runs for slow net #2
 
+for idx = 1:numel(jobs)
+    
+    jobID = jobs(idx);
+    
+    %---setup---------------------
+    tmax = 25;
+    options = set_options('modeltype','diagnostics','comp_location','woodstock',...
+        'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
+        'noswitch_timeout',tmax,'cut_leave_state',tmax+1);
+    
+    do_net = mod(options.jobID,10);
+    do_net(do_net == 0) = 10;
+    options = get_network_params(do_net,options);
+    options.EtoE = .0405; %fixed
+    options.trial_stimuli{1} = [0,0]; %no stimulus
+    
+    %---run-----------------------
+    exit_status = false;
+    while ~exit_status
+        [modelfile,exit_status] = diag_model_lite(options);
+    end
+    %---cleanup-------------------
+    driverfile = mfilename;
+    backup_jobcode(options,driverfile,modelfile)
+    delete(options.output_log) %no need for these right now
+    
+    setenv('JID',num2str(options.jobID));
+    setenv('SIM_NAME',Sname);
+    inspect
+    
+    hold off;close all
 
-do_net = mod(options.jobID,10);
-do_net(do_net == 0) = 10;
-options = get_network_params(do_net,options);
-options.EtoE = .0405; %fixed
-options.trial_stimuli{1} = [0,0]; %no stimulus
-
-
-
-%---run-----------------------
-exit_status = false;
-while ~exit_status
-    [modelfile,exit_status] = diag_model_lite(options);
+    fprintf('job finished (JID = %i)\n',options.jobID)
 end
-%---cleanup-------------------
-driverfile = mfilename;
-backup_jobcode(options,driverfile,modelfile)
-delete(options.output_log) %no need for these right now
-
-setenv('JID',num2str(jobID))
-setenv('SIM_NAME',Sname); %'diag_EtoIfixed'
-inspect
-
-fprintf('job finished\n');exit 
-
-%when you want this code again 
-% do_config = mod(options.jobID,10);
-% do_config(do_config == 0) = 10;
-% options.EtoE = .0405; %fixed
-% options = get_network_params(do_config,options);
-
-%options.trial_stimuli(2) = options.trial_stimuli(2) * 2;
-% %adjust stimulus B strength
-% stim_mod = .5:.25:2; %just randomly sample mod weight, do enough it'll even out 
-% stim_mod = randsample(stim_mod,1);
-% options.trial_stimuli(2) = options.trial_stimuli(2) * stim_mod; %adjust stim B
