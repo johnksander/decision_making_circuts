@@ -8,17 +8,15 @@ hold off;close all
 addpath('../')
 Sname = 'example_behavior';
 
-jobs = 4:10:44; %do a few runs for slow net #2
+jobs = 14:10:44; %do a few runs for slow net #2
+tmax = 25;
 
 for idx = 1:numel(jobs)
     
-    jobID = jobs(idx);
-    
     %---setup---------------------
-    tmax = 25;
     options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-        'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
-        'noswitch_timeout',tmax,'cut_leave_state',tmax+1);
+        'sim_name',Sname,'jobID', jobs(idx),'tmax',tmax,'netpair_file','D2t-slower',...
+        'noswitch_timeout',tmax+1,'cut_leave_state',tmax);
     
     do_net = mod(options.jobID,10);
     do_net(do_net == 0) = 10;
@@ -26,21 +24,25 @@ for idx = 1:numel(jobs)
     options.EtoE = .0405; %fixed
     options.trial_stimuli{1} = [0,0]; %no stimulus
     
-    %---run-----------------------
-    exit_status = false;
-    while ~exit_status
-        [modelfile,exit_status] = diag_model_lite(options);
-    end
-    %---cleanup-------------------
-    driverfile = mfilename;
-    backup_jobcode(options,driverfile,modelfile)
-    delete(options.output_log) %no need for these right now
+    run_this_job(Sname,options)
     
-    setenv('JID',num2str(options.jobID));
-    setenv('SIM_NAME',Sname);
-    inspect
-    
-    hold off;close all
-
     fprintf('job finished (JID = %i)\n',options.jobID)
+    
+end
+
+function run_this_job(Sname,opt)
+%---run-----------------------
+exit_status = false;
+while ~exit_status
+    [modelfile,exit_status] = diag_model_lite(opt);
+end
+%---cleanup-------------------
+driverfile = mfilename;
+backup_jobcode(opt,driverfile,modelfile)
+delete(opt.output_log) %no need for these right now
+
+setenv('JID',num2str(opt.jobID));
+setenv('SIM_NAME',Sname);
+inspect
+hold off;close all
 end
