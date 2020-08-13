@@ -20,7 +20,8 @@ fontsz = 12;
 shift_start = 2; %plot starting x seconds into simulation data 
 cell_order = {'E-stay','E-switch','I-stay','I-switch'}; %plot these in order
 Npools = numel(cell_order);
-cell_cols = get(gca,'colororder');
+cell_fns = strrep(cell_order,'-',''); %for structure fieldnames 
+cell_cols = get(gca,'colororder');close all 
 cell_cols = cell_cols(1:Npools,:);
 cell_cols = num2cell(cell_cols,2);
 
@@ -57,44 +58,65 @@ if shift_start > 0
 end
 
 
-%we want a raster, D-fast, rate plot, D-slow (in subplot order)
-
-figure;subplot(2,2,1) %do the raster plot
- 
+%we want a raster, D-fast, rate plot, D-slow (in subplot order) 
 durr_spike = 20e-3; %how wide is each spike (duration, in seconds ) 
 raster = get_raster_img(spikes,timestep,durr_spike);
 
-%reorganize the cell groups
+%---for a black & white raster 
+% cmap = flipud(colormap('gray')); %set 1 to black, zero to white 
+
+%---for a color coded raster 
+%assign pool-specific spike indicies
+pool_inds = cell(Npools,1); %match the "cell order" here 
+pool_inds{1} = celltype.pool_stay & celltype.excit; %E-stay
+pool_inds{2} = celltype.pool_switch & celltype.excit; %E-switch
+pool_inds{3} = celltype.pool_stay & celltype.inhib; %I-stay
+pool_inds{4} = celltype.pool_switch & celltype.inhib; %I-switch
+for idx = 1:Npools
+    curr_cells = pool_inds{idx};
+    curr_data = raster(curr_cells,:);
+    curr_data(curr_data > 0) = idx; %assign spikes to index 
+    raster(curr_cells,:) = curr_data; %back into raster 
+end
+%colormap for raster
+cmap = cat(1,cell_cols{:}); %pool colors, in order 
+cmap = [cmap;ones(1,3)]; %add white for non-spikes
+raster(raster < 1) = Npools + 1; %now set non-spikes to the white color index 
+
+%reorganize the cell groups (for B&W or colored raster) 
 raster = [raster(celltype.pool_stay & celltype.excit,:);...
     raster(celltype.pool_switch & celltype.inhib,:);...
     raster(celltype.pool_switch & celltype.excit,:);...
     raster(celltype.pool_stay & celltype.inhib,:)];
+
+figure;subplot(2,2,1) %do the raster plot
 imagesc(raster)
-
-colormap(flipud(colormap('gray')));
-
-Xticks = num2cell(get(gca,'Xtick'));
+colormap(cmap)
+Xticks = get(gca,'Xtick');
+if Xticks(1) > 1 %doesn't start at 1 or zero
+    Xticks = [1,Xticks];
+    set(gca,'XTick',Xticks)
+end
+Xticks = num2cell(Xticks);
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 Xlabs = strrep(Xlabs,'.0','');
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-
 Yticks = num2cell(get(gca,'YLim'));
 Yticks = Yticks{2};
 Yticks = [Yticks*.25,Yticks*.75];
 Ylabs = {'stay pool','leave pool'};
 ytickangle(90)
 set(gca,'Xdir','normal','Ytick',Yticks,'YTickLabel', Ylabs);
-% set(gca,'Xdir','normal','Ytick',Yticks,'YTickLabel', {''});
-% text(-2e3,Yticks*.2,'E-stay','HorizontalAlignment','center','Rotation',90)
-% text(-2e3,Yticks*.45,'I-stay','HorizontalAlignment','center','Rotation',90)
-% text(-2e3,Yticks*.7,'E-switch','HorizontalAlignment','center','Rotation',90)
-% text(-2e3,Yticks*.95,'I-switch','HorizontalAlignment','center','Rotation',90)
-xlabel('seconds')
-%title({'spikes','(spikes in matrix enlarged for visualization)'})
+ax = gca;
+ax.YAxis.FontSize = fontsz; %for y-ticks (that the labels here) 
+ax.YAxis.FontWeight = 'b';
+xlabel('seconds','FontWeight','b')
+set(gca,'box','off');hold on %turn off box to remove upper/right ticks & add border back in
+border = linspace(min(get(gca,'xlim')),max(get(gca,'xlim')));
+plot(border,ones(size(border)),'color','k')
+border = linspace(min(get(gca,'ylim')),max(get(gca,'ylim')));
+plot(zeros(size(border))+max(get(gca,'xlim')),border,'color','k')
 set(gca,'FontSize',fontsz)
-
-%print(fullfile(fig_dir,'raster'),'-djpeg')
-
 
 
 %spikerates
@@ -104,18 +126,23 @@ window_sz = 100e-3;
 S = sim_windowrate(spikes,timestep,celltype,window_sz);
 
 %plot the aggregated timecourses
-keyboard
+
 hold on
 for idx = 1:Npools
-    fn = strrep(cell_order{idx},'-',''); %field name for structure
-    plot(S.(fn),'Linewidth',lnsz,'Color',cell_cols{idx})
+    plot(S.(cell_fns{idx}),'Linewidth',lnsz,'Color',cell_cols{idx})
 end
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 Xlabs = strrep(Xlabs,'.0','');
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-ylabel({'Mean pool spiking (Hz)'})
-xlabel('seconds')
+ylabel({'pool spiking (Hz)'},'Fontweight','b')
+xlabel('seconds','Fontweight','b')
+set(gca,'box','off');
+%hold on %turn off box to remove upper/right ticks & add border back in
+% border = linspace(min(get(gca,'xlim')),max(get(gca,'xlim')));
+% plot(border,ones(size(border)),'color','k')
+% border = linspace(min(get(gca,'ylim')),max(get(gca,'ylim')));
+% plot(zeros(size(border))+max(get(gca,'xlim')),border,'color','k')
 set(gca,'FontSize',fontsz)
 axP = get(gca,'Position');
 [lp, ~] = legend(cell_order,'FontWeight','b',...
@@ -133,38 +160,44 @@ valid_Drange = @(x) all(structfun(@max,x) < 1+eps) && all(structfun(@max,x) > 0-
 %plot the aggregated timecourses
 ax(1) = subplot(2,2,2);hold on
 for idx = 1:Npools
-    fn = strrep(cell_order{idx},'-',''); %field name for structure
-    plot(Dmu_fast.(fn),'Linewidth',lnsz,'Color',cell_cols{idx})
+    plot(Dmu_fast.(cell_fns{idx}),'Linewidth',lnsz,'Color',cell_cols{idx})
 end
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 Xlabs = strrep(Xlabs,'.0','');
 set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-ylabel({'Fast','depression'},'FontWeight','b')
-xlabel('seconds')
+ylabel('fast depression','FontWeight','b')%ylabel({'fast','depression'},'FontWeight','b')
+xlabel('seconds','FontWeight','b')
+set(gca,'box','off');
+%hold on %turn off box to remove upper/right ticks & add border back in
+% border = linspace(min(get(gca,'xlim')),max(get(gca,'xlim')));
+% plot(border,ones(size(border)),'color','k')
+% border = linspace(min(get(gca,'ylim')),max(get(gca,'ylim')));
+% plot(zeros(size(border))+max(get(gca,'xlim')),border,'color','k')
 set(gca,'FontSize',fontsz);hold off; %axis tight
 %if valid_Drange(Dmu_fast),ylim([0,1]);end
 ax(2) = subplot(2,2,4);hold on
-plot(Dmu_slow.Estay,'Linewidth',lnsz)
-plot(Dmu_slow.Eswitch,'Linewidth',lnsz)
-plot(Dmu_slow.Istay,'Linewidth',lnsz)
-plot(Dmu_slow.Iswitch,'Linewidth',lnsz)
+for idx = 1:Npools
+    plot(Dmu_slow.(cell_fns{idx}),'Linewidth',lnsz,'Color',cell_cols{idx})
+end
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
-set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
 Xlabs = strrep(Xlabs,'.0','');
-ylabel({'Slow','depression'},'FontWeight','b')
-xlabel('seconds')
+set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
+ylabel('slow depression','FontWeight','b')%ylabel({'slow','depression'},'FontWeight','b')
+xlabel('seconds','FontWeight','b')
+set(gca,'box','off');
+%hold on %turn off box to remove upper/right ticks & add border back in
+% border = linspace(min(get(gca,'xlim')),max(get(gca,'xlim')));
+% plot(border,ones(size(border)),'color','k')
+% border = linspace(min(get(gca,'ylim')),max(get(gca,'ylim')));
+% plot(zeros(size(border))+max(get(gca,'xlim')),border,'color','k')
 set(gca,'FontSize',fontsz); hold off; %axis tight
 %if valid_Drange(Dmu_slow),ylim([0,1]);end
 linkaxes(ax,'xy')
 
-
-map = [0.2 0.1 0.5 %each row is a color 
-    0.1 0.5 0.8
-    0.2 0.7 0.6
-    0.8 0.7 0.3
-    0.9 1 0];
+FN = fullfile(fig_dir,'network_characteristics.png');
+print(FN,'-dpng','-r600');       
 
 
 function cell_data = sim_spikerate(cell_raster,timestep,celltype)
