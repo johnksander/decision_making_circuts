@@ -18,10 +18,16 @@ options = set_options('modeltype','diagnostics','comp_location','bender','sim_na
 lnsz = 3;
 fontsz = 12;
 shift_start = 2; %plot starting x seconds into simulation data 
+cell_order = {'E-stay','E-switch','I-stay','I-switch'}; %plot these in order
+Npools = numel(cell_order);
+cell_cols = get(gca,'colororder');
+cell_cols = cell_cols(1:Npools,:);
+cell_cols = num2cell(cell_cols,2);
 
 %make a figure directory
 fig_dir = fullfile(options.save_dir,options.sim_name);
 if ~isdir(fig_dir),mkdir(fig_dir);end
+
 
 %create this stuff, not saved with data
 pool_options.num_cells = 250;
@@ -98,11 +104,12 @@ window_sz = 100e-3;
 S = sim_windowrate(spikes,timestep,celltype,window_sz);
 
 %plot the aggregated timecourses
+keyboard
 hold on
-plot(S.Estay,'Linewidth',lnsz)
-plot(S.Eswitch,'Linewidth',lnsz)
-plot(S.Istay,'Linewidth',lnsz)
-plot(S.Iswitch,'Linewidth',lnsz);%axis tight
+for idx = 1:Npools
+    fn = strrep(cell_order{idx},'-',''); %field name for structure
+    plot(S.(fn),'Linewidth',lnsz,'Color',cell_cols{idx})
+end
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 Xlabs = strrep(Xlabs,'.0','');
@@ -111,16 +118,13 @@ ylabel({'Mean pool spiking (Hz)'})
 xlabel('seconds')
 set(gca,'FontSize',fontsz)
 axP = get(gca,'Position');
-[lp, ~] = legend({'E-stay','E-switch','I-stay','I-switch'},'FontWeight','b',...
+[lp, ~] = legend(cell_order,'FontWeight','b',...
     'Location','northoutside','Box','off','Orientation','horizontal','FontSize',fontsz);
 set(gca, 'Position', axP)
 lp.Position = [(1-lp.Position(3))/2,1-lp.Position(4),lp.Position(3:4)];
 
+
 %one big legend over the whole joint.. 
-
-
-
-
 
 Dmu_fast = simple_pool_avg(Drec_fast,celltype);
 Dmu_slow = simple_pool_avg(Drec_slow,celltype);
@@ -128,10 +132,10 @@ valid_Drange = @(x) all(structfun(@max,x) < 1+eps) && all(structfun(@max,x) > 0-
 
 %plot the aggregated timecourses
 ax(1) = subplot(2,2,2);hold on
-plot(Dmu_fast.Estay,'Linewidth',lnsz)
-plot(Dmu_fast.Eswitch,'Linewidth',lnsz)
-plot(Dmu_fast.Istay,'Linewidth',lnsz)
-plot(Dmu_fast.Iswitch,'Linewidth',lnsz);
+for idx = 1:Npools
+    fn = strrep(cell_order{idx},'-',''); %field name for structure
+    plot(Dmu_fast.(fn),'Linewidth',lnsz,'Color',cell_cols{idx})
+end
 Xticks = num2cell(get(gca,'Xtick'));
 Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
 Xlabs = strrep(Xlabs,'.0','');
@@ -154,6 +158,13 @@ xlabel('seconds')
 set(gca,'FontSize',fontsz); hold off; %axis tight
 %if valid_Drange(Dmu_slow),ylim([0,1]);end
 linkaxes(ax,'xy')
+
+
+map = [0.2 0.1 0.5 %each row is a color 
+    0.1 0.5 0.8
+    0.2 0.7 0.6
+    0.8 0.7 0.3
+    0.9 1 0];
 
 
 function cell_data = sim_spikerate(cell_raster,timestep,celltype)
