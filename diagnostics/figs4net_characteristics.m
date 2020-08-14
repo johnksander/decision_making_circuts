@@ -11,19 +11,25 @@ addpath('../')
 
 %specify what results
 Sname = 'example_behavior';
-jobs = 3:10:43;
+jobs = 4:10:14;%4:10:44;
+%jobs = 444;
+
+%figure options
+lnsz = 2;
+fontsz = 12;
+shift_start = 2; %plot starting x seconds into simulation data
+Tmax_plot = 20; %0, or specify total plot duration (plot ends at Tmax_plot + shift_start)
+window_sz = 150e-3; %for averaging spikerates
 
 for j = 1:numel(jobs)
     
     close all
     
     options = set_options('modeltype','diagnostics','comp_location','woodstock',...
-    'sim_name',Sname,'jobID',jobs(j));
+        'sim_name',Sname,'jobID',jobs(j));
     
-    %figure options
-    lnsz = 3;
-    fontsz = 12;
-    shift_start = 2; %plot starting x seconds into simulation data
+    
+    
     cell_order = {'E-stay','E-switch','I-stay','I-switch'}; %plot these in order
     Npools = numel(cell_order);
     cell_fns = strrep(cell_order,'-',''); %for structure fieldnames
@@ -62,7 +68,15 @@ for j = 1:numel(jobs)
         Vrec = Vrec(:,start_ind:end);
         Srec = Srec(:,start_ind:end);
     end
-    
+    if Tmax_plot > 0
+        Tmax_ind = 1:round(Tmax_plot / timestep);
+        %now truncate
+        spikes = spikes(:,Tmax_ind);
+        Drec_fast = Drec_fast(:,Tmax_ind);
+        Drec_slow = Drec_slow(:,Tmax_ind);
+        Vrec = Vrec(:,Tmax_ind);
+        Srec = Srec(:,Tmax_ind);
+    end
     
     %we want a raster, D-fast, rate plot, D-slow (in subplot order)
     durr_spike = 20e-3; %how wide is each spike (duration, in seconds )
@@ -127,8 +141,6 @@ for j = 1:numel(jobs)
     
     
     
-    
-    window_sz = 100e-3;
     S = sim_windowrate(spikes,timestep,celltype,window_sz);
     
     %spikerates
@@ -137,6 +149,8 @@ for j = 1:numel(jobs)
     for idx = 1:Npools
         plot(S.(cell_fns{idx}),'Linewidth',lnsz,'Color',cell_cols{idx})
     end
+    Nobs = unique(structfun(@numel,S));
+    xlim([1,Nobs])
     Xticks = num2cell(get(gca,'Xtick'));
     Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
     Xlabs = strrep(Xlabs,'.0','');
@@ -168,6 +182,8 @@ for j = 1:numel(jobs)
     for idx = 1:Npools
         plot(Dmu_fast.(cell_fns{idx}),'Linewidth',lnsz,'Color',cell_cols{idx})
     end
+    Nobs = unique(structfun(@numel,Dmu_fast));
+    xlim([1,Nobs])
     Xticks = num2cell(get(gca,'Xtick'));
     Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
     Xlabs = strrep(Xlabs,'.0','');
@@ -185,6 +201,8 @@ for j = 1:numel(jobs)
     for idx = 1:Npools
         plot(Dmu_slow.(cell_fns{idx}),'Linewidth',lnsz,'Color',cell_cols{idx})
     end
+    Nobs = unique(structfun(@numel,Dmu_slow));
+    xlim([1,Nobs])
     Xticks = num2cell(get(gca,'Xtick'));
     Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
     Xlabs = strrep(Xlabs,'.0','');
@@ -200,6 +218,7 @@ for j = 1:numel(jobs)
     % plot(zeros(size(border))+max(get(gca,'xlim')),border,'color','k')
     linkaxes(ax,'xy')
     
+    fprintf('printing figure for %s\n',options.sim_name)
     FN = fullfile(fig_dir,'network_characteristics.png');
     print(FN,'-dpng','-r600');
 end
