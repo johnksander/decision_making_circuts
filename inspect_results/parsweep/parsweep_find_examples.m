@@ -265,7 +265,7 @@ for idx = 1:numel(X)
    HM_Y(idx) = netY(curr_coords);
 end
 
-figure(HM)
+figure(HM);set(gcf, 'renderer', 'painters')
 hold on
 %here's original red star marking
 %scatter(netX(HMcoords),netY(HMcoords),500,'red','p','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1);
@@ -279,7 +279,7 @@ net_plots.fast = Z < median(Z);
 net_plots.X = HM_X;
 net_plots.Y = HM_Y;
 mk_sz = 300;
-mk_ln = 5;
+mk_ln = 3;
 for idx = 1:numel(net_plots(:,1))
     if net_plots.fast(idx)
         scatter(net_plots.X(idx),net_plots.Y(idx),mk_sz,...

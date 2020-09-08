@@ -7,6 +7,7 @@ num_workers = 24; %for parfor loading results
 rescale_plane = 'on'; 
 mask_trimming = 'on'; 
 outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu' ||| 'E-rate' | 'I-rate'
+do_3dfig = 'no'; %yes/no
 
 %result summaries
 fontsz = 20;
@@ -20,13 +21,16 @@ Tmax = 300; %set a maximum duration for these plots
 Tmin = 1; %minimum duration 
 min_states = 1; %must have at least 1 state duration... 
 
-%Tmax = inf;Tmin = -inf;min_states = 0; 
-%warning('duration filers off for spike plots')
+switch outcome_stat
+    case {'E-rate','I-rate'}
+        Tmax = inf;Tmin = -inf;min_states = 0;
+        warning('duration filers off for spike plots')
+end
 
 %specify simulation
 %---sim setup-----------------
-sim_name = 'parsweep_D2t_very_slow_baseline';
-basedir = '/home/acclab/Desktop/ksander/rotation/project';
+sim_name = 'parsweep_D2t_very_slow_baseline'; %'parsweep_D2t-slower_spikerates';
+basedir = '~/Desktop/work/ACClab/rotation/project/';%'/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
 addpath(fullfile(basedir,'helper_functions'))
@@ -190,10 +194,10 @@ switch outcome_stat
         figdir = fullfile(figdir,'rates_inhib');
 end
 
-switch limit_prange
-    case 'yes'
-        figdir = fullfile(figdir,'trimmed_range');
-end
+% switch limit_prange
+%     case 'yes'
+%         figdir = fullfile(figdir,'trimmed_range');
+% end
 
 if ~isdir(figdir),mkdir(figdir);end
 
@@ -250,51 +254,53 @@ switch mask_trimming
         X(~mesh2keep) = NaN;Y(~mesh2keep) = NaN;Z(~mesh2keep) = NaN;
 end
 
-mesh(X,Y,Z,'FaceAlpha',plt_alph,'EdgeAlpha',plt_alph) 
-axis tight; hold on
-%these feel like they need to be slightly bigger 
-%scatter3(ItoE,EtoI,outcome,25,'black','filled','MarkerEdgeAlpha',1,'MarkerEdgeAlpha',1) %give them outlines
-scatter3(ItoE,EtoI,outcome,pointsz,'red','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1) 
-xlabel({'within-pool inhibition';'(I-to-E strength)'},'FontWeight','b')
-ylabel({'cross-pool inhibition';'(E-to-I strength)'},'FontWeight','b')
-zlabel(Zlabel,'FontWeight','b')
-set(gca,'FontSize',fontsz)
-view(-45,27)
-%view(-124,31)
-%view(0,90) %that looks good too
-hidden off
-rotate3d on
-%also see--
-%https://www.mathworks.com/help/matlab/math/interpolating-scattered-data.html#bsovi2t
-switch rescale_plane
-    case 'on'
-        Zlim = get(gca,'ZLim');
-        Zlim(1) = 0;
-        Zlim(2) = max(outcome);
-        set(gca,'ZLim',Zlim);
-        caxis(Zlim)
+switch do_3dfig
+    case 'yes'
+        mesh(X,Y,Z,'FaceAlpha',plt_alph,'EdgeAlpha',plt_alph)
+        axis tight; hold on
+        %these feel like they need to be slightly bigger
+        %scatter3(ItoE,EtoI,outcome,25,'black','filled','MarkerEdgeAlpha',1,'MarkerEdgeAlpha',1) %give them outlines
+        scatter3(ItoE,EtoI,outcome,pointsz,'red','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1)
+        xlabel({'within-pool inhibition';'(I-to-E strength)'},'FontWeight','b')
+        ylabel({'cross-pool inhibition';'(E-to-I strength)'},'FontWeight','b')
+        zlabel(Zlabel,'FontWeight','b')
+        set(gca,'FontSize',fontsz)
+        view(-45,27)
+        %view(-124,31)
+        %view(0,90) %that looks good too
+        hidden off
+        rotate3d on
+        %also see--
+        %https://www.mathworks.com/help/matlab/math/interpolating-scattered-data.html#bsovi2t
+        switch rescale_plane
+            case 'on'
+                Zlim = get(gca,'ZLim');
+                Zlim(1) = 0;
+                Zlim(2) = max(outcome);
+                set(gca,'ZLim',Zlim);
+                caxis(Zlim)
+        end
+        %savefig(fullfile(figdir,'surface_plot'))
+        %make it big
+        set(gcf,'units','normalized','outerposition',[0 0 .75 1])
+        %fix the labels
+        xh = get(gca,'XLabel'); % Handle of the x label
+        set(xh, 'Units', 'Normalized')
+        xh_pos = get(xh, 'Position');
+        %set(xh, 'Position',xh_pos+[-.05,.1,0],'Rotation',-24.5)
+        set(xh, 'Position',xh_pos+[.05,.1,0],'Rotation',20.5)
+        yh = get(gca,'YLabel'); % Handle of the y label
+        set(yh, 'Units', 'Normalized')
+        yh_pos = get(yh, 'Position');
+        %set(yh, 'Position',yh_pos+ [.1,.15,0],'Rotation',13)
+        set(yh, 'Position',yh_pos+ [-.075,.15,0],'Rotation',-19)
+        set(gcf,'Renderer','painters')
+        print(fullfile(figdir,'surface_plot'),'-djpeg','-r400')%print high-res
+        
+        %https://www.mathworks.com/matlabcentral/answers/41800-remove-sidewalls-from-surface-plots
+        savefig(gcf,fullfile(figdir,'surface_plot'),'compact')
+        %view(-24,24)
 end
-%savefig(fullfile(figdir,'surface_plot'))
-%make it big
-set(gcf,'units','normalized','outerposition',[0 0 .75 1])
-%fix the labels 
-xh = get(gca,'XLabel'); % Handle of the x label
-set(xh, 'Units', 'Normalized')
-xh_pos = get(xh, 'Position');
-%set(xh, 'Position',xh_pos+[-.05,.1,0],'Rotation',-24.5)
-set(xh, 'Position',xh_pos+[.05,.1,0],'Rotation',20.5)
-yh = get(gca,'YLabel'); % Handle of the y label
-set(yh, 'Units', 'Normalized')
-yh_pos = get(yh, 'Position');
-%set(yh, 'Position',yh_pos+ [.1,.15,0],'Rotation',13)
-set(yh, 'Position',yh_pos+ [-.075,.15,0],'Rotation',-19)
-set(gcf,'Renderer','painters')
-print(fullfile(figdir,'surface_plot'),'-djpeg','-r400')%print high-res
-
-%https://www.mathworks.com/matlabcentral/answers/41800-remove-sidewalls-from-surface-plots
-savefig(gcf,fullfile(figdir,'surface_plot'),'compact')
-%view(-24,24)
-
 figure
 hold off
 
@@ -370,19 +376,25 @@ HM = flipud(HM); %so y axis goes low EtoI to high
 
 colormap(parula)
 imagesc(HM,'AlphaData',~isnan(HM))
+set(gcf, 'renderer', 'painters')
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
 title('state durations')
-set(gca,'Fontsize',fontsz-4)
+set(gca,'Fontsize',fontsz)
 colb = colorbar;
-colb.Label.String = Zlabel(end);
-colb.FontSize = 16;
 switch outcome_stat
     case 'logmu'
         ticklabs = 10.^colb.Ticks; %in seconds
         ticklabs = cellfun(@(x) sprintf('%.0f',x),num2cell(ticklabs),'Uniformoutput',false);
         colb.TickLabels = ticklabs;
+    case 'E-rate'
+        title('excitatory cells')
+        %need to round the ticks, otherwise label is forced off figure 
+        colb.Ticks = min(floor(colb.Ticks)):1:max(ceil(colb.Ticks));
+    case 'I-rate'
+        title('inhibitory cells')
 end
+colb.Label.String = Zlabel(end);
 origXticks = get(gca,'Xtick');
 Xticks = P.ItoE(origXticks);
 Xlabs = cellfun(@(x) sprintf('%.1f',x),num2cell(Xticks),'UniformOutput', false);
@@ -395,10 +407,12 @@ Yticks = flip(P.EtoI);
 Yticks = Yticks(origYticks);
 Ylabs = cellfun(@(x) sprintf('%.2f',x),num2cell(Yticks),'UniformOutput', false);
 set(gca, 'YTickLabel', Ylabs')
-set(gca,'FontSize',fontsz-4)
+set(gca,'FontSize',fontsz)
 print(fullfile(figdir,'heatmap_nointerp'),'-djpeg','-r400')
 savefig(gcf,fullfile(figdir,'heatmap_nointerp'),'compact')
+save(fullfile(figdir,'heatmap_nointerp.mat'),'HM')
 hold off; close all
+
 
 
 
