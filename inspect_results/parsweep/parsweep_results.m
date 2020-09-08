@@ -30,6 +30,7 @@ basedir = '/home/acclab/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
 addpath(fullfile(basedir,'helper_functions'))
+sumFN = fullfile(resdir,'summary_file.mat');
 %output_fns = dir(fullfile(resdir,['*',sim_name,'*.mat']));
 output_fns = dir(fullfile(resdir,['*.mat'])); warning('loading all mat files in results directory')
 output_fns = cellfun(@(x,y) fullfile(x,y),{output_fns.folder},{output_fns.name},'UniformOutput',false);
@@ -40,80 +41,99 @@ file_data = cell(num_files,3);
 gen_options = load(output_fns{1});
 gen_options = gen_options.options;
 timestep = gen_options.timestep;
-%parfor stuff
-output_log = fullfile(resdir,'output_log.txt');
-special_progress_tracker = fullfile(resdir,'SPT.txt');close
-if exist(special_progress_tracker) > 0
-    delete(special_progress_tracker) %fresh start
-end
-c = parcluster('local');
-c.NumWorkers = num_workers;
-parpool(c,c.NumWorkers,'IdleTimeout',Inf)
-for idx = 1:num_files
-    %if mod(idx,1000) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
-    curr_file = load(output_fns{idx});
-    %store parameters
-    %file_data{idx,2} = curr_file.options;
-    %get state durations
-    state_durations = curr_file.sim_results;
-    state_durations = state_durations{1};
-    if ~isempty(state_durations) %this was for running a job with spikerate data only... 
-        %just get all of them, baseline test. Everything that's not undecided
-        valid_states = ~strcmpi(state_durations(:,end),'undecided');
-        %state.count recorded in second col
-        state_durations = state_durations(valid_states,2);
-        state_durations = cat(1,state_durations{:});
-        %convert to time
-        state_durations = state_durations * timestep;
-    else
-        state_durations = []; %empty cell breaks stuff downstream
+
+if exist(sumFN) == 0
+    %parfor stuff
+    output_log = fullfile(resdir,'output_log.txt');
+    special_progress_tracker = fullfile(resdir,'SPT.txt');
+    if exist(special_progress_tracker) > 0
+        delete(special_progress_tracker) %fresh start
     end
-    %ratecheck estimates
-    Rcheck = curr_file.sim_results{4};
-    %store durations, parameters, rate estimates
-    file_data(idx,:) = {state_durations,curr_file.options,Rcheck};
+    c = parcluster('local');
+    c.NumWorkers = num_workers;
+    parpool(c,c.NumWorkers,'IdleTimeout',Inf)
+    for idx = 1:num_files
+        %if mod(idx,1000) == 0,fprintf('working on file #%i/%i...\n',idx,num_files);end
+        curr_file = load(output_fns{idx});
+        %store parameters
+        %file_data{idx,2} = curr_file.options;
+        %get state durations
+        state_durations = curr_file.sim_results;
+        state_durations = state_durations{1};
+        if ~isempty(state_durations) %this was for running a job with spikerate data only...
+            %just get all of them, baseline test. Everything that's not undecided
+            valid_states = ~strcmpi(state_durations(:,end),'undecided');
+            %state.count recorded in second col
+            state_durations = state_durations(valid_states,2);
+            state_durations = cat(1,state_durations{:});
+            %convert to time
+            state_durations = state_durations * timestep;
+        else
+            state_durations = []; %empty cell breaks stuff downstream
+        end
+        %ratecheck estimates
+        Rcheck = curr_file.sim_results{4};
+        %store durations, parameters, rate estimates
+        file_data(idx,:) = {state_durations,curr_file.options,Rcheck};
+        
+        progress = worker_progress_tracker(special_progress_tracker);
+        if mod(progress,floor(num_files * .1)) == 0 %at 10 percent
+            progress = (progress / num_files) * 100;
+            message = sprintf('----%.1f percent complete',progress);
+            update_logfile(message,output_log)
+        end
+    end
+    delete(gcp('nocreate'))
     
-    progress = worker_progress_tracker(special_progress_tracker);
-    if mod(progress,floor(num_files * .1)) == 0 %at 10 percent
-        progress = (progress / num_files) * 100;
-        message = sprintf('----%.1f percent complete',progress);
-        update_logfile(message,output_log)
+    %search for jobs with identical parameters, collapse distributions
+    %get the randomized network parameters
+    job_params = cellfun(@(x)  [x.ItoE, x.EtoI],file_data(:,2),'UniformOutput',false);
+    job_params = vertcat(job_params{:});
+    uniq_params = unique(job_params,'rows');
+    num_jobs = size(uniq_params,1);
+    fprintf('----------------------\n')
+    fprintf('num jobs = %i\nunique parameter sets = %i\nduplicates = %i\n',num_files,num_jobs,num_files - num_jobs)
+    
+    %collapse duplicate job parameters
+    result_data = cell(num_jobs,3);
+    for idx = 1:num_jobs
+        %find all matching
+        curr_file = ismember(job_params,uniq_params(idx,:),'rows');
+        %collapse & reallocate
+        result_data{idx,1} = cell2mat(file_data(curr_file,1));
+        %just grab the first options file... that shouldn't matter here
+        result_data{idx,2} = file_data{find(curr_file,1),2};
+        %rate estimates
+        Rcheck_data = file_data(curr_file,3);
+        if sum(~cellfun(@isempty,Rcheck_data)) > 0
+            curr_rate.Erate = mean(cellfun(@(x) x.Erate,Rcheck_data));
+            curr_rate.Irate = mean(cellfun(@(x) x.Irate,Rcheck_data));
+            result_data{idx,3} = curr_rate;
+        end
     end
-end
-delete(gcp('nocreate'))
-
-%search for jobs with identical parameters, collapse distributions
-%get the randomized network parameters
-job_params = cellfun(@(x)  [x.ItoE, x.EtoI],file_data(:,2),'UniformOutput',false);
-job_params = vertcat(job_params{:});
-uniq_params = unique(job_params,'rows');
-num_jobs = size(uniq_params,1);
-fprintf('----------------------\n')
-fprintf('num jobs = %i\nunique parameter sets = %i\nduplicates = %i\n',num_files,num_jobs,num_files - num_jobs)
-
-%collapse duplicate job parameters
-result_data = cell(num_jobs,3);
-for idx = 1:num_jobs
-    %find all matching
-    curr_file = ismember(job_params,uniq_params(idx,:),'rows');
-    %collapse & reallocate
-    result_data{idx,1} = cell2mat(file_data(curr_file,1));
-    %just grab the first options file... that shouldn't matter here
-    result_data{idx,2} = file_data{find(curr_file,1),2};
-    %rate estimates
-    Rcheck_data = file_data(curr_file,3);
-    if sum(~cellfun(@isempty,Rcheck_data)) > 0
-        curr_rate.Erate = mean(cellfun(@(x) x.Erate,Rcheck_data));
-        curr_rate.Irate = mean(cellfun(@(x) x.Irate,Rcheck_data));
-        result_data{idx,3} = curr_rate;
+    
+    %save a big results file
+    data_sz = whos('result_data');
+    data_sz = data_sz.bytes / 1e6; %in MB
+    if data_sz > 300
+        fprintf('\nWARNING: summary file size = %.0f MB\n... summary file will not be saved\n',data_sz)
+    else
+        fprintf('\nsaving summary file...')
+        save(sumFN,'result_data','num_jobs')
+        fprintf('complete\n')
     end
+    
+else
+    fprintf('loading summary file data')
+    result_data = load(sumFN);
+    num_jobs = result_data.num_jobs;
+    result_data = result_data.result_data;
 end
 
 
 num_states = cellfun(@(x) numel(x),result_data(:,1));
 mu_time = cellfun(@(x) mean(x),result_data(:,1));
 fprintf('\n---jobs without data = %i\n',sum(num_states == 0))
-
 
 overmax = mu_time > Tmax;
 undermin = mu_time < Tmin;
@@ -158,7 +178,7 @@ switch outcome_stat
         figdir = fullfile(figdir,'med_duration');
     case 'logmu'
         outcome = cellfun(@(x) mean(log10(x+eps)),result_data(:,1));
-        Zlabel = {'mean stay duration';'log_{10}(s)'};
+        Zlabel = {'mean stay duration';'seconds (log scale)'};
         figdir = fullfile(figdir,'logmean_duration');
     case 'E-rate'
         outcome = cellfun(@(x) x.Erate,result_data(:,3));
@@ -184,18 +204,6 @@ EtoE = cellfun(@(x)  x.EtoE,result_data(~Tinvalid,2));
 ItoE = cellfun(@(x)  x.ItoE,result_data(~Tinvalid,2));
 EtoI = cellfun(@(x)  x.EtoI,result_data(~Tinvalid,2));
 num_jobs = numel(outcome);
-
-
-%save a big results file 
-data_sz = whos('result_data');
-data_sz = data_sz.bytes / 1e6; %in MB
-if data_sz > 300
-    fprintf('\nWARNING: summary file size = %.0f MB\n... summary file will not be saved\n',data_sz)
-else
-    fprintf('\nsaving summary file...')
-    save(fullfile(resdir,'summary_file'),'result_data')
-    fprintf('complete\n')
-end
 
 %surface plot
 figure
@@ -303,7 +311,7 @@ end
 imagesc(Z,'AlphaData',~isnan(Z))
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
-title('State durations')
+title('state durations')
 set(gca,'Fontsize',fontsz-4)
 colb = colorbar;
 colb.Label.String = Zlabel(end);
@@ -322,7 +330,7 @@ Yticks = Yticks(origYticks);
 Ylabs = cellfun(@(x) sprintf('%.2f',x),num2cell(Yticks),'UniformOutput', false);
 set(gca, 'YTickLabel', Ylabs')
 set(gca,'FontSize',fontsz-4)
-print(fullfile(figdir,'heatmap'),'-djpeg')
+print(fullfile(figdir,'heatmap'),'-djpeg','-r400')
 savefig(gcf,fullfile(figdir,'heatmap'),'compact')
 
 
@@ -364,11 +372,17 @@ colormap(parula)
 imagesc(HM,'AlphaData',~isnan(HM))
 xlabel('I-to-E strength')
 ylabel('E-to-I strength')
-title('State durations')
+title('state durations')
 set(gca,'Fontsize',fontsz-4)
 colb = colorbar;
 colb.Label.String = Zlabel(end);
 colb.FontSize = 16;
+switch outcome_stat
+    case 'logmu'
+        ticklabs = 10.^colb.Ticks; %in seconds
+        ticklabs = cellfun(@(x) sprintf('%.0f',x),num2cell(ticklabs),'Uniformoutput',false);
+        colb.TickLabels = ticklabs;
+end
 origXticks = get(gca,'Xtick');
 Xticks = P.ItoE(origXticks);
 Xlabs = cellfun(@(x) sprintf('%.1f',x),num2cell(Xticks),'UniformOutput', false);
@@ -382,7 +396,7 @@ Yticks = Yticks(origYticks);
 Ylabs = cellfun(@(x) sprintf('%.2f',x),num2cell(Yticks),'UniformOutput', false);
 set(gca, 'YTickLabel', Ylabs')
 set(gca,'FontSize',fontsz-4)
-print(fullfile(figdir,'heatmap_nointerp'),'-djpeg')
+print(fullfile(figdir,'heatmap_nointerp'),'-djpeg','-r400')
 savefig(gcf,fullfile(figdir,'heatmap_nointerp'),'compact')
 hold off; close all
 

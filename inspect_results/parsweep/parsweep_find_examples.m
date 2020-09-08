@@ -8,6 +8,7 @@ save_netfile = 'no'; %yes/no
 load_netfile = 'yes'; %will skip finding examples, load existing ones
 save_figs = 'yes';
 HMtype = 'grid'; %'grid' | 'interp'
+do_3dfig = 'no'; %yes/no
 
 %specify simulation
 %---sim setup-----------------
@@ -92,13 +93,15 @@ end
 
 hold off
 
-pause(1)
-SP = openfig(fullfile(figdir,'logmean_duration','surface_plot.fig'));pause(1);gcf
-hold on
-
-scatter3(ItoE(cand_nets),EtoI(cand_nets),state_dur(cand_nets),40,'black','filled',...
-    'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em
-
+switch do_3dfig
+    case 'yes'
+        pause(1)
+        SP = openfig(fullfile(figdir,'logmean_duration','surface_plot.fig'));pause(1);gcf
+        hold on
+        
+        scatter3(ItoE(cand_nets),EtoI(cand_nets),state_dur(cand_nets),40,'black','filled',...
+            'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em
+end
 % figure()
 % subplot(2,2,[1:2])
 % histogram(Sdurs(slow_nets))
@@ -238,14 +241,17 @@ Y = cellfun(@(x) x{:,'EtoI'},network_pairs,'UniformOutput',false);
 Z = cellfun(@(x) log10(x{:,'duration'}),network_pairs,'UniformOutput',false);
 X = cat(1,X{:});Y = cat(1,Y{:});Z = cat(1,Z{:});
 
-figure(SP) %return focus to this
-hold on
-
-scatter3(X,Y,Z,1000,'red','p','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em w/ stars
-hold off
-switch save_figs
+switch do_3dfig
     case 'yes'
-        print(fullfile(fig_out_dir,'surface_plot_examples'),'-djpeg','-r400')%print high-res
+        figure(SP) %return focus to this
+        hold on
+        
+        scatter3(X,Y,Z,1000,'red','p','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1); %mark 'em w/ stars
+        hold off
+        switch save_figs
+            case 'yes'
+                print(fullfile(fig_out_dir,'surface_plot_examples'),'-djpeg','-r400')%print high-res
+        end
 end
 %now for the heatmap
 
@@ -290,7 +296,7 @@ cb = colorbar();
 ticklabs = 10.^cb.Ticks; %in seconds
 ticklabs = cellfun(@(x) sprintf('%.0f',x),num2cell(ticklabs),'Uniformoutput',false);
 cb.TickLabels = ticklabs;
-cb.Label.String = 'Seconds (log scale)';
+cb.Label.String = 'seconds (log scale)';
 
 hold off
 switch save_figs
