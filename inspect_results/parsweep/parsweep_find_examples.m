@@ -3,22 +3,23 @@ clc
 format compact
 close all
 
-%this one matches by fast networks first 
-save_netfile = 'yes'; %yes/no
+%this one matches by fast networks first
+save_netfile = 'no'; %yes/no
+load_netfile = 'yes'; %will skip finding examples, load existing ones
 save_figs = 'yes';
-HMtype = 'interp'; %'grid' | 'interp'
+HMtype = 'grid'; %'grid' | 'interp'
 
 %specify simulation
 %---sim setup-----------------
-Flabel = 'D2t-slower'; %network pairs will be saved with this filename 
+Flabel = 'D2t-slower'; %network pairs will be saved with this filename
 sim_name = 'parsweep_D2t_very_slow_baseline';
-basedir = '~/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project'; %'~/Desktop/ksander/rotation/project';
 figdir = fullfile(basedir,'Results',['figures_' sim_name]);
 resdir = fullfile(basedir,'Results',sim_name);
 helper_dir = fullfile(basedir,'helper_functions');
 addpath(helper_dir)
 svdir = fullfile(helper_dir,'network_pairs');
-fig_out_dir = fullfile(figdir,'example_networks'); %where these figs get saved to 
+fig_out_dir = fullfile(figdir,'example_networks'); %where these figs get saved to
 if ~isdir(svdir),mkdir(svdir);end;if ~isdir(fig_out_dir),mkdir(fig_out_dir);end
 FN = fullfile(svdir,Flabel);
 
@@ -135,8 +136,8 @@ fastXY = cat(2,fastXY{:});
 
 
 minP = pdist2([0,0],fastXY)'; %was pdist2([0,0],slowXY)'
-minP = find(minP == min(minP)); %closest to origin 
-net_coords = fastXY(minP,:); %save this for next step 
+minP = find(minP == min(minP)); %closest to origin
+net_coords = fastXY(minP,:); %save this for next step
 fastP = fastP(minP,:);
 curr_net = ItoE == fastP(1) & EtoI == fastP(2);
 curr_net = find(curr_net);
@@ -144,8 +145,8 @@ center_pair{'fast','ItoE'} = ItoE(curr_net);
 center_pair{'fast','EtoI'} = EtoI(curr_net);
 center_pair{'fast','duration'} = Sdurs(curr_net);
 
-%minP = pdist2([0,0],fastXY)'; %can also do origin like above 
-minP = pdist2(net_coords,slowXY)'; %can also do origin like above 
+%minP = pdist2([0,0],fastXY)'; %can also do origin like above
+minP = pdist2(net_coords,slowXY)'; %can also do origin like above
 minP = find(minP == min(minP)); %closest to slow net
 slowP = slowP(minP,:);
 curr_net = ItoE == slowP(1) & EtoI == slowP(2);
@@ -185,8 +186,8 @@ for idx = 1:numel(p_types)
         pair_ind = pair_ind + 1;
         net_pair = array2table(NaN(2,3),'VariableNames',{'ItoE','EtoI','duration'},'RowNames',{'slow','fast'});
         
-        %find the fast network 
-        curr_RV = range_vals(RVidx); %where in the parameter space 
+        %find the fast network
+        curr_RV = range_vals(RVidx); %where in the parameter space
         if pair_ind == 2
             warning('hardcoded thing for D2t-slower right here...')
             curr_RV = .65;
@@ -223,8 +224,14 @@ for idx = 1:numel(p_types)
         network_pairs{pair_ind} = net_pair;
     end
 end
+%save the network pair data
+switch load_netfile
+    case 'yes'
+        network_pairs = load(FN);
+        network_pairs = network_pairs.network_pairs;
+end
 
-%mark pairs on the big figure 
+%mark pairs on the big figure
 
 X = cellfun(@(x) x{:,'ItoE'},network_pairs,'UniformOutput',false);
 Y = cellfun(@(x) x{:,'EtoI'},network_pairs,'UniformOutput',false);
@@ -242,14 +249,49 @@ switch save_figs
 end
 %now for the heatmap
 
-%need a logical showing all the networks you picked... 
+%need a logical showing all the networks you picked...
 HMcoords = [ItoE,EtoI];
-HMcoords = ismember(HMcoords,[X,Y],'rows');
+HM_X = NaN(size(X));
+HM_Y = NaN(size(X));
+for idx = 1:numel(X)
+   curr_coords = ismember(HMcoords,[X(idx),Y(idx)],'rows');
+   HM_X(idx) = netX(curr_coords);
+   HM_Y(idx) = netY(curr_coords);
+end
 
 figure(HM)
 hold on
+%here's original red star marking
+%scatter(netX(HMcoords),netY(HMcoords),500,'red','p','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1);
+%netX = netX(HMcoords); netY = netY(HMcoords);
+net_symbs = {'o','square','^','diamond','v'}; %closed for fast nets, open for slow nets
+net_symbs = repmat(net_symbs,2,1);
+net_symbs = net_symbs(:);
+net_plots = cell2table(cell(Npairs*2,4),'VariableNames',{'marker','fast','X','Y'});
+net_plots.marker = net_symbs;
+net_plots.fast = Z < median(Z);
+net_plots.X = HM_X;
+net_plots.Y = HM_Y;
+mk_sz = 300;
+mk_ln = 5;
+for idx = 1:numel(net_plots(:,1))
+    if net_plots.fast(idx)
+        scatter(net_plots.X(idx),net_plots.Y(idx),mk_sz,...
+            'red',net_plots.marker{idx},'filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1);
+    else
+        scatter(net_plots.X(idx),net_plots.Y(idx),mk_sz,...
+            'red',net_plots.marker{idx},'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1,...
+            'LineWidth',mk_ln);
+    end
+end
 
-scatter(netX(HMcoords),netY(HMcoords),500,'red','p','filled','MarkerFaceAlpha',1,'MarkerEdgeAlpha',1);
+%fix the colorbar axes
+cb = colorbar();
+ticklabs = 10.^cb.Ticks; %in seconds
+ticklabs = cellfun(@(x) sprintf('%.0f',x),num2cell(ticklabs),'Uniformoutput',false);
+cb.TickLabels = ticklabs;
+cb.Label.String = 'Seconds (log scale)';
+
 hold off
 switch save_figs
     case 'yes'
@@ -354,44 +396,44 @@ end
 %0.2119    0.6799    2.2800
 
 %make this into a data structure...
-% 
+%
 % %original --------------------
 % network_pairs = cell(5,1);
 % %...
 % network_pairs{1} = [{1.2904, 0.1948, 75, 'Eswitch'};
 %     {1.2877,  0.1734, 100, 'Estay'}];
-% 
+%
 % network_pairs{2} = [{0.8069, 0.2067, 49.7632, 'Eswitch'};
 %     {0.7936, 0.1878, 59.2903, 'Estay'}];
-% 
+%
 % network_pairs{3} = [{0.3679, 0.2737, 30.0436, 'Eswitch'};
 %     {0.3161, 0.2482, 175, 'Estay'}];
-% 
+%
 % network_pairs{4} = [{0.2800, 0.4228, 47.0955, 'Eswitch'};
 %     {0.2355, 0.4250, 175, 'Estay'}];
-% 
+%
 % network_pairs{5} =  [{0.2921, 0.6927, 45, 'Eswitch'};
 %     {0.2119, 0.6799, 175, 'Estay'}];
 % %end originial --------------------
-% 
+%
 % %now trying to equate------------------
 % %03212018: I'm just halfing each E-switch stim
 % network_pairs{1} = [{1.2904, 0.1948, 75/2, 'Eswitch'};
 %     {1.2877,  0.1734, 100, 'Estay'}];
-% 
+%
 % network_pairs{2} = [{0.8069, 0.2067, 49.7632/2, 'Eswitch'};
 %     {0.7936, 0.1878, 59.2903, 'Estay'}];
-% 
+%
 % network_pairs{3} = [{0.3679, 0.2737, 30.0436/2, 'Eswitch'};
 %     {0.3161, 0.2482, 175, 'Estay'}];
-% 
+%
 % network_pairs{4} = [{0.2800, 0.4228, 47.0955/2, 'Eswitch'};
 %     {0.2355, 0.4250, 175, 'Estay'}];
-% 
+%
 % network_pairs{5} =  [{0.2921, 0.6927, 45/2, 'Eswitch'};
 %     {0.2119, 0.6799, 175, 'Estay'}];
-% 
-% 
+%
+%
 % %---------------------------------------
 % durations = cell(5,1);
 % %...
@@ -399,14 +441,14 @@ end
 %     {2.1808}];
 % durations{2} = [{187.2613};
 %     {2.0959}];
-% 
+%
 % durations{3} = [{189.1735};
 %     {2.0199}];
-% 
+%
 % durations{4} = [{165.4364};
 %     {2.1626}];
-% 
+%
 % durations{5} =  [{179.6920};
 %     {2.2800}];
-% 
+%
 % save(fullfile(sv_dir,'network_pairs.mat'),'network_pairs','durations')
