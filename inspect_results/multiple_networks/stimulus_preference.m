@@ -11,7 +11,7 @@ opt = struct();
 opt.min_obs = 175; %min # of observations (states)
 opt.print_anything = 'no'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
-opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
+opt.outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
 opt.parfor_load = 'on'; %on/off, must also (un)comment the actual for... line
 opt.params2match = {'conn','stim'}; %!!!IMPORTANT!!! specify how results are matched to network types
@@ -22,9 +22,12 @@ Snames = {'nets_D2t-slower_pref'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
-basedir = '~/Desktop/ksander/rotation/project';
+basedir = '~/Desktop/work/ACClab/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
 
+
+make_my_figs(basedir,Snames{1},figdir{1},opt);
+return
 
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
@@ -222,7 +225,7 @@ num_pairs = 5;
 pair_inds = num2cell(reshape(1:num_net_types,[],num_pairs)); %just gives a cell array for pair indicies
 network_pair_info = cell(num_pairs,1);
 for idx = 1:num_pairs
-
+    
     curr_params = cellfun(@(x) get_network_params(x,gen_options),pair_inds(:,idx),'UniformOutput',false);
     switch opt.multiple_stimuli
         case 'yes'
@@ -426,7 +429,7 @@ end
 
 Ylab = 'p(x)';%Ylab = 'freq';
 
-figdir = fullfile(figdir,sprintf('Nmin_%i',opt.min_obs)); %include the min observation cutoff 
+figdir = fullfile(figdir,sprintf('Nmin_%i',opt.min_obs)); %include the min observation cutoff
 if ~isdir(figdir),mkdir(figdir);end
 
 matblue = [0,0.4470,0.7410];
@@ -444,7 +447,7 @@ for idx = 1:num_pairs
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
         hold on
-                
+        
         %find the right results for network set-up
         net_ind = curr_net_info{j,IDvars};
         net_ind = ismember(net_type{:,IDvars},net_ind,'rows');
@@ -493,7 +496,7 @@ for idx = 1:num_pairs
         %xlim([min(Xvals),max(Xvals)])
         legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
             sprintf('%s: varied','B')};
-                
+        
         sampling_change = curr_data{[1,size(curr_data,1)],{'data_A','data_B'}}; %beginning & end
         sampling_change = diff(sampling_change);
         %legend_labs = cellfun(@(x,y) [x '\newline\Deltay = ' sprintf('%.2f',y)],...
@@ -539,15 +542,13 @@ switch print_anything
         savefig(fullfile(figdir,fig_fn))
 end
 close all;figure;orient portrait
-%scatter plot 
+%scatter plot
 alph = .75;Msz = 75;
 Bcol = colormap('winter');Rcol = colormap('autumn');
 SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
 SPcells = {'slow','fast'};
-%markers = {'o','square','diamond','pentagram','hexagram'};
 markers = {'x','+','^','v','d'};
 for idx = 1:numel(SPcells)
-    %subplot(numel(SPcells),1,idx);hold on
     hold on
     curr_data = strcmp(SPdata.targ_cells,SPcells{idx});
     curr_data = SPdata(curr_data,:);
@@ -563,22 +564,48 @@ for idx = 1:numel(SPcells)
                 col = Rcol(col_idx,:);
         end
         
-        %scatter(this_net.X,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
-        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph)
-        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph,'Marker',markers{plt_idx})
         scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx},'Linewidth',1.25)
+        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph) %slightly different coloring/markers here
         axis tight
-        title(sprintf('Implicit Competition'),...
-            'FontWeight','bold','Fontsize',14)
-        %ylabel(Zlabel,'FontWeight','bold')
         
-        %xlabel('proportion of alternative stimulus','FontWeight','bold')
-        
-        xlabel(sprintf(['B - varied [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
-        ylabel(sprintf(['A - constant [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
+        switch outcome_stat
+            case 'logmu'
+                xlabel({'B - varied stimulus','sampling (log scale)'},'FontWeight','bold')
+                ylabel({'A - constant stimulus','sampling (log scale)'},'FontWeight','bold')
+            otherwise
+                xlabel(sprintf(['B - varied [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
+                ylabel(sprintf(['A - constant [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
+        end
     end
 end
 
+title(sprintf('Implicit Competition'),'FontWeight','bold','Fontsize',14)
+%         
+% set(gca,'FontSize',20)
+% Xtick = get(gca,'XTick');
+% Xtick = linspace(Xtick(1),Xtick(end),5);
+% set(gca,'XTick',Xtick)
+% Xtick = 10.^Xtick;
+% Xtick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Xtick),'UniformOutput',false);
+% Xtick = strrep(Xtick,'.0s','s');
+% Xtick = strrep(Xtick,'0.','.');
+% set(gca,'XTickLabel',Xtick);
+% 
+% Ytick = get(gca,'YTick');
+% Ytick = linspace(Ytick(1),Ytick(end),5);
+% set(gca,'YTick',Ytick)
+% Ytick = 10.^Ytick;
+% Ytick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Ytick),'UniformOutput',false);
+% Ytick = strrep(Ytick,'.0s','s');
+% Ytick = strrep(Ytick,'0.','.');
+% set(gca,'YTickLabel',Ytick);
+% 
+% legend(SPcells,'Box','off','Location','southwest','FontSize',20)
+% set(gcf,'Renderer','painters')
+% print('schwartzupdate_fig','-djpeg','-r400')
+
+
+%this is for the nice legend with all the different colors & symbols------
 lg_pos = legend(' ');
 if contains(lg_pos.Location,'east')
     make_lg = 'right';
@@ -601,11 +628,11 @@ lg_fz = 16; get_ax_val = @(p,x) p*range(x)+min(x);
 xlim(xlim + [-(range(xlim)*.015),(range(xlim)*.015)]); %extra room
 ylim(ylim + [-(range(ylim)*.015),(range(ylim)*.015)]);
 X = get_ax_val(X0,xlim);
-text(X,get_ax_val(Y0,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg) 
-text(X,get_ax_val(Y0-.1,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg) 
+text(X,get_ax_val(Y0,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg)
+text(X,get_ax_val(Y0-.1,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment',make_lg)
 %X = get_ax_val(.975,xlim);
-%text(X,get_ax_val(.5,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right') 
-%text(X,get_ax_val(.4,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right') 
+%text(X,get_ax_val(.5,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
+%text(X,get_ax_val(.4,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
 for plt_idx = 1:numel(curr_nets)
     col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
     %X = get_ax_val(.975-(plt_idx*.02),xlim);
@@ -613,14 +640,15 @@ for plt_idx = 1:numel(curr_nets)
     %scatter(X,get_ax_val(.35,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
     X = get_ax_val(X0+(plt_idx*move_pt),xlim);
     
-   % %regular w/ colors
-   % scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
-   % scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    % %regular w/ colors
+    % scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
+    % scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'filled','MarkerFaceAlpha',alph)
     
     %for symbols
     scatter(X,get_ax_val(Y0-.05,ylim),Msz,Bcol(col_idx,:),'Marker',markers{plt_idx})
     scatter(X,get_ax_val(Y0-.15,ylim),Msz,Rcol(col_idx,:),'Marker',markers{plt_idx})
 end
+%above for nice legend------
 
 set(gca,'FontSize',18)
 switch print_anything
