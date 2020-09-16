@@ -553,7 +553,8 @@ for idx = 1:numel(SPcells)
     curr_data = strcmp(SPdata.targ_cells,SPcells{idx});
     curr_data = SPdata(curr_data,:);
     curr_nets = unique(curr_data.net_index);
-    for plt_idx = 1:numel(curr_nets)
+    %for plt_idx = 1:numel(curr_nets)
+    for plt_idx = 2
         this_net = curr_data.net_index == curr_nets(plt_idx);
         this_net = curr_data(this_net,:);
         col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
@@ -564,8 +565,8 @@ for idx = 1:numel(SPcells)
                 col = Rcol(col_idx,:);
         end
         
-        scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx},'Linewidth',1.25)
-        %scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph) %slightly different coloring/markers here
+        %scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx},'Linewidth',1.25)
+        scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph) %slightly different coloring/markers here
         axis tight
         
         switch outcome_stat
@@ -579,31 +580,31 @@ for idx = 1:numel(SPcells)
     end
 end
 
-title(sprintf('Implicit Competition'),'FontWeight','bold','Fontsize',14)
-%         
-% set(gca,'FontSize',20)
-% Xtick = get(gca,'XTick');
-% Xtick = linspace(Xtick(1),Xtick(end),5);
-% set(gca,'XTick',Xtick)
-% Xtick = 10.^Xtick;
-% Xtick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Xtick),'UniformOutput',false);
-% Xtick = strrep(Xtick,'.0s','s');
-% Xtick = strrep(Xtick,'0.','.');
-% set(gca,'XTickLabel',Xtick);
-% 
-% Ytick = get(gca,'YTick');
-% Ytick = linspace(Ytick(1),Ytick(end),5);
-% set(gca,'YTick',Ytick)
-% Ytick = 10.^Ytick;
-% Ytick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Ytick),'UniformOutput',false);
-% Ytick = strrep(Ytick,'.0s','s');
-% Ytick = strrep(Ytick,'0.','.');
-% set(gca,'YTickLabel',Ytick);
-% 
-% legend(SPcells,'Box','off','Location','southwest','FontSize',20)
-% set(gcf,'Renderer','painters')
-% print('schwartzupdate_fig','-djpeg','-r400')
+%title(sprintf('Implicit Competition'),'FontWeight','bold','Fontsize',14)
+        
+set(gca,'FontSize',20)
+Xtick = get(gca,'XTick');
+Xtick = linspace(Xtick(1),Xtick(end),5);
+set(gca,'XTick',Xtick)
+Xtick = 10.^Xtick;
+Xtick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Xtick),'UniformOutput',false);
+Xtick = strrep(Xtick,'.0s','s');
+Xtick = strrep(Xtick,'0.','.');
+set(gca,'XTickLabel',Xtick);
 
+Ytick = get(gca,'YTick');
+Ytick = linspace(Ytick(1),Ytick(end),5);
+set(gca,'YTick',Ytick)
+Ytick = 10.^Ytick;
+Ytick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Ytick),'UniformOutput',false);
+Ytick = strrep(Ytick,'.0s','s');
+Ytick = strrep(Ytick,'0.','.');
+set(gca,'YTickLabel',Ytick);
+
+legend(SPcells,'Box','off','Location','southwest','FontSize',20)
+set(gcf,'Renderer','painters')
+print('schwartzupdate_fig','-djpeg','-r400')
+return
 
 %this is for the nice legend with all the different colors & symbols------
 lg_pos = legend(' ');

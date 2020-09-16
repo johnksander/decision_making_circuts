@@ -6,17 +6,17 @@ hold off;close all
 
 
 addpath('../')
-Sname = 'example_behavior';
+Sname = 'example_behavior_equated';
 
-jobs = 444; %do a few runs for slow net #2
+jobs = [3:13,4:14]; %do a few runs for slow net #2
 
 for idx = 1:numel(jobs)
     
     jobID = jobs(idx);
     
     %---setup---------------------
-    tmax = 10;
-    options = set_options('modeltype','diagnostics','comp_location','bender',...
+    tmax = 60;
+    options = set_options('modeltype','diagnostics','comp_location','woodstock',...
         'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
         'noswitch_timeout',tmax,'cut_leave_state',tmax+1);
     
@@ -24,7 +24,7 @@ for idx = 1:numel(jobs)
     do_net(do_net == 0) = 10;
     options = get_network_params(do_net,options);
     options.EtoE = .0405; %fixed
-    options.trial_stimuli{1} = [0,0]; %no stimulus
+    %options.trial_stimuli{1} = [0,0]; %no stimulus
     
     %---run-----------------------
     exit_status = false;
@@ -36,9 +36,10 @@ for idx = 1:numel(jobs)
     backup_jobcode(options,driverfile,modelfile)
     delete(options.output_log) %no need for these right now
     
-    setenv('JID',num2str(options.jobID));
-    setenv('SIM_NAME',Sname);
-    inspect
+    fprintf('skipping inspect() call!\n')
+    %setenv('JID',num2str(options.jobID));
+    %setenv('SIM_NAME',Sname);
+    %inspect
     
     hold off;close all
 
