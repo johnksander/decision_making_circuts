@@ -8,14 +8,14 @@ hold off;close all
 addpath('../')
 Sname = 'example_behavior_equated';
 
-jobs = [3:13,4:14]; %do a few runs for slow net #2
+jobs = [3,4]; %do a few runs for net #2
 
 for idx = 1:numel(jobs)
     
     jobID = jobs(idx);
     
     %---setup---------------------
-    tmax = 60;
+    tmax = 62;
     options = set_options('modeltype','diagnostics','comp_location','woodstock',...
         'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
         'noswitch_timeout',tmax,'cut_leave_state',tmax+1);
