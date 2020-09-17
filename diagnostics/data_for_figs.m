@@ -4,18 +4,19 @@ format compact
 hold off;close all
 %show network characteristics
 
+%HEY this calls figs4net_equated at the bottom 
 
 addpath('../')
 Sname = 'example_behavior_equated';
 
-jobs = [3,4,13,14]; %do a few runs for net #2
+jobs = sort([33:10:103,34:10:104]);
+tmax = 72;
 
 for idx = 1:numel(jobs)
     
     jobID = jobs(idx);
     
     %---setup---------------------
-    tmax = 62;
     options = set_options('modeltype','diagnostics','comp_location','woodstock',...
         'sim_name',Sname,'jobID',jobID,'tmax',tmax,'netpair_file','D2t-slower',...
         'noswitch_timeout',tmax);
@@ -45,3 +46,17 @@ for idx = 1:numel(jobs)
 
     fprintf('job finished (JID = %i)\n',options.jobID)
 end
+
+%run the figure-making code now 
+
+figs4net_equated
+
+
+
+
+
+
+
+
+
+

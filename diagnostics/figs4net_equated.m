@@ -11,12 +11,12 @@ addpath('../')
 
 %specify what results
 Sname = 'example_behavior_equated';
-jobs = [3,4]; %do a few runs for net #2
+jobs = sort([33:10:103,34:10:104]); %do a few runs for net #2
 
 %figure options
 lnsz = 2;
-fontsz = 12;
-shift_start = 2; %plot starting x seconds into simulation data
+fontsz = 36;
+shift_start = 12; %plot starting x seconds into simulation data
 Tmax_plot = 60; %0, or specify total plot duration (plot ends at Tmax_plot + shift_start)
 window_sz = 150e-3; %for averaging spikerates
 
@@ -55,8 +55,37 @@ for j = 1:numel(jobs)
     load(sprintf('%s_V',savename))
     load(sprintf('%s_spikes',savename))
     load(sprintf('%s_S',savename))
-    
     timestep = options.timestep; %easier var name
+    
+    %get average state duration.. this won't usually capture last state but it's close enough
+    durations = sim_results{1};
+    if ~isempty(durations)
+        %just get all of them, baseline test. Everything that's not undecided
+        valid_states = startsWith(durations(:,end),'stim');
+        if sum(valid_states) > 0
+            durations = cell2mat(durations(valid_states,1:2));
+            durations = durations * timestep;
+            timecourse = array2table(durations,'VariableNames',{'event_time','duration'});
+            timecourse.start = timecourse.event_time - timecourse.duration;
+            timecourse = timecourse(timecourse.event_time > shift_start,:);
+            timecourse = timecourse(timecourse.start > shift_start,:);
+            if shift_start > 0
+                trunc = timecourse.start < shift_start;
+                timecourse.duration(trunc) = timecourse.duration(trunc) - ...
+                    (shift_start - timecourse.start(trunc));
+            end
+            
+            if Tmax_plot > 0
+                timecourse = timecourse(timecourse.start <= Tmax_plot,:);
+                trunc = timecourse.event_time > Tmax_plot;
+                timecourse.duration(trunc) = timecourse.duration(trunc) - ...
+                    (timecourse.event_time(trunc) - Tmax_plot);
+            end
+            fprintf('------------------------\n')
+            disp(timecourse)
+            fprintf('\nmean state duration = %.2fs\n\n',mean(timecourse.duration))
+        end
+    end
     
     if shift_start > 0
         start_ind = round(shift_start / timestep);
@@ -108,7 +137,8 @@ for j = 1:numel(jobs)
     
     fprintf('printing figure for %s\n',options.sim_name)
     FN = fullfile(fig_dir,'spikerates_Eonly.png');
-    print(FN,'-dpng','-r600');   
+    print(FN,'-dpng','-r600');
+    savefig(gcf,strrep(FN,'.png',''),'compact')
 end
 
 function cell_data = sim_spikerate(cell_raster,timestep,celltype)
