@@ -9,7 +9,7 @@ hold off;close all
 addpath('../')
 Sname = 'example_behavior_equated';
 
-jobs = sort([33:10:103,34:10:104]);
+jobs = sort([113:10:193,114:10:194]);
 tmax = 72;
 
 for idx = 1:numel(jobs)

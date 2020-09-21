@@ -11,11 +11,11 @@ addpath('../')
 
 %specify what results
 Sname = 'example_behavior_equated';
-jobs = sort([33:10:103,34:10:104]); %do a few runs for net #2
+jobs = sort([113:10:193,114:10:194]); %do a few runs for net #2
 
 %figure options
 lnsz = 2;
-fontsz = 36;
+fontsz = 20;
 shift_start = 12; %plot starting x seconds into simulation data
 Tmax_plot = 60; %0, or specify total plot duration (plot ends at Tmax_plot + shift_start)
 window_sz = 150e-3; %for averaging spikerates
