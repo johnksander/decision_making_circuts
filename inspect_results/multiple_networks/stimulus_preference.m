@@ -580,29 +580,6 @@ for idx = 1:numel(SPcells)
 end
 
 title(sprintf('Implicit Competition'),'FontWeight','bold','Fontsize',14)
-%         
-% set(gca,'FontSize',20)
-% Xtick = get(gca,'XTick');
-% Xtick = linspace(Xtick(1),Xtick(end),5);
-% set(gca,'XTick',Xtick)
-% Xtick = 10.^Xtick;
-% Xtick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Xtick),'UniformOutput',false);
-% Xtick = strrep(Xtick,'.0s','s');
-% Xtick = strrep(Xtick,'0.','.');
-% set(gca,'XTickLabel',Xtick);
-% 
-% Ytick = get(gca,'YTick');
-% Ytick = linspace(Ytick(1),Ytick(end),5);
-% set(gca,'YTick',Ytick)
-% Ytick = 10.^Ytick;
-% Ytick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Ytick),'UniformOutput',false);
-% Ytick = strrep(Ytick,'.0s','s');
-% Ytick = strrep(Ytick,'0.','.');
-% set(gca,'YTickLabel',Ytick);
-% 
-% legend(SPcells,'Box','off','Location','southwest','FontSize',20)
-% set(gcf,'Renderer','painters')
-% print('schwartzupdate_fig','-djpeg','-r400')
 
 
 %this is for the nice legend with all the different colors & symbols------
@@ -653,7 +630,8 @@ end
 set(gca,'FontSize',18)
 switch print_anything
     case 'yes'
-        print(fullfile(figdir,[fig_fn '-scatter']),'-djpeg')
+        set(gcf,'Renderer','painters')
+        print(fullfile(figdir,[fig_fn '-scatter']),'-djpeg''-r400')
         savefig(fullfile(figdir,[fig_fn '-scatter']))
 end
 

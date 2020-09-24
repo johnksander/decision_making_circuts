@@ -9,7 +9,7 @@ hold off;close all
 
 opt = struct();
 opt.min_obs = 175; %min # of observations (states)
-opt.print_anything = 'no'; %'yes' | 'no';
+opt.print_anything = 'yes'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
 opt.outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
@@ -536,11 +536,11 @@ switch outcome_stat
         %axis tight
 end
 
-switch print_anything
-    case 'yes'
-        print(fullfile(figdir,fig_fn),'-djpeg')
-        savefig(fullfile(figdir,fig_fn))
-end
+% switch print_anything
+%     case 'yes'
+%         print(fullfile(figdir,fig_fn),'-djpeg')
+%         savefig(fullfile(figdir,fig_fn))
+% end
 close all;figure;orient portrait
 %scatter plot
 alph = .75;Msz = 75;
@@ -571,8 +571,8 @@ for idx = 1:numel(SPcells)
         
         switch outcome_stat
             case 'logmu'
-                xlabel({'B - varied stimuli','sampling (log scale)'},'FontWeight','bold')
-                ylabel({'A - constant stimuli','sampling (log scale)'},'FontWeight','bold')
+                xlabel({'B - varied stimuli','sampling time (log scale)'},'FontWeight','bold')
+                ylabel({'A - constant stimuli','sampling time (log scale)'},'FontWeight','bold')
             otherwise
                 xlabel(sprintf(['B - varied [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
                 ylabel(sprintf(['A - constant [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
@@ -601,10 +601,106 @@ Ytick = strrep(Ytick,'.0s','s');
 Ytick = strrep(Ytick,'0.','.');
 set(gca,'YTickLabel',Ytick);
 
-legend(SPcells,'Box','off','Location','southwest','FontSize',20)
-set(gcf,'Renderer','painters')
-print('schwartzupdate_fig','-djpeg','-r400')
-return
+[~,hobj] = legend(strcat(SPcells,' network'),'Box','off','Location','southwest','FontSize',20);
+ll = findobj(hobj,'type','patch');
+set(ll,'MarkerSize',sqrt(Msz),'FaceAlpha',alph);
+
+switch print_anything
+    case 'yes'
+        set(gcf,'Renderer','painters')
+        print('schwartzupdate_fig','-djpeg','-r400')
+end
+
+%just print two seperate figs, way easier 
+%do line plot for this network as well 
+h = [];
+plt_idx = 0;
+figure;set(gcf,'Renderer','painters')
+scr = get( groot,'Screensize');
+fwid = 1000;
+pos = [1,scr(3),fwid,fwid*.4];
+set(gcf,'Position',pos);
+for idx = 2
+    
+    curr_net_info = network_pair_info{idx};
+    for j = 2:-1:1 %match the fast, slow ordering in other figures...       
+            
+        plt_idx = plt_idx + 1;
+        h(plt_idx) = subplot(1,2,plt_idx);
+        hold on
+        
+        %find the right results for network set-up
+        net_ind = curr_net_info{j,IDvars};
+        net_ind = ismember(net_type{:,IDvars},net_ind,'rows');
+        curr_data = result_data(net_ind,1);
+        
+        switch outcome_stat
+            case 'mu'
+                statfunc = @mean;
+            case 'med'
+                statfunc = @median;
+            case 'logmu'
+                %protect against inf errors too
+                statfunc = @(x) mean(log10(x(x~=0)));
+            case 'logmed'
+                statfunc = @(x) median(log10(x(x~=0)));
+        end
+        
+        curr_data = cellfun(@(x) varfun(statfunc,x,'InputVariables','data',...
+            'GroupingVariables','state') ,curr_data,'UniformOutput',false);
+        curr_data = cellfun(@(x) x(:,[1,size(x,2)]),curr_data,'UniformOutput',false);
+        curr_data = cellfun(@(x) array2table(x{:,size(x,2)}','Variablenames',strrep(x.state,'stim','data')),...
+            curr_data,'UniformOutput',false); %turn into 1 x 2 table w/ stim A/B as varnames
+        curr_data = cat(1,curr_data{:});
+        %now take the net info as well, so it's easy
+        curr_data = [net_type(net_ind,:),curr_data];
+        curr_data = sortrows(curr_data,'stim_B'); %sort by alternate stim strength
+        
+        base_stim = curr_net_info.stim_A(j);
+        Xvals = curr_data.stim_B ./ base_stim;
+        
+        plot(Xvals,curr_data.data_A,'LineWidth',3)
+        hold on
+        plot(Xvals,curr_data.data_B,'LineWidth',3)
+        %xlim([min(Xvals),max(Xvals)])
+        %legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
+        %    sprintf('%s: varied','B')};
+        %legend_labs = {'A - constant stimuli','B - varied stimuli'};
+        
+        %         sampling_change = curr_data{[1,size(curr_data,1)],{'data_A','data_B'}}; %beginning & end
+        %         sampling_change = diff(sampling_change);
+        %         %legend_labs = cellfun(@(x,y) [x '\newline\Deltay = ' sprintf('%.2f',y)],...
+        %         %    legend_labs,num2cell(sampling_change),'UniformOutput',false);
+        %         legend_labs = cellfun(@(x,y) [x ' (\Deltay = ' sprintf('%.2f)',y)],...
+        %             legend_labs,num2cell(sampling_change),'UniformOutput',false);
+
+        legend_labs = {'A - constant stimuli','B - varied stimuli'};
+        legend(legend_labs,'Location','northwest','Box','off')
+        
+        axis tight
+        
+        xlabel('B / A ','FontWeight','bold')
+        switch outcome_stat
+            case 'logmu'
+                ylabel('seconds (log scale)','FontWeight','bold')
+            otherwise
+                ylabel(Zlabel,'FontWeight','bold')
+        end
+        title(sprintf('%s network',curr_net_info.Row{j}),'FontWeight','bold')
+        set(gca,'FontSize',20)
+
+    end
+end
+linkaxes(h,'y')
+
+switch print_anything
+    case 'yes'
+        set(gcf,'Renderer','painters')
+        print('fig6-line_data','-djpeg','-r400')
+end
+
+
+
 
 %this is for the nice legend with all the different colors & symbols------
 lg_pos = legend(' ');
