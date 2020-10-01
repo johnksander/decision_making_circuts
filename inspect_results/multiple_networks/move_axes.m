@@ -49,18 +49,15 @@ for fidx = 1:numel(fns)
     if idx == 1
         title('fast network','FontWeight','b','FontSize',fz+2)
     end
-    
+    set(gca,'TickLabelInterpreter','latex')
     if fidx == 1
         Xtick = get(gca,'XTickLabel');
-        Xtick = strrep(Xtick,'.','');
-        Xtick = strrep(Xtick,'/',':');
-        set(gca, 'XTicklabel',Xtick);
-        xlabel('aversive : hedonic')
         curr_Xtick = get(gca,'XTick');
         if numel(curr_Xtick) ~= numel(oldax.XTick) %errgghh
             set(gca,'XTick',oldax.XTick)
             set(gca,'XTickLabel',Xtick)
         end
+        xlabel('aversive / hedonic')
     else
         xlabel('aversive - hedonic')
     end
@@ -93,17 +90,17 @@ for fidx = 1:numel(fns)
         title('slow network','FontWeight','b','FontSize',fz+2)
     end
     
+    set(gca,'TickLabelInterpreter','latex')
+    %setting the interpreter to latex seems to default "x/y" tick labels to
+    %the nicefrac{} latex format, so that's nice.
     if fidx == 1
         Xtick = get(gca,'XTickLabel');
-        Xtick = strrep(Xtick,'.','');
-        Xtick = strrep(Xtick,'/',':');
-        set(gca, 'XTicklabel',Xtick);
-        xlabel('aversive : hedonic')
         curr_Xtick = get(gca,'XTick');
         if numel(curr_Xtick) ~= numel(oldax.XTick) %errgghh
             set(gca,'XTick',oldax.XTick)
             set(gca,'XTickLabel',Xtick)
         end
+        xlabel('aversive / hedonic')
     else
         xlabel('aversive - hedonic')
     end
@@ -122,6 +119,16 @@ print('stim_mixture_results','-djpeg','-r400')
 
 
 
+% Xtick = get(gca,'XTickLabel');
+% Xtick = strrep(Xtick,'.','');
+% Xtick = strrep(Xtick,'/',':');
+% set(gca, 'XTicklabel',Xtick);
+% xlabel('aversive : hedonic')
+% curr_Xtick = get(gca,'XTick');
+% if numel(curr_Xtick) ~= numel(oldax.XTick) %errgghh
+%     set(gca,'XTick',oldax.XTick)
+%     set(gca,'XTickLabel',Xtick)
+% end
 
 
 
@@ -129,7 +136,7 @@ print('stim_mixture_results','-djpeg','-r400')
 %Xtick = get(gca,'XTickLabel');
 %Xtick = strrep(Xtick,'.','');
 %Xtick = cellfun(@(x) strsplit(x,'/'),Xtick,'UniformOutput',false);
-%Xtick = cellfun(@(x) sprintf('$\\frac{%s}{%s}$',x{1},x{2}),Xtick,'UniformOutput',false);
+%Xtick = cellfun(@(x) sprintf('$\\nicefrac{%s}{%s}$',x{1},x{2}),Xtick,'UniformOutput',false);
 
 
 
