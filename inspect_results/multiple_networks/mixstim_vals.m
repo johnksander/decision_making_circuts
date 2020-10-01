@@ -4,6 +4,8 @@ format compact
 
 
 
+basedir = '~/Desktop/work/ACClab/rotation/project';
+addpath(basedir)
 
 %my model 
 %---setup---------------------
@@ -62,17 +64,20 @@ stim_vals.ratio = min(AB,[],2) ./ max(AB,[],2);
 
 fz = 16;
 close all
-figure;orient tall;subplot(2,1,1)
+figure;
+orient tall;
+subplot(2,1,1)
 scatter(stim_vals.A,stim_vals.B,'filled');
-ylabel('stimulus A (Hz)');xlabel('stimulus B (Hz)')
+ylabel('hedonic (Hz)');xlabel('aversive (Hz)')
 set(gca,'FontSize',fz,'FontWeight','b')
+axis square
 subplot(2,1,2)
 scatter(stim_vals.ratio,stim_vals.difference,'filled');
 ylabel('stimulus difference');xlabel('stimulus ratio')
 set(gca,'FontSize',fz,'FontWeight','b')
-
-print('stim_info','-djpeg')
-
+axis square
+set(gcf,'Renderer','painters')
+print('stim_info','-djpeg','-r400')
 
 
 % 

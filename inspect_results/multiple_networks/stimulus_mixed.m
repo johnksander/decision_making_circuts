@@ -9,7 +9,7 @@ hold off;close all
 
 opt = struct();
 opt.min_obs = 175; %min # of observations (states)
-opt.print_anything = 'yes'; %'yes' | 'no';
+opt.print_anything = 'no'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
 opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
