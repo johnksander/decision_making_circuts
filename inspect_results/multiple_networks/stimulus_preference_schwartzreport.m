@@ -546,8 +546,9 @@ close all;figure;orient portrait
 alph = .75;Msz = 75;
 Bcol = colormap('winter');Rcol = colormap('autumn');
 SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
-SPcells = {'slow','fast'};
+SPcells = {'fast','slow'};
 markers = {'x','+','^','v','d'};
+
 for idx = 1:numel(SPcells)
     hold on
     curr_data = strcmp(SPdata.targ_cells,SPcells{idx});
@@ -559,14 +560,17 @@ for idx = 1:numel(SPcells)
         this_net = curr_data(this_net,:);
         col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
         switch SPcells{idx}
-            case 'slow'
-                col = Bcol(col_idx,:);
-            case 'fast'
-                col = Rcol(col_idx,:);
+           case 'slow'
+               %col = Bcol(col_idx,:);
+               col = matorange;
+           case 'fast'
+               %col = Rcol(col_idx,:);
+               col = matblue;
         end
         
         %scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx},'Linewidth',1.25)
         scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph) %slightly different coloring/markers here
+
         axis tight
         
         switch outcome_stat
@@ -608,7 +612,7 @@ set(ll,'MarkerSize',sqrt(Msz),'FaceAlpha',alph);
 switch print_anything
     case 'yes'
         set(gcf,'Renderer','painters')
-        print('schwartzupdate_fig','-djpeg','-r400')
+        print('fig5-preference_data','-djpeg','-r600') %schwartzupdate_fig
 end
 
 %just print two seperate figs, way easier 
@@ -659,9 +663,18 @@ for idx = 2
         base_stim = curr_net_info.stim_A(j);
         Xvals = curr_data.stim_B ./ base_stim;
         
-        plot(Xvals,curr_data.data_A,'LineWidth',3)
+        switch curr_net_info.Row{j}
+            case 'slow'
+                %col = Bcol(col_idx,:);
+                col = matorange;
+            case 'fast'
+                %col = Rcol(col_idx,:);
+                col = matblue;
+        end
+        
+        plot(Xvals,curr_data.data_A,'LineWidth',3,'Color',col)
         hold on
-        plot(Xvals,curr_data.data_B,'LineWidth',3)
+        plot(Xvals,curr_data.data_B,'LineWidth',3,'Color',col,'LineStyle','--')
         %xlim([min(Xvals),max(Xvals)])
         %legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
         %    sprintf('%s: varied','B')};
@@ -696,7 +709,7 @@ linkaxes(h,'y')
 switch print_anything
     case 'yes'
         set(gcf,'Renderer','painters')
-        print('fig6-line_data','-djpeg','-r400')
+        print('fig6-line_data','-djpeg','-r600')
 end
 
 
