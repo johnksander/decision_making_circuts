@@ -690,7 +690,15 @@ for idx = 2
         legend_labs = {'A - constant stimuli','B - varied stimuli'};
         legend(legend_labs,'Location','northwest','Box','off')
         
+        
+        
         axis tight
+        %         switch curr_net_info.Row{j}
+        %             case 'slow'
+        %                 xlim([0,5])
+        %         end
+        %
+        
         
         xlabel('B / A ','FontWeight','bold')
         switch outcome_stat

@@ -304,6 +304,7 @@ switch save_figs
         switch HMtype
             case 'grid'
                 print(fullfile(fig_out_dir,'heatmap_nointerp_examples'),'-djpeg','-r400')%print high-res
+                savefig(fullfile(fig_out_dir,'heatmap_nointerp_examples'))
             case 'interp'
                 print(fullfile(fig_out_dir,'heatmap_examples'),'-djpeg','-r400')%print high-res
         end
