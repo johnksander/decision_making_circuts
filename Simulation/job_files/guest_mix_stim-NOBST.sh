@@ -6,8 +6,8 @@
 #SBATCH --account=paul-lab
 #SBATCH --partition=guest-compute
 #SBATCH --qos=low
-#SBATCH -o /dev/null  #or log_parsweep_%A_%a.out
-#SBATCH -e /dev/null
+#SBATCH -o logs/log_parsweep_%A_%a.out
+#SBATCH -e logs/log_parsweep_%A_%a.err
 
 
 cd /work/jksander/rotation/Simulation/
