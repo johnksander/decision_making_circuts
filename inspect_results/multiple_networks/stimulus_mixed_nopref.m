@@ -19,7 +19,7 @@ opt.Xax = 'diff'; %'diff' or 'ratio'
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
-Snames = {'nets_mixstim'};
+Snames = {'nets_mixstim-NOBSTEST'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 

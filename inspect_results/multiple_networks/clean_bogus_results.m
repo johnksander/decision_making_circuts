@@ -2,9 +2,9 @@ clear
 clc
 format compact
 
-%this must be parfored... too many files 
+%this must be parfored... too many files
 
-Snames = {'nets_D2t-slower_spikedata'}; %Snames = {'nets_fastD','nets_slowD'};
+Snames = {'nets_mixstim-NOBSTEST'}; %Snames = {'nets_fastD','nets_slowD'};
 
 basedir = '/home/acclab/Desktop/ksander/rotation/project';
 addpath(fullfile(basedir,'helper_functions'))
@@ -42,6 +42,9 @@ parfor idx = 1:num_files
     %get state durations
     try
         state_durations = curr_file.sim_results;
+        %--plus these steps now
+        state_durations = state_durations{1};
+        [state_durations,Sinfo] = find_stay_durations(state_durations,curr_file.options,'verify');
     catch
         
         delete(output_fns{idx})
