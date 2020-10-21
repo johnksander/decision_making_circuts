@@ -1,4 +1,4 @@
-lclear
+toclear
 clc
 format compact
 hold off;close all

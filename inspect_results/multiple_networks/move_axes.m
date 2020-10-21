@@ -1,6 +1,8 @@
 clear; clc
 format compact; close all
 
+%this takes one network pair out of the larger figure and replots by itself
+
 basedir = '~/Desktop/work/ACClab/rotation/project';
 redir = fullfile(basedir,'Results/figures_nets_mixstim/durations/Nmin_250');
 fns = {'nets_mixstim_total_time_log.fig','nets_mixstim_total_time_log_diff.fig'};
