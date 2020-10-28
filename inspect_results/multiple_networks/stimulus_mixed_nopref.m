@@ -1,5 +1,4 @@
-toclear
-clc
+clear;clc
 format compact
 hold off;close all
 %note: if you ever wana make this nice... make a single function for
