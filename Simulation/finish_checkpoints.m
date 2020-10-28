@@ -1,35 +1,47 @@
-clear 
+clear
 clc
-format compact 
+format compact
 
 
 
 
-%my model 
+%my model
 %---setup---------------------
 jID = str2double([getenv('SLURM_JOBID'), getenv('SLURM_ARRAY_TASK_ID')]);
-t = 1500; %trial simulation time (s) 
+t = 1500; %trial simulation time (s)
 
 options = set_options('modeltype','NETS','comp_location','hpc',...
-    'sim_name','nets_mixstim-NOBSTEST','jobID',jID,'tmax',t,...
+    'sim_name','nets_mixstim-NOBSTEST-THR01','jobID',jID,'tmax',t,...
     'netpair_file','D2t-slower','noswitch_timeout',t,...
-    'no_dominance_timeout',t);
+    'no_dominance_timeout',t,'state_test_thresh',.01);
 
-%run networks without bistability test... 
-do_nets = [6:8,10];     
+%---Run networks without bistability test, and with lower switch threshhold.
+%Only collecting data for some specific parameterizations lacking data... 
+do_nets = [6:8,10];
 do_nets = randsample(do_nets,1);
 options = get_network_params(do_nets,options);
-%do_totals = [.5,1,2]; %do 50%, 100%, 200% total stimulus intensity 
+%do_totals = [.5,1,2]; %do 50%, 100%, 200% total stimulus intensity
 %stim_mod = randsample(do_totals,1); %set total intensity to (stim_mod * Rstim)
+
 if do_nets == 7
     stim_mod = .5;
 else
     stim_mod = 2;
 end
 
-%set stimulus to mixed ratio 
-mix_vals = 0:.05:1;
-stim_mix = {'Estay','Eswitch'}; %both targets 
+if do_nets == 7
+    mix_vals = .2:.05:1;
+elseif do_nets == 6
+    mix_vals = 0:.05:.3;
+elseif do_nets == 8
+    mix_vals = 0:.05:.6;
+elseif do_nets == 10
+    mix_vals = 0:.05:.6;
+end
+
+%set stimulus to mixed ratio
+%mix_vals = 0:.05:1;
+stim_mix = {'Estay','Eswitch'}; %both targets
 p_new = randsample(mix_vals,1); %proportion alternate (new) stimulus
 add_targ = ~strcmp(stim_mix,options.stim_targs{1});
 options.stim_targs{2} = stim_mix{add_targ};
@@ -38,7 +50,7 @@ total_strength = total_strength .* stim_mod;
 options.trial_stimuli{1} = total_strength .* (1-p_new);
 options.trial_stimuli{2} = total_strength .* p_new;
 
-%put some info in log file 
+%put some info in log file
 msg = sprintf('---stimuli mixed as %i/%i',round((1-p_new)*100),round(p_new*100));
 update_logfile(msg,options.output_log)
 for idx = 1:numel(options.stim_targs)
@@ -46,12 +58,11 @@ for idx = 1:numel(options.stim_targs)
     update_logfile(msg,options.output_log)
 end
 
-
-%you have to checkpoint these b/c the sims are so long 
+%you have to checkpoint these b/c the sims are so long
 options.grid_index = str2double(getenv('SLURM_ARRAY_TASK_ID'));%HPCC only lets indicies up to 10k!!
 checkpointFN = fullfile(options.save_dir,sprintf('checkpoint_%i.mat',options.grid_index));
-if exist(checkpointFN) == 0 %only run unfinished jobs 
-   delete(options.output_log);return
+if exist(checkpointFN) == 0 %only run unfinished jobs
+    delete(options.output_log);return
 end
 
 %---run-----------------------
