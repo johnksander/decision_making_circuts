@@ -19,7 +19,7 @@ opt.Xax = 'diff'; %'diff' or 'ratio'
 %this can be at most {'conn','stim'}. That specifies matching on connection strengths, stimulus values
 
 
-Snames = {'nets_mixstim-NOBSTEST'};
+Snames = {'nets_mixstim-NOBSTEST-THR01'};
 figdir = cellfun(@(x) sprintf('figures_%s',x),Snames,'UniformOutput',false);
 
 
@@ -31,7 +31,10 @@ addpath(fullfile(basedir,'helper_functions'))
 %just get better summary data 
 opt.outcome_stat = 'logmu';
 make_my_figs(basedir,Snames{1},figdir{1},opt)
+opt.Xax = 'ratio';
+make_my_figs(basedir,Snames{1},figdir{1},opt)
 return
+
 
 for idx = 1:numel(Snames)
     opt.outcome_stat = 'mu';
