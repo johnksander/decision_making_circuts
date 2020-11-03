@@ -7,6 +7,8 @@ hold off;close all
 %this function would be used for the template nets from get_network_params() and result files.
 %Put this same function in network_spiking_results, etc. Also use cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets)
 
+error('99% sure this is depreciated in favor of "schwartzreport" script"')
+
 opt = struct();
 opt.min_obs = 175; %min # of observations (states)
 opt.print_anything = 'no'; %'yes' | 'no';

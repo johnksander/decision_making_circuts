@@ -420,7 +420,7 @@ switch outcome_stat
         Zlabel =  sprintf('median sampling (%s)',unit_measure);
         fig_fn = [fig_fn,'_med'];
     case 'logmu'
-        Zlabel = sprintf('log_{10}(%s) sampling',unit_measure);
+        Zlabel = 'seconds (log scale)';
         fig_fn = [fig_fn,'_log'];
     case 'logmed'
         Zlabel = sprintf('med. log_{10}(%s) sampling',unit_measure);
@@ -439,10 +439,11 @@ BLcol = [103 115 122] ./ 255;
 SPdata = []; %for scatter plot data
 h = [];
 plt_idx = 0;
+figure;orient tall
 for idx = 1:num_pairs
     
     curr_net_info = network_pair_info{idx};
-    for j = 1:2
+    for j = 2:-1:1 %match the fast, slow ordering in other figures...   
         
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
@@ -490,19 +491,19 @@ for idx = 1:num_pairs
         base_stim = curr_net_info.stim_A(j);
         Xvals = curr_data.stim_B ./ base_stim;
         
-        plot(Xvals,curr_data.data_A,'LineWidth',3)
+        plot(Xvals,curr_data.data_A,'-o','LineWidth',2)
         hold on
-        plot(Xvals,curr_data.data_B,'LineWidth',3)
+        plot(Xvals,curr_data.data_B,'-o','LineWidth',2)
         %xlim([min(Xvals),max(Xvals)])
-        legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
-            sprintf('%s: varied','B')};
-        
-        sampling_change = curr_data{[1,size(curr_data,1)],{'data_A','data_B'}}; %beginning & end
-        sampling_change = diff(sampling_change);
-        %legend_labs = cellfun(@(x,y) [x '\newline\Deltay = ' sprintf('%.2f',y)],...
+        %legend_labs = {sprintf('%s: %.0f Hz','A',base_stim),...
+        %    sprintf('%s: varied','B')};
+        %sampling_change = curr_data{[1,size(curr_data,1)],{'data_A','data_B'}}; %beginning & end
+        %sampling_change = diff(sampling_change);
+        %
+        %legend_labs = cellfun(@(x,y) [x ' (\Deltay = ' sprintf('%.2f)',y)],...
         %    legend_labs,num2cell(sampling_change),'UniformOutput',false);
-        legend_labs = cellfun(@(x,y) [x ' (\Deltay = ' sprintf('%.2f)',y)],...
-            legend_labs,num2cell(sampling_change),'UniformOutput',false);
+        
+        legend_labs = {'A - constant','B - varied'};
         legend(legend_labs,'Location','best','Box','off')
         
         
@@ -511,36 +512,53 @@ for idx = 1:num_pairs
         %legend(sprintf('\\mu = %.1f',mean(curr_data)),'location','best')
         
         if plt_idx == 9 || plt_idx == 10
-            xlabel('B Hz / A Hz','FontWeight','bold')
+            xlabel('B / Hz','FontWeight','bold')
         end
         if plt_idx == 1 || plt_idx == 2
             title(sprintf('%s networks',curr_net_info.Row{j}),'FontWeight','bold','Fontsize',14)
         end
         if mod(plt_idx,2) == 1
-            ylabel(sprintf('network #%i\n%s',idx,Zlabel),'FontWeight','bold')
+            %ylabel(sprintf('network #%i\n%s',idx,Zlabel),'FontWeight','bold')
+            ylabel(Zlabel,'FontWeight','bold')
         end
         
-        %organize data for scatter plot
+        %organize data for scatter plo
         curr_data.net_index = repmat(plt_idx,size(curr_data,1),1); %index ID for scatter plot
         SPdata = [SPdata;curr_data];
     end
 end
 
-orient tall
 switch outcome_stat
     case {'logmu','logmed'}
         linkaxes(h,'y')
         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
+        
+        for idx = 1:numel(h)
+            axes(h(idx))
+            Ytick = get(gca,'YTick');
+            %Ytick = linspace(Ytick(1),Ytick(end),5);
+            %set(gca,'YTick',Ytick)
+            Ytick = 10.^Ytick;
+            Ytick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Ytick),'UniformOutput',false);
+            Ytick = strrep(Ytick,'.0s','s');
+            Ytick = strrep(Ytick,'0.','.');
+            Ytick = strrep(Ytick,'s',''); %went from "sampling" label to just seconds...
+            set(gca,'YTickLabel',Ytick);
+        end
+        
+        
     case {'mu','med'}
         linkaxes(h(1:2:end),'x');linkaxes(h(2:2:end),'x')
         %axis tight
 end
 
-% switch print_anything
-%     case 'yes'
-%         print(fullfile(figdir,fig_fn),'-djpeg')
-%         savefig(fullfile(figdir,fig_fn))
-% end
+switch print_anything
+    case 'yes'
+        set(gcf,'Renderer','painters')
+        print(fullfile(figdir,fig_fn),'-djpeg','-r600')
+        savefig(fullfile(figdir,fig_fn))
+end
+
 close all;figure;orient portrait
 %scatter plot
 alph = .75;Msz = 75;
@@ -575,8 +593,10 @@ for idx = 1:numel(SPcells)
         
         switch outcome_stat
             case 'logmu'
-                xlabel({'B - varied stimuli','sampling time (log scale)'},'FontWeight','bold')
-                ylabel({'A - constant stimuli','sampling time (log scale)'},'FontWeight','bold')
+                %xlabel({'B - varied stimuli','sampling time (log scale)'},'FontWeight','bold')
+                %ylabel({'A - constant stimuli','sampling time (log scale)'},'FontWeight','bold')
+                xlabel({'B - varied stimuli','seconds (log scale)'},'FontWeight','bold')
+                ylabel({'A - constant stimuli','seconds (log scale)'},'FontWeight','bold')
             otherwise
                 xlabel(sprintf(['B - varied [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
                 ylabel(sprintf(['A - constant [' strrep(Zlabel,' sampling','') ']']),'FontWeight','bold')
@@ -594,6 +614,7 @@ Xtick = 10.^Xtick;
 Xtick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Xtick),'UniformOutput',false);
 Xtick = strrep(Xtick,'.0s','s');
 Xtick = strrep(Xtick,'0.','.');
+Xtick = strrep(Xtick,'s',''); %went from "sampling" label to just seconds...
 set(gca,'XTickLabel',Xtick);
 
 Ytick = get(gca,'YTick');
@@ -603,6 +624,7 @@ Ytick = 10.^Ytick;
 Ytick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Ytick),'UniformOutput',false);
 Ytick = strrep(Ytick,'.0s','s');
 Ytick = strrep(Ytick,'0.','.');
+Ytick = strrep(Ytick,'s',''); %went from "sampling" label to just seconds...
 set(gca,'YTickLabel',Ytick);
 
 [~,hobj] = legend(strcat(SPcells,' network'),'Box','off','Location','southwest','FontSize',20);
@@ -686,20 +708,22 @@ for idx = 2
         %         %    legend_labs,num2cell(sampling_change),'UniformOutput',false);
         %         legend_labs = cellfun(@(x,y) [x ' (\Deltay = ' sprintf('%.2f)',y)],...
         %             legend_labs,num2cell(sampling_change),'UniformOutput',false);
-
+        
+        
         legend_labs = {'A - constant stimuli','B - varied stimuli'};
         legend(legend_labs,'Location','northwest','Box','off')
         
         
-        
         axis tight
-        %         switch curr_net_info.Row{j}
-        %             case 'slow'
-        %                 xlim([0,5])
-        %         end
-        %
+        
+        switch curr_net_info.Row{j}
+            case 'slow'
+                xlim([0,2])
+                legend(legend_labs,'Location','northeast','Box','off')
+        end
         
         
+        set(gca,'FontSize',20)
         xlabel('B / A ','FontWeight','bold')
         switch outcome_stat
             case 'logmu'
@@ -708,11 +732,26 @@ for idx = 2
                 ylabel(Zlabel,'FontWeight','bold')
         end
         title(sprintf('%s network',curr_net_info.Row{j}),'FontWeight','bold')
-        set(gca,'FontSize',20)
 
     end
 end
+
 linkaxes(h,'y')
+switch outcome_stat
+    case 'logmu'
+        for idx = 1:numel(h)
+            axes(h(idx))
+            Ytick = get(gca,'YTick');
+            Ytick = linspace(Ytick(1),Ytick(end),5);
+            set(gca,'YTick',Ytick)
+            Ytick = 10.^Ytick;
+            Ytick = cellfun(@(x) sprintf('%.1fs',x),num2cell(Ytick),'UniformOutput',false);
+            Ytick = strrep(Ytick,'.0s','s');
+            Ytick = strrep(Ytick,'0.','.');
+            Ytick = strrep(Ytick,'s',''); %went from "sampling" label to just seconds...
+            set(gca,'YTickLabel',Ytick);
+        end
+end
 
 switch print_anything
     case 'yes'
