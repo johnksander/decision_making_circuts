@@ -41,111 +41,6 @@ for idx = 1:numel(Snames)
 end
 return
 
-% num_workers = numel(Snames);
-% c = parcluster('local');
-% c.NumWorkers = num_workers;
-% parpool(c,c.NumWorkers,'IdleTimeout',Inf)
-%
-% parfor i = 1:numel(Snames)
-%     opt = struct();
-%     %sample duration
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'yes';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %duration after stim onset
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'rem';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %log duration after onset
-%     opt.outcome_stat = 'logmu'; opt.pulse_stim = 'rem';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %total time
-%     opt.outcome_stat = 'mu'; opt.pulse_stim = 'total_time';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-%     %log total time
-%     opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
-%     make_my_figs(basedir,Snames{i},figdir,opt)
-% end
-%
-% delete(gcp('nocreate'))
-
-% %control, log total time @ 150 pulse
-% opt.outcome_stat = 'mu'; opt.pulse_stim = 'off';
-% make_my_figs(basedir,Snames{1},figdir,opt)
-%
-% %control, log total time @ 10 pulse
-% opt.outcome_stat = 'logmu'; opt.pulse_stim = 'total_time';
-% make_my_figs(basedir,Snames{1},figdir,opt)
-
-
-%equate X axes for all figs of the same type
-%Snames = Snames(1:end-1);
-figdir = fullfile(basedir,'Results',figdir,'durations');
-savedir = fullfile(figdir,'Xsynced');
-if ~isdir(savedir),mkdir(savedir);end
-ftypes = {'total_time','total_time_log'};
-%ftypes = {'decision_timing_log','decision_timing','total_time','total_time_log','total_samples'};
-
-invid_cols = {'yes','no'}; %equate x axes within column (e.g. slow vs fast)
-
-for idx = 1:numel(ftypes)
-    
-    Xls = NaN(numel(Snames),2);
-    switch invid_cols{idx}
-        case 'yes'
-            Xls = cat(3,Xls,Xls);
-    end
-    for fidx = 1:numel(Snames)
-        fn = fullfile(figdir,[Snames{fidx} '_' ftypes{idx} '.fig']);
-        h = openfig(fn);
-        switch invid_cols{idx}
-            case 'yes'
-                ax = num2cell(findall(h, 'type', 'axes'));
-                %left column even, right column odd
-                ax = cellfun(@(x) x.XLim,ax,'UniformOutput',false);
-                ax = [ax(2:2:end),ax(1:2:end)]; %sort to columns
-                ax = num2cell(ax,1);
-                ax = cellfun(@cell2mat,ax,'UniformOutput',false);
-                ax = cellfun(@(x) [min(x(:,1)),max(x(:,2))],ax,'UniformOutput',false);
-                Xls(fidx,:,:) = cat(3,ax{:}); %put in 3rd D
-            otherwise
-                Xls(fidx,:) = h.CurrentAxes.XLim;
-        end
-        close all
-    end
-    switch invid_cols{idx}
-        case 'yes'
-            xlims = [min(Xls(:,1,:)),max(Xls(:,2,:))];
-            xlims = squeeze(xlims); %now Xlims column is Xlims for a column
-        otherwise
-            xlims = [min(Xls(:,1)),max(Xls(:,2))];
-    end
-    %xlims = [0,.8];
-    for fidx = 1:numel(Snames)
-        fn = fullfile(figdir,[Snames{fidx} '_' ftypes{idx} '.fig']);
-        h = openfig(fn);
-        ax = findobj(h,'Type','Axes');
-        switch invid_cols{idx}
-            case 'yes' %left column even, right column odd
-                set(ax(2:2:end),'XLim',xlims(:,1))
-                set(ax(1:2:end),'XLim',xlims(:,2))
-            otherwise
-                set(ax,'XLim',xlims)
-        end
-        ch = allchild(ax);
-        ch = cat(1,ch{:});
-        set(ch,'Normalization','probability')
-        binwit = cellfun(@(x) x.XLim,num2cell(ax),'UniformOutput',false);
-        binwit = cellfun(@range,binwit) ./ 50;
-        binwit = num2cell(binwit);
-        nodata = cellfun(@(x) isempty(x.Children),num2cell(ax));
-        cellfun(@(x,y) set(x,'BinWidth',y),num2cell(ch),binwit(~nodata));   %set(ch,'BinWidth',.1)
-        Fdir = fullfile(savedir,ftypes{idx});
-        if ~isdir(Fdir),mkdir(Fdir);end
-        print(fullfile(Fdir,[Snames{fidx} '_' ftypes{idx}]),'-djpeg')
-        close all
-    end
-    
-end
-
 % %for summary statistics
 % fprintf('network_spiking_P150_1 log(s) decision-timing\n')
 % %control, log total time @ 150 pulse
@@ -436,14 +331,20 @@ matblue = [0,0.4470,0.7410];
 matorange = [0.8500,0.3250,0.0980];
 BLcol = [103 115 122] ./ 255;
 
+%symbols to match parsweep_find_examples.m. Since get_network_params() creates
+%network_pair_info, the ordering below  will match the network_pair_info
+%ordering in parsweep_find_examples.m.
+net_symbs = {'o','square','^','diamond','v'}; %closed for fast nets, open for slow nets
 SPdata = []; %for scatter plot data
 h = [];
 plt_idx = 0;
+mk_sz = 300; %for adding netword symbs
+mk_ln = 1;
 figure;orient tall
 for idx = 1:num_pairs
     
     curr_net_info = network_pair_info{idx};
-    for j = 2:-1:1 %match the fast, slow ordering in other figures...   
+    for j = 2:-1:1 %match the fast, slow ordering in other figures...
         
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(ceil(num_net_types/2),2,plt_idx);
@@ -453,7 +354,7 @@ for idx = 1:num_pairs
         net_ind = curr_net_info{j,IDvars};
         net_ind = ismember(net_type{:,IDvars},net_ind,'rows');
         curr_data = result_data(net_ind,1);
-       
+        
         switch outcome_stat
             case 'mu'
                 statfunc = @mean;
@@ -482,9 +383,16 @@ for idx = 1:num_pairs
         switch curr_net_info.Row{j}
             case 'slow'
                 col = matorange;
+                nm = scatter(NaN,NaN,mk_sz,'black',net_symbs{idx},...
+                    'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1,'LineWidth',mk_ln);
+                legend(nm,'network','Location','northeast','AutoUpdate','off')
             case 'fast'
                 col = matblue;
+                nm = scatter(NaN,NaN,mk_sz,'black',net_symbs{idx},'filled',...
+                    'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1);
+                legend(nm,'network','Location','northwest','AutoUpdate','off')
         end
+        
         
         
         plot(Xvals,curr_data.data_A,'-o','LineWidth',2,'Color',col)
@@ -492,9 +400,10 @@ for idx = 1:num_pairs
         plot(Xvals,curr_data.data_B,':o','LineWidth',2,'Color',col)
         
         %xlim([min(Xvals),max(Xvals)])
-
-        legend_labs = {'A - constant','B - varied'};
-        legend(legend_labs,'Location','best','Box','off')
+       
+        %legend_labs = {'network','A - constant','B - varied'};
+        %legend_labs = {'A - constant','B - varied'};
+        %legend(legend_labs,'Location','best','Box','off')
         
         hold off
         axis tight
@@ -509,11 +418,13 @@ for idx = 1:num_pairs
             ylabel(Zlabel,'FontWeight','bold')
         end
         
+        
         %organize data for scatter plo
         curr_data.net_index = repmat(plt_idx,size(curr_data,1),1); %index ID for scatter plot
         SPdata = [SPdata;curr_data];
     end
 end
+
 
 switch outcome_stat
     case {'logmu','logmed'}
@@ -539,14 +450,16 @@ switch outcome_stat
         %axis tight
 end
 
+
+
 switch print_anything
     case 'yes'
-        set(gcf,'Renderer','painters') 
-        %my code typically saves figures in specific results directories, w/ particular filenames 
-        print(fullfile(figdir,fig_fn),'-djpeg','-r600') 
+        set(gcf,'Renderer','painters')
+        %my code typically saves figures in specific results directories, w/ particular filenames
+        print(fullfile(figdir,fig_fn),'-djpeg','-r600')
         savefig(fullfile(figdir,fig_fn))
-        %also save one here since it's a figure for the paper 
-        print('fig6-full_data','-djpeg','-r600') 
+        %also save one here since it's a figure for the paper
+        print('fig6-full_data','-djpeg','-r600')
 end
 
 close all;figure;orient portrait
@@ -568,17 +481,17 @@ for idx = 1:numel(SPcells)
         this_net = curr_data(this_net,:);
         col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
         switch SPcells{idx}
-           case 'slow'
-               %col = Bcol(col_idx,:);
-               col = matorange;
-           case 'fast'
-               %col = Rcol(col_idx,:);
-               col = matblue;
+            case 'slow'
+                %col = Bcol(col_idx,:);
+                col = matorange;
+            case 'fast'
+                %col = Rcol(col_idx,:);
+                col = matblue;
         end
         
         %scatter(this_net.data_B,this_net.data_A,Msz,col,'Marker',markers{plt_idx},'Linewidth',1.25)
         scatter(this_net.data_B,this_net.data_A,Msz,col,'filled','MarkerFaceAlpha',alph) %slightly different coloring/markers here
-
+        
         axis tight
         
         switch outcome_stat
@@ -595,7 +508,7 @@ for idx = 1:numel(SPcells)
 end
 
 %title(sprintf('Implicit Competition'),'FontWeight','bold','Fontsize',14)
-        
+
 set(gca,'FontSize',20)
 Xtick = get(gca,'XTick');
 Xtick = linspace(Xtick(1),Xtick(end),5);
@@ -627,8 +540,8 @@ switch print_anything
         print('fig5-preference_data','-djpeg','-r600') %schwartzupdate_fig
 end
 
-%just print two seperate figs, way easier 
-%do line plot for this network as well 
+%just print two seperate figs, way easier
+%do line plot for this network as well
 h = [];
 plt_idx = 0;
 figure;set(gcf,'Renderer','painters')
@@ -639,8 +552,8 @@ set(gcf,'Position',pos);
 for idx = 2
     
     curr_net_info = network_pair_info{idx};
-    for j = 2:-1:1 %match the fast, slow ordering in other figures...       
-            
+    for j = 2:-1:1 %match the fast, slow ordering in other figures...
+        
         plt_idx = plt_idx + 1;
         h(plt_idx) = subplot(1,2,plt_idx);
         hold on
@@ -722,7 +635,7 @@ for idx = 2
                 ylabel(Zlabel,'FontWeight','bold')
         end
         title(sprintf('%s network',curr_net_info.Row{j}),'FontWeight','bold')
-
+        
     end
 end
 
