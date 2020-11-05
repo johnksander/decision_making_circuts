@@ -751,20 +751,20 @@ else
     Y0 = .2;
 end
 delete(lg_pos)
+adjX = %.025; 
 switch make_lg
     case 'left'
-        X0 = .025; move_pt = .02;
+        X0 = adjX + 0; move_pt = .02;
     case 'right'
-        X0 = .975; move_pt = -.02;%was   Y0 = .5
+        X0 = 1 - adjX; move_pt = -.02;%was   Y0 = .5
 end
-lg_fz = fz - 2;
 leg_labs = strcat(SPcells,' networks');
 get_ax_val = @(p,x) p*range(x)+min(x);
 xlim(xlim + [-(range(xlim)*.015),(range(xlim)*.015)]); %extra room
 ylim(ylim + [-(range(ylim)*.015),(range(ylim)*.015)]);
 X = get_ax_val(X0,xlim);
-text(X,get_ax_val(Y0,ylim),leg_labs{1},'Fontsize',lg_fz,'HorizontalAlignment',make_lg)
-text(X,get_ax_val(Y0-.1,ylim),leg_labs{2},'Fontsize',lg_fz,'HorizontalAlignment',make_lg)
+text(X,get_ax_val(Y0,ylim),leg_labs{1},'Fontsize',fz,'HorizontalAlignment',make_lg)
+text(X,get_ax_val(Y0-.1,ylim),leg_labs{2},'Fontsize',fz,'HorizontalAlignment',make_lg)
 %X = get_ax_val(.975,xlim);
 %text(X,get_ax_val(.5,ylim),SPcells{1},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
 %text(X,get_ax_val(.4,ylim),SPcells{2},'Fontsize',lg_fz,'FontWeight','bold','HorizontalAlignment','right')
