@@ -11,8 +11,7 @@ addpath('../')
 
 %specify what results
 Sname = 'example_behavior';
-jobs = 4:10:14;%4:10:44;
-%jobs = 444;
+jobs = 4; %4:10:44; %JID 444 is the example small dataset (for working out figures)
 
 %figure options
 lnsz = 2;
@@ -121,15 +120,19 @@ for j = 1:numel(jobs)
     Xlabs = cellfun(@(x) sprintf('%.1f',x*timestep),Xticks,'UniformOutput', false); %this is for normal stuff
     Xlabs = strrep(Xlabs,'.0','');
     set(gca,'Xdir','normal','Xtick',cell2mat(Xticks),'XTickLabel', Xlabs);
-    Yticks = num2cell(get(gca,'YLim'));
-    Yticks = Yticks{2};
-    Yticks = [Yticks*.25,Yticks*.75];
-    Ylabs = {'stay pool','leave pool'};
-    ytickangle(90)
-    set(gca,'Xdir','normal','Ytick',Yticks,'YTickLabel', Ylabs);
-    ax = gca;
-    ax.YAxis.FontSize = fontsz; %for y-ticks (that the labels here)
-    ax.YAxis.FontWeight = 'b';
+    %-- this code put "leave pool" and "stay pool" labels on the y axis. 
+    %-- those are unnecessary because the legend's up top (also, required a 
+    %-- "checkered pattern" raster organization and that's less clean).
+    %Yticks = num2cell(get(gca,'YLim'));
+    %Yticks = Yticks{2};
+    %Yticks = [Yticks*.25,Yticks*.75];
+    %Ylabs = {'stay pool','leave pool'};
+    %ytickangle(90)
+    %set(gca,'Xdir','normal','Ytick',Yticks,'YTickLabel', Ylabs);
+    %ax = gca;
+    %ax.YAxis.FontSize = fontsz; %for y-ticks (that the labels here)
+    %ax.YAxis.FontWeight = 'b';
+    set(gca,'YTick',[])
     xlabel('seconds','FontWeight','b')
     set(gca,'box','off');
     hold on %turn off box to remove upper/right ticks & add border back in
@@ -138,7 +141,6 @@ for j = 1:numel(jobs)
     border = linspace(min(get(gca,'ylim')),max(get(gca,'ylim')));
     plot(zeros(size(border))+max(get(gca,'xlim')),border,'color','k')
     set(gca,'FontSize',fontsz)
-    
     
     
     S = sim_windowrate(spikes,timestep,celltype,window_sz);

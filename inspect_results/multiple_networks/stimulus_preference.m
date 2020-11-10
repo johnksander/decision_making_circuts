@@ -39,7 +39,7 @@ for idx = 1:numel(Snames)
     opt.outcome_stat = 'logmed';
     make_my_figs(basedir,Snames{idx},figdir{idx},opt)
 end
-return
+
 
 % %for summary statistics
 % fprintf('network_spiking_P150_1 log(s) decision-timing\n')
@@ -247,9 +247,6 @@ switch opt.multiple_stimuli
             file_data(:,2),'UniformOutput',false); %matching "network_pair_info" format
 end
 
-
-
-
 job_params = vertcat(job_params{:});
 uniq_params = unique(job_params,'rows');
 net_type = array2table(uniq_params,'VariableNames',param_varnams);
@@ -359,6 +356,7 @@ for idx = 1:num_pairs
         net_ind = ismember(net_type{:,IDvars},net_ind,'rows');
         curr_data = result_data(net_ind,1);
         
+        curr_type = curr_net_info.Row{j};
         switch outcome_stat
             case 'mu'
                 statfunc = @mean;
@@ -384,19 +382,20 @@ for idx = 1:num_pairs
         base_stim = curr_net_info.stim_A(j);
         Xvals = curr_data.stim_B ./ base_stim;
         
-        switch curr_net_info.Row{j}
+        switch curr_type
             case 'slow'
                 col = matorange;
                 nm = scatter(NaN,NaN,mk_sz,'black',net_symbs{idx},...
                     'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1,'LineWidth',mk_ln);
                 legend(nm,'network','Location','northeast','AutoUpdate','off')
+                tit = 'slow (repel) networks';
             case 'fast'
                 col = matblue;
                 nm = scatter(NaN,NaN,mk_sz,'black',net_symbs{idx},'filled',...
                     'MarkerFaceAlpha',1,'MarkerEdgeAlpha',1);
                 legend(nm,'network','Location','northwest','AutoUpdate','off')
+                tit = 'fast (entice) networks';
         end
-        
         
         
         plot(Xvals,curr_data.data_A,'-o','LineWidth',2,'Color',col)
@@ -405,10 +404,6 @@ for idx = 1:num_pairs
         
         %xlim([min(Xvals),max(Xvals)])
        
-        %legend_labs = {'network','A - constant','B - varied'};
-        %legend_labs = {'A - constant','B - varied'};
-        %legend(legend_labs,'Location','best','Box','off')
-        
         hold off
         axis tight
         
@@ -416,12 +411,11 @@ for idx = 1:num_pairs
             xlabel('B / Hz','FontWeight','bold')
         end
         if plt_idx == 1 || plt_idx == 2
-            title(sprintf('%s networks',curr_net_info.Row{j}),'FontWeight','bold','Fontsize',14)
+            title(tit,'FontWeight','bold','Fontsize',14)
         end
         if mod(plt_idx,2) == 1
             ylabel(Zlabel,'FontWeight','bold')
         end
-        
         
         %organize data for scatter plo
         curr_data.net_index = repmat(plt_idx,size(curr_data,1),1); %index ID for scatter plot
@@ -472,9 +466,9 @@ end
 close all;figure;orient portrait
 %scatter plot
 alph = .75;Msz = 75;
-Bcol = colormap('winter');Rcol = colormap('autumn');
 SPdata.X = SPdata.stim_B ./ SPdata.stim_A;
 SPcells = {'fast','slow'};
+leg_labs = {'fast (entice) network','slow (repel) network'};
 
 for idx = 1:numel(SPcells)
     hold on
@@ -485,7 +479,6 @@ for idx = 1:numel(SPcells)
     for plt_idx = 2
         this_net = curr_data.net_index == curr_nets(plt_idx);
         this_net = curr_data(this_net,:);
-        col_idx = floor(size(Bcol,1)./numel(curr_nets)).*(plt_idx-1) + 1; %color index
         switch SPcells{idx}
             case 'slow'
                 col = matorange;
@@ -532,7 +525,7 @@ Ytick = strrep(Ytick,'0.','.');
 Ytick = strrep(Ytick,'s',''); %went from "sampling" label to just seconds...
 set(gca,'YTickLabel',Ytick);
 
-[~,hobj] = legend(strcat(SPcells,' network'),'Box','off','Location','southwest','FontSize',fz);
+[~,hobj] = legend(leg_labs,'Box','off','Location','southwest','FontSize',fz);
 ll = findobj(hobj,'type','patch');
 set(ll,'MarkerSize',sqrt(Msz),'FaceAlpha',alph);
 
@@ -566,6 +559,7 @@ for idx = 2
         net_ind = ismember(net_type{:,IDvars},net_ind,'rows');
         curr_data = result_data(net_ind,1);
         
+        curr_type = curr_net_info.Row{j};
         switch outcome_stat
             case 'mu'
                 statfunc = @mean;
@@ -591,13 +585,15 @@ for idx = 2
         base_stim = curr_net_info.stim_A(j);
         Xvals = curr_data.stim_B ./ base_stim;
         
-        switch curr_net_info.Row{j}
+        switch curr_type
             case 'slow'
-                %col = Bcol(col_idx,:);
                 col = matorange;
+                tit = 'slow (repel) network';
+                
             case 'fast'
-                %col = Rcol(col_idx,:);
                 col = matblue;
+                tit = 'fast (entice) network';
+                
         end
         
         plot(Xvals,curr_data.data_A,'LineWidth',3,'Color',col)
@@ -622,7 +618,7 @@ for idx = 2
         
         axis tight
         
-        switch curr_net_info.Row{j}
+        switch curr_type
             case 'slow'
                 xlim([0,2])
                 legend(legend_labs,'Location','northeast','Box','off')
@@ -637,7 +633,7 @@ for idx = 2
             otherwise
                 ylabel(Zlabel,'FontWeight','bold')
         end
-        title(sprintf('%s network',curr_net_info.Row{j}),'FontWeight','bold')
+        title(tit,'FontWeight','bold')
         
     end
 end
@@ -758,7 +754,8 @@ switch make_lg
         X0 = .975; move_pt = -.02;%was   Y0 = .5
 end
 lg_fz = fz - 2;
-leg_labs = strcat(SPcells,' networks');
+%leg_labs = strcat(SPcells,' networks');
+leg_labs = strcat(leg_labs,'s');
 get_ax_val = @(p,x) p*range(x)+min(x);
 xlim(xlim + [-(range(xlim)*.015),(range(xlim)*.015)]); %extra room
 ylim(ylim + [-(range(ylim)*.015),(range(ylim)*.015)]);
