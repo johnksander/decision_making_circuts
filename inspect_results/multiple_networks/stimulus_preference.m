@@ -408,7 +408,7 @@ for idx = 1:num_pairs
         axis tight
         
         if plt_idx == 9 || plt_idx == 10
-            xlabel('B / Hz','FontWeight','bold')
+            xlabel('B / A','FontWeight','bold')
         end
         if plt_idx == 1 || plt_idx == 2
             title(tit,'FontWeight','bold','Fontsize',14)
@@ -502,7 +502,14 @@ for idx = 1:numel(SPcells)
     end
 end
 
-%title(sprintf('Implicit Competition'),'FontWeight','bold','Fontsize',14)
+%this kept giving me figures with datapoints plotted on this axis itself.. 
+lims = axis;
+adj_lims = .015; %adjust axes by 1% of their range in each direction 
+adj_x = range(lims(1:2)) * adj_lims;
+adj_y = range(lims(3:4)) * adj_lims;
+lims(1:2) = lims(1:2) + [-adj_x,adj_x];
+lims(3:4) = lims(3:4) + [-adj_y,adj_y];
+axis(lims)
 
 set(gca,'FontSize',fz)
 Xtick = get(gca,'XTick');
@@ -723,16 +730,6 @@ Ytick = strrep(Ytick,'0.','.');
 Ytick = strrep(Ytick,'s',''); %went from "sampling" label to just seconds...
 set(gca,'YTickLabel',Ytick);
 
-% %need something else here!
-% [~,hobj] = legend(strcat(SPcells,' network'),'Box','off','Location','southwest','FontSize',20);
-% ll = findobj(hobj,'type','patch');
-% set(ll,'MarkerSize',sqrt(Msz),'FaceAlpha',alph);
-
-% switch print_anything
-%     case 'yes'
-%         set(gcf,'Renderer','painters')
-%         print('fig5-preference_data','-djpeg','-r600') %schwartzupdate_fig
-% end
 
 %this is for the nice legend with all the different colors & symbols------
 lg_pos = legend(' ','Location','best'); 
