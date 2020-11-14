@@ -4,8 +4,8 @@
 #SBATCH --cpus-per-task 1
 #SBATCH --mem-per-cpu 750 # Memory request (in Mb)
 #SBATCH --account=paul-lab
-#SBATCH --partition=paul-compute,neuro-compute
-#SBATCH --qos=medium
+#SBATCH --partition=guest-compute
+#SBATCH --qos=low
 #SBATCH -o logs/log_parsweep_%A_%a.out
 #SBATCH -e logs/log_parsweep_%A_%a.err
 
