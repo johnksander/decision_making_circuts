@@ -10,7 +10,7 @@ opt = struct();
 opt.min_obs = 250; %min # of observations (states)
 opt.print_anything = 'yes'; %'yes' | 'no';
 opt.valid_states = 'stay'; %'stay' | 'all'; undecided is always invalid, 'all' gives stay & leave
-opt.outcome_stat = 'mu';  %'mu' | 'med' | 'logmu'
+opt.outcome_stat = 'logmu';  %'mu' | 'med' | 'logmu'
 opt.pulse_stim = 'off'; %'yes' | 'total_time' | 'rem' | 'off' whether to treat durations as samples (rem = time during sample)
 opt.parfor_load = 'on'; %on/off, must also (un)comment the actual for... line
 opt.params2match = {'conn'}; %!!!IMPORTANT!!! specify how results are matched to network types
@@ -28,10 +28,17 @@ addpath(fullfile(basedir,'helper_functions'))
 
 
 %just get better summary data 
-opt.outcome_stat = 'logmu';
 make_my_figs(basedir,Snames{1},figdir{1},opt)
 opt.Xax = 'ratio';
 make_my_figs(basedir,Snames{1},figdir{1},opt)
+
+%make sure we're making progress...
+opt.min_obs = 0;
+opt.Xax = 'diff';
+make_my_figs(basedir,Snames{1},figdir{1},opt)
+opt.Xax = 'ratio';
+make_my_figs(basedir,Snames{1},figdir{1},opt)
+
 return
 
 
