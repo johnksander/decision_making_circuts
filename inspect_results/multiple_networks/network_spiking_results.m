@@ -286,7 +286,6 @@ end
 
 
 %result summaries
-fz = 30;
 lnsz = 3; %spikerate plots
 mk_sz = 300; %for adding netword symbs
 mk_ln = 1;
@@ -431,7 +430,150 @@ switch opt.print_anything
         print(fullfile(fig_dir,fig_fn),'-djpeg','-r600')
         savefig(fullfile(fig_dir,fig_fn))
         %also save one here since it's a figure for the paper
+        print('fig8-full_switch_activity','-djpeg','-r600')
+end
+
+
+
+%--------------------------------------------------------------------------
+%only show the example pair
+
+
+fz = 20;
+plt_idx = 0;
+figure;orient portrait;set(gcf,'Renderer','painters')
+scr = get( groot,'Screensize');
+fwid = 1000;
+pos = [1,scr(3),fwid,fwid*.4];
+set(gcf,'Position',pos);
+clear h; htitles = cell(2,1);
+for idx = 2 %only the example network
+    
+    curr_net_info = network_pair_info{idx};
+    for j = 2:-1:1 %match the fast, slow ordering in other figures...
+        
+        plt_idx = plt_idx + 1;
+        h(plt_idx) = subplot(1,2,plt_idx);
+        
+        %get the right color
+        Nspeed = curr_net_info.Row{j};
+        Ntargs = curr_net_info.targ_cells{j};
+        
+        %find the right results for network set-up
+        curr_data = cellfun(@(x) isequal(x,table2cell(curr_net_info(j,:))),Psets,'UniformOutput',false);
+        curr_data = cat(1,curr_data{:});
+        curr_data = result_data{curr_data};
+        
+        %plot by celltype
+        %normal people indexing that makes sense, then take the mean
+        Estay = mean(curr_data(celltype.excit & celltype.pool_stay,:),1);
+        Eswitch = mean(curr_data(celltype.excit & celltype.pool_switch,:),1);
+        Istay = mean(curr_data(celltype.inhib & celltype.pool_stay,:),1);
+        Iswitch = mean(curr_data(celltype.inhib & celltype.pool_switch,:),1);
+        
+        
+        %plot the aggregated timecourses
+        hold on
+        ln.Estay = plot(Estay,'Linewidth',lnsz);
+        ln.Eswitch = plot(Eswitch,'Linewidth',lnsz);
+        plot(Istay,'Linewidth',lnsz)
+        plot(Iswitch,'Linewidth',lnsz)
+        
+        leg_col = ln.(Ntargs).Color;
+        
+        %l = plot(NaN,'Color',leg_col,'LineWidth',lnsz); %for legend
+        
+        set(gca,'FontSize',fz)
+        Xlim_max = numel(curr_data(1,:));
+        set(gca,'XLim',[0 Xlim_max]);
+        set(gca,'Xtick',linspace(0,Xlim_max,5));
+        Xticks = num2cell(get(gca,'Xtick'));
+        if numel(Xticks) > 5,Xticks = Xticks(1:2:numel(Xticks)); end %for crowded axes
+        %add a tick for t = 0
+        Xticks = sort([cell2mat(Xticks),onset_switch]);
+        Xticks = num2cell(Xticks);
+        Xlabs = cellfun(@(x) sprintf('%+i',round(((x-onset_switch)*timestep)/1e-3)),Xticks,'UniformOutput', false); %this is for normal stuff
+        Xlabs = strrep(Xlabs,'+0','0');
+        set(gca, 'XTickLabel', Xlabs,'Xtick',cell2mat(Xticks));
+        
+        switch Nspeed
+            case 'slow'
+                htitles{plt_idx} = 'slow (repel) network';
+            case 'fast'
+                htitles{plt_idx} = 'fast (entice) network';
+        end
+        
+        %title(tit,'Fontsize',14,'FontWeight','bold')
+        %going to do the title as text instead so the legend will fit overhead 
+                
+        xlabel('leave decision (ms)','FontWeight','bold')
+        ylabel(Yax_labs,'FontWeight','bold')
+        
+        hold off
+    end
+end
+
+
+
+switch opt.zoomed_fig
+    case 'yes'
+        %zoom in better - do not need to drop extra scatter with (2:end) index like above 
+        Yl = arrayfun(@(x) x.Children,h,'UniformOutput',false);
+        %only skip I-stay, no legend 
+        keep_inds = find(~ismember(fliplr(legend_labels),'I-stay'));
+        Yl = cellfun(@(x) x(keep_inds),Yl,'UniformOutput',false);
+        Yl = cellfun(@(x) cat(1,x(:).YData),Yl,'UniformOutput',false);
+        %really only need to adjust the left panel in this figure...
+        Yl = Yl(2);h = h(2);
+        
+        adj_y = .15;
+        Yl = cellfun(@(x,y) max(x(:)) + (adj_y*range(x(:))),Yl);
+        arrayfun(@(x,y) ylim(x,[0,y]),h,Yl,'UniformOutput',false);
+    case 'no'
+        axis tight
+end
+
+linkaxes(h,'x')
+
+%NOW add the titles as text... 
+
+for plt_idx = 1:numel(htitles)
+    subplot(1,2,plt_idx);
+    hold on
+    text(.5,.95,htitles{plt_idx},'FontSize',fz,'FontWeight','bold',...
+    'Units','normalized','HorizontalAlignment','center',...
+    'VerticalAlignment','top');
+    
+end
+%for the legend
+fake_ax = axes('Position',[-1,-1,0,0],'Visible','off');
+hold on
+for idx = 1:numel(legend_labels)
+    lns(idx) = plot(NaN,'Linewidth',lnsz,'Parent',fake_ax);
+end
+hold off
+lp = legend(lns,legend_labels,'FontWeight','b','Fontsize',fz,...
+    'Location','northoutside','Box','off','Orientation','horizontal');
+
+lp.Position = [(1-lp.Position(3))/2,1-lp.Position(4),lp.Position(3:4)];
+
+switch opt.print_anything
+    case 'yes'
+        %also save one here since it's a figure for the paper
         print('fig8-switch_activity','-djpeg','-r600')
 end
 
+
+
+
+
+
+
+
 end
+
+
+
+
+
+
