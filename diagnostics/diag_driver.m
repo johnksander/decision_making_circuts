@@ -33,7 +33,7 @@ options.trial_stimuli{2} = total_strength .* p_new;
 %---run-----------------------
 exit_status = false;
 while ~exit_status
-    [modelfile,exit_status] = diag_model_lite(options);
+    [modelfile,exit_status] = diag_model(options);
 end
 %---cleanup-------------------
 driverfile = mfilename;

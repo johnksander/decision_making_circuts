@@ -1,4 +1,4 @@
-function [MF,oflag] = diag_model_lite(options)
+function [MF,oflag] = diag_model(options)
 %this model func designed to save whole spiking matrix, for short jobs
 MF = mfilename; %for backup purposes
 

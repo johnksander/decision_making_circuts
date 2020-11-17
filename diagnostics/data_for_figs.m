@@ -30,7 +30,7 @@ for idx = 1:numel(jobs)
     %---run-----------------------
     exit_status = false;
     while ~exit_status
-        [modelfile,exit_status] = diag_model_lite(options);
+        [modelfile,exit_status] = diag_model(options);
     end
     %---cleanup-------------------
     driverfile = mfilename;

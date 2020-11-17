@@ -34,7 +34,7 @@ function run_this_job(Sname,opt)
 %---run-----------------------
 exit_status = false;
 while ~exit_status
-    [modelfile,exit_status] = diag_model_lite(opt);
+    [modelfile,exit_status] = diag_model(opt);
 end
 %---cleanup-------------------
 driverfile = mfilename;
